@@ -9,7 +9,7 @@ yarn-error.log*
 
 # Archivos de entorno
 .env
-.env.local
+.env.*
 
 # Sistema operativo / editores
 .DS_Store
