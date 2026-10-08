@@ -6,7 +6,7 @@ Este documento describe el proyecto **Concesionaria BMW**, una primera aplicaci�
 
 ## Descripción
 
-**Concesionaria BMW** es una aplicación web del lado del servidor (backend) orientada a la presentación y gestión de vehículos BMW. Por ahora responde mensajes de texto según la ruta que se solicite en el navegador, sin base de datos ni funcionalidades complejas.
+**Concesionaria BMW** es una aplicación web del lado del servidor (backend) orientada a la presentación y gestión de vehículos BMW. Responde mensajes de texto según la ruta que se solicite y ofrece una lista de vehículos en formato JSON, sin base de datos ni funcionalidades complejas.
 
 ---
 
@@ -33,7 +33,9 @@ El objetivo es construir la primera aplicación web del curso de Tecnología Web
 | `GET /bienvenido` | Variante del mensaje de bienvenida de la Concesionaria BMW. |
 | `GET /info` | Breve descripción del sistema. |
 | `GET /contacto` | Información de contacto ficticia de la concesionaria. |
-| `GET /vehiculos` | Lista de vehículos BMW disponibles. |
+| `GET /vehiculos` | Lista de vehículos BMW disponibles (texto). |
+| `GET /productos` | Lista de vehículos BMW en formato JSON. |
+| `GET /api/productos` | Cantidad total y lista de vehículos en formato JSON. |
 
 ### Ejemplos de respuesta
 
@@ -41,6 +43,9 @@ El objetivo es construir la primera aplicación web del curso de Tecnología Web
 - `GET /info` → `Concesionaria BMW es un sistema para la presentación y gestión de vehículos BMW.`
 - `GET /contacto` → `Concesionaria BMW - Teléfono: 70000000 - Correo: contacto@bmw.com (datos ficticios de demostración)`
 - `GET /vehiculos` → `Vehículos BMW disponibles: BMW Serie 3, BMW Serie 5, BMW X3, BMW X5`
+- `GET /productos` → `[{"id":1,"marca":"BMW","modelo":"Serie 3","anio":2024,"precio":52000}, ...]`
+- `GET /api/productos` → `{"total":4,"productos":[{"id":1,"marca":"BMW","modelo":"Serie 3","anio":2024,"precio":52000}, ...]}`
+- Cualquier ruta inexistente → `404` con `{"error":"Ruta no encontrada"}`
 
 ---
 
@@ -102,8 +107,12 @@ Concesionaria-BMW/
 
 ---
 
-## GitHub
+## Git y GitHub
 
-> **La publicación del proyecto en GitHub será realizada posteriormente por el estudiante.**
+El proyecto tiene un repositorio Git inicializado en la rama `develop` y un repositorio remoto configurado:
 
-Durante esta práctica solo se realizaron operaciones de Git locales (como el commit). No se ejecutó `git push` ni se configuró un repositorio remoto.
+```text
+origin  https://github.com/dgschahvqvc17/Concesionaria-BMW.git
+```
+
+Existe un archivo `.gitignore` que excluye `node_modules/`, archivos `.env` y logs. La publicación de los cambios (`git push`) la realiza el estudiante cuando lo autorice.
