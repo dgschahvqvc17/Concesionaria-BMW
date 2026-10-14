@@ -1,0 +1,9 @@
+{
+  "ConcesionariaBmwAuthStack": {
+    "UsuariosTableName": "ConcesionariaBmwAuthStack-UsuariosTable8B6AF0F5-1XVY9AIJP29JF",
+    "UserPoolClientId": "3pqte3qp1a1ab9ob1e8uvu2u64",
+    "UserPoolId": "us-east-2_lXmTlesoj",
+    "Region": "us-east-2",
+    "UserPoolArn": "arn:aws:cognito-idp:us-east-2:591015654164:userpool/us-east-2_lXmTlesoj"
+  }
+}

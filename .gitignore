@@ -1,6 +1,12 @@
 # Dependencias
 node_modules/
 
+# Compilación / artefactos
+dist/
+build/
+cdk.out/
+.cdk.staging/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -10,6 +16,7 @@ yarn-error.log*
 # Archivos de entorno
 .env
 .env.*
+!.env.example
 
 # Sistema operativo / editores
 .DS_Store
