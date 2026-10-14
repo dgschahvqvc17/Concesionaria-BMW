@@ -1,0 +1,29 @@
+{
+  "name": "concesionaria-bmw-infra",
+  "version": "1.0.0",
+  "description": "Infraestructura (CDK) para autenticación con Cognito y tabla DynamoDB del sistema Concesionaria BMW",
+  "bin": {
+    "concesionaria": "bin/concesionaria.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --require-approval never",
+    "destroy": "cdk destroy",
+    "create-user": "node scripts/create-user.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "aws-cdk": "^2.168.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.679.0",
+    "aws-cdk-lib": "^2.168.0",
+    "constructs": "^10.4.2",
+    "source-map-support": "^0.5.21"
+  }
+}
