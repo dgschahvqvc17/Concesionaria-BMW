@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Car, LayoutDashboard, LogOut, Menu, Users, X, type LucideIcon } from 'lucide-react';
+import { Car, LayoutDashboard, LogOut, Menu, Package, Users, X, type LucideIcon } from 'lucide-react';
 
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
 import { MStripe } from '@/components/brand/MStripe';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { APP_NAME, APP_TAGLINE, ROLE_LABELS } from '@/lib/brand';
-import type { UserRole } from '@/lib/roles';
+import { STAFF_ROLES, type UserRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -18,9 +18,12 @@ interface NavItem {
   roles?: UserRole[];
 }
 
+const STAFF_NAV_ROLES: UserRole[] = [...STAFF_ROLES];
+
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Panel', icon: LayoutDashboard },
-  { to: '/inventario', label: 'Inventario', icon: Car },
+  { to: '/inventario', label: 'Inventario', icon: Car, roles: STAFF_NAV_ROLES },
+  { to: '/repuestos', label: 'Repuestos', icon: Package, roles: STAFF_NAV_ROLES },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
 

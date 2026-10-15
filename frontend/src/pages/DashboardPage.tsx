@@ -1,4 +1,4 @@
-import { BadgeCheck, Car, Fingerprint, Mail, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { BadgeCheck, Car, Fingerprint, Mail, Package, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from '@/lib/brand';
+import { STAFF_ROLES } from '@/lib/roles';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export function DashboardPage() {
 
   const roleLabel = ROLE_LABELS[user.rol];
   const esAdmin = user.roles.includes('admin');
+  const esStaff = user.roles.some((role) => (STAFF_ROLES as readonly string[]).includes(role));
 
   return (
     <div className="space-y-8">
@@ -62,12 +64,26 @@ export function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="secondary" className="bg-white text-brand-blue-deep hover:bg-white/90">
-              <Link to="/inventario">
-                <Car className="h-4 w-4" aria-hidden="true" />
-                Ver inventario
-              </Link>
-            </Button>
+            {esStaff && (
+              <>
+                <Button asChild variant="secondary" className="bg-white text-brand-blue-deep hover:bg-white/90">
+                  <Link to="/inventario">
+                    <Car className="h-4 w-4" aria-hidden="true" />
+                    Ver inventario
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="border-white/25 bg-white/5 text-white hover:bg-white/15 hover:text-white"
+                >
+                  <Link to="/repuestos">
+                    <Package className="h-4 w-4" aria-hidden="true" />
+                    Ver repuestos
+                  </Link>
+                </Button>
+              </>
+            )}
             {esAdmin && (
               <Button
                 asChild

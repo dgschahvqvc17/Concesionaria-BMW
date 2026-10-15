@@ -1,8 +1,16 @@
 /** Roles soportados por el sistema (coinciden con los Groups de Cognito). */
-export const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'] as const;
+export const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico', 'cliente'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+/** Roles internos (personal). Los clientes no se crean desde la gestión de usuarios. */
+export const STAFF_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
 export const DEFAULT_ROLE: UserRole = 'mecanico';
+
+export function isStaffRole(value: unknown): value is StaffRole {
+  return typeof value === 'string' && (STAFF_ROLES as readonly string[]).includes(value);
+}
 
 export function isUserRole(value: unknown): value is UserRole {
   return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);

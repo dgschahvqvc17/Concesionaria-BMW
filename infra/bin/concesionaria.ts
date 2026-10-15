@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { InventarioStack } from '../lib/inventario-stack';
+import { RepuestosStack } from '../lib/repuestos-stack';
 
 const app = new cdk.App();
 
@@ -21,6 +22,12 @@ new InventarioStack(app, 'ConcesionariaBmwInventarioStack', {
   env,
   description:
     'HU03 - Inventario de vehículos: tabla DynamoDB de vehículos y bucket S3 de fotografías.',
+});
+
+new RepuestosStack(app, 'ConcesionariaBmwRepuestosStack', {
+  env,
+  description:
+    'HU04 - Inventario de repuestos: tablas DynamoDB de repuestos y de movimientos de inventario.',
 });
 
 app.synth();

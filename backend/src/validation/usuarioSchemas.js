@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const { USER_ROLES } = require('../auth/roles');
+const { STAFF_ROLES } = require('../auth/roles');
 const { ValidationError } = require('../errors/AppError');
 
 const ESTADOS = ['activo', 'inactivo'];
@@ -15,14 +15,14 @@ const passwordSchema = z
 const createUsuarioSchema = z.object({
   nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres.').max(80),
   email: z.string().trim().email('Ingresa un correo electrónico válido.').max(120),
-  rol: z.enum(USER_ROLES, { message: 'El rol seleccionado no es válido.' }),
+  rol: z.enum(STAFF_ROLES, { message: 'El rol seleccionado no es válido.' }),
   password: passwordSchema,
 });
 
 const updateUsuarioSchema = z
   .object({
     nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres.').max(80).optional(),
-    rol: z.enum(USER_ROLES, { message: 'El rol seleccionado no es válido.' }).optional(),
+    rol: z.enum(STAFF_ROLES, { message: 'El rol seleccionado no es válido.' }).optional(),
     estado: z.enum(ESTADOS, { message: 'El estado debe ser "activo" o "inactivo".' }).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'No se enviaron cambios para actualizar.' });
@@ -47,6 +47,8 @@ function validate(schema, data) {
 }
 
 module.exports = {
+  ESTADOS,
+  passwordSchema,
   createUsuarioSchema,
   updateUsuarioSchema,
   setEstadoSchema,

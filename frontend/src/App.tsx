@@ -4,9 +4,11 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/context/AuthContext';
+import { STAFF_ROLES } from '@/lib/roles';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { InventoryPage } from '@/pages/InventoryPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { RepuestosPage } from '@/pages/RepuestosPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { UsersPage } from '@/pages/UsersPage';
 
@@ -22,9 +24,14 @@ export function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/inventario" element={<InventoryPage />} />
 
-              {/* Gestión de usuarios: solo administradores */}
+              {/* Secciones internas: no accesibles para clientes. */}
+              <Route element={<ProtectedRoute roles={[...STAFF_ROLES]} />}>
+                <Route path="/inventario" element={<InventoryPage />} />
+                <Route path="/repuestos" element={<RepuestosPage />} />
+              </Route>
+
+              {/* Gestión de usuarios: solo administradores. */}
               <Route element={<ProtectedRoute roles={['admin']} />}>
                 <Route path="/usuarios" element={<UsersPage />} />
               </Route>

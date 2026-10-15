@@ -7,6 +7,8 @@ const config = {
   userPoolClientId: process.env.USER_POOL_CLIENT_ID,
   usuariosTableName: process.env.USUARIOS_TABLE_NAME || 'Usuarios',
   vehiculosTableName: process.env.VEHICULOS_TABLE_NAME || 'Vehiculos',
+  repuestosTableName: process.env.REPUESTOS_TABLE_NAME || 'Repuestos',
+  movimientosTableName: process.env.MOVIMIENTOS_TABLE_NAME || 'MovimientosInventario',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };

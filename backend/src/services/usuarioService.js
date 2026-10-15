@@ -11,7 +11,7 @@ function normalizeEmail(email) {
 }
 
 /** Construye el objeto de perfil que se persiste en DynamoDB. */
-function buildProfile({ userId, email, nombre, rol, estado, createdBy }) {
+function buildProfile({ userId, email, nombre, rol, estado, createdBy, fechaNacimiento, carnetIdentidad, celular }) {
   const now = new Date().toISOString();
   return {
     userId,
@@ -19,6 +19,9 @@ function buildProfile({ userId, email, nombre, rol, estado, createdBy }) {
     nombre,
     rol,
     estado: estado ?? ESTADO_ACTIVO,
+    ...(fechaNacimiento ? { fechaNacimiento } : {}),
+    ...(carnetIdentidad ? { carnetIdentidad } : {}),
+    ...(celular ? { celular } : {}),
     createdAt: now,
     updatedAt: now,
     createdBy: createdBy ?? null,
@@ -63,6 +66,47 @@ async function createUsuario({ nombre, email, rol, password }, actor) {
   }
 }
 
+/**
+ * Autorregistro de un cliente desde el login.
+ * Crea la cuenta en Cognito con el rol `cliente`, la asigna al grupo correspondiente
+ * y persiste el perfil con los datos personales. Compensa eliminando en Cognito
+ * si falla la persistencia.
+ */
+async function registrarCliente({ nombre, email, password, fechaNacimiento, carnetIdentidad, celular }) {
+  const normalizedEmail = normalizeEmail(email);
+
+  const existente = await usuarioRepository.findByEmail(normalizedEmail);
+  if (existente) {
+    throw new ConflictError('El correo electrónico ya está registrado.');
+  }
+
+  await cognitoService.createUser({ email: normalizedEmail, nombre, password });
+
+  try {
+    const cognitoUser = await cognitoService.getUser(normalizedEmail);
+    const userId = cognitoService.getAttribute(cognitoUser, 'sub');
+
+    await cognitoService.setGroups(normalizedEmail, ['cliente']);
+
+    const profile = buildProfile({
+      userId,
+      email: normalizedEmail,
+      nombre,
+      rol: 'cliente',
+      estado: ESTADO_ACTIVO,
+      createdBy: userId,
+      fechaNacimiento,
+      carnetIdentidad,
+      celular,
+    });
+
+    return await usuarioRepository.save(profile);
+  } catch (error) {
+    await cognitoService.deleteUser(normalizedEmail).catch(() => {});
+    throw error;
+  }
+}
+
 /** Actualiza nombre, rol y/o estado de un usuario existente. */
 async function updateUsuario(userId, changes, actor) {
   const profile = await usuarioRepository.findById(userId);
@@ -71,6 +115,11 @@ async function updateUsuario(userId, changes, actor) {
   }
 
   const isSelf = actor?.sub === userId;
+
+  // Los clientes se autorregistran: el administrador no puede crearlos ni cambiar su rol.
+  if (profile.rol === 'cliente' && changes.rol && changes.rol !== profile.rol) {
+    throw new ForbiddenError('Los clientes se autorregistran; no es posible cambiar su rol.');
+  }
 
   if (changes.estado && changes.estado !== profile.estado) {
     if (isSelf && changes.estado === ESTADO_INACTIVO) {
@@ -145,6 +194,7 @@ async function getUsuario(userId) {
 
 module.exports = {
   createUsuario,
+  registrarCliente,
   updateUsuario,
   setEstado,
   syncSession,

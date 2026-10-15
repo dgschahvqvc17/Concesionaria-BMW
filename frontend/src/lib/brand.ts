@@ -9,6 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   vendedor: 'Vendedor',
   jefe_taller: 'Jefe de Taller',
   mecanico: 'Mecánico',
+  cliente: 'Cliente',
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -16,4 +17,5 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   vendedor: 'Puedes gestionar vehículos, clientes y registrar ventas.',
   jefe_taller: 'Puedes supervisar el taller, asignar órdenes de trabajo y gestionar mecánicos.',
   mecanico: 'Puedes consultar y actualizar las órdenes de trabajo asignadas.',
+  cliente: 'Bienvenido. Desde aquí puedes consultar la información de tu cuenta.',
 };
