@@ -1,118 +1,170 @@
 # Concesionaria BMW
 
-Este documento describe el proyecto **Concesionaria BMW**, una primera aplicación web construida con **Node.js** y **Express**.
+Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
+usuarios con roles, administración de usuarios y control del inventario de vehículos con
+fotografías.
+
+El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
 ---
 
 ## Descripción
 
-**Concesionaria BMW** es una aplicación web del lado del servidor (backend) orientada a la presentación y gestión de vehículos BMW. Responde mensajes de texto según la ruta que se solicite y ofrece una lista de vehículos en formato JSON, sin base de datos ni funcionalidades complejas.
+**Concesionaria BMW** es un sistema compuesto por:
+
+- un **backend REST** (Node.js + Express) que expone la API, valida los JWT de Cognito y
+  persiste en DynamoDB / S3;
+- un **frontend SPA** (React + Vite + Tailwind + shadcn/ui) con una interfaz alineada a la
+  identidad de marca BMW;
+- **infraestructura como código** (AWS CDK) que aprovisiona Cognito, DynamoDB y S3.
 
 ---
 
-## Objetivo de esta práctica
+## Funcionalidades (Historias de Usuario)
 
-El objetivo es construir la primera aplicación web del curso de Tecnología Web II utilizando **Node.js** y **Express**. Con esta práctica se demuestra que un servidor puede recibir pedidos (requests) y entregar respuestas distintas según la ruta pedida (response).
+| HU | Descripción | Estado |
+| --- | --- | --- |
+| **HU01** | Inicio de sesión con Cognito y control de acceso por rol. | Implementada y verificada |
+| **HU02** | Administración de usuarios y roles (solo `admin`). | Implementada y verificada |
+| **HU03** | Inventario de vehículos: alta, edición, filtros y fotos en S3. | Implementada y verificada |
 
----
-
-## Tecnologías utilizadas
-
-- **Node.js** – entorno que permite ejecutar JavaScript fuera del navegador.
-- **Express** – framework que facilita crear el servidor y manejar las rutas.
-- **npm** – gestor de paquetes de Node.js, se usó para crear el `package.json` e instalar Express.
-- **JavaScript** – lenguaje con el que está escrito el servidor.
+**Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`.
 
 ---
 
-## Rutas disponibles
+## Tecnologías
 
-| Ruta | Descripción |
-|------|-------------|
-| `GET /` | Mensaje de bienvenida de la Concesionaria BMW. |
-| `GET /bienvenido` | Variante del mensaje de bienvenida de la Concesionaria BMW. |
-| `GET /info` | Breve descripción del sistema. |
-| `GET /contacto` | Información de contacto ficticia de la concesionaria. |
-| `GET /vehiculos` | Lista de vehículos BMW disponibles (texto). |
-| `GET /productos` | Lista de vehículos BMW en formato JSON. |
-| `GET /api/productos` | Cantidad total y lista de vehículos en formato JSON. |
-
-### Ejemplos de respuesta
-
-- `GET /` → `Bienvenido a Concesionaria BMW`
-- `GET /info` → `Concesionaria BMW es un sistema para la presentación y gestión de vehículos BMW.`
-- `GET /contacto` → `Concesionaria BMW - Teléfono: 70000000 - Correo: contacto@bmw.com (datos ficticios de demostración)`
-- `GET /vehiculos` → `Vehículos BMW disponibles: BMW Serie 3, BMW Serie 5, BMW X3, BMW X5`
-- `GET /productos` → `[{"id":1,"marca":"BMW","modelo":"Serie 3","anio":2024,"precio":52000}, ...]`
-- `GET /api/productos` → `{"total":4,"productos":[{"id":1,"marca":"BMW","modelo":"Serie 3","anio":2024,"precio":52000}, ...]}`
-- Cualquier ruta inexistente → `404` con `{"error":"Ruta no encontrada"}`
+| Área | Tecnologías |
+| --- | --- |
+| Backend | Node.js, Express 5, Zod, AWS SDK v3 (`lib-dynamodb`, `s3-request-presigner`), `aws-jwt-verify`, `cors`, `dotenv` |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, React Router, React Hook Form, AWS Amplify |
+| Infraestructura | AWS CDK (TypeScript) |
+| Servicios AWS | Cognito, DynamoDB, S3, CloudFormation, Lambda (helper), IAM, Budgets |
 
 ---
 
-## Ejecución
-
-Para levantar el servidor:
-
-```bash
-cd backend
-node server.js
-```
-
-También se puede iniciar con el script `start` definido en el `package.json`:
-
-```bash
-cd backend
-npm start
-```
-
-Ambos comandos levantan el mismo servidor. Para detenerlo se usa `Ctrl + C` en la terminal.
-
----
-
-## Puerto
-
-El servidor escucha en el puerto:
-
-```text
-3000
-```
-
-Una vez iniciado, se accede desde el navegador en:
-
-```text
-http://localhost:3000
-```
-
----
-
-## Estructura del proyecto
+## Estructura del repositorio
 
 ```text
 Concesionaria-BMW/
-├── backend/
-│   ├── node_modules/
-│   ├── package-lock.json
-│   ├── package.json
-│   └── server.js
-├── .gitignore
+├── backend/     # API REST (Express, MVC por capas)
+├── frontend/    # SPA (React + Vite)
+├── infra/       # Infraestructura AWS (CDK)
+├── Rules/       # Convenciones y documentación de desarrollo
+├── AGENTS.md    # Guía rápida para agentes de IA
 └── README.md
 ```
 
-- `backend/server.js` – el servidor Express con las rutas de la concesionaria.
-- `backend/package.json` – información del proyecto, dependencia de Express y script `start`.
-- `backend/package-lock.json` – archivo que npm genera con las versiones exactas instaladas.
-- `backend/node_modules/` – carpeta con las librerías instaladas (Express incluido).
-- `.gitignore` – archivo que indica qué carpetas y archivos no se deben subir a Git.
-- `README.md` – este documento.
+Documentación detallada: [`Rules/backend.md`](./Rules/backend.md),
+[`Rules/frontend.md`](./Rules/frontend.md), [`Rules/aws.md`](./Rules/aws.md).
 
 ---
 
-## Git y GitHub
+## Puesta en marcha
 
-El proyecto tiene un repositorio Git inicializado en la rama `develop` y un repositorio remoto configurado:
+### 0. Requisitos
 
-```text
-origin  https://github.com/dgschahvqvc17/Concesionaria-BMW.git
+- Node.js 20+ y npm.
+- AWS CLI configurado (para desplegar la infraestructura).
+
+### 1. Infraestructura (AWS CDK)
+
+```bash
+cd infra
+npm install
+npm run deploy      # crea Cognito, DynamoDB y S3
 ```
 
-Existe un archivo `.gitignore` que excluye `node_modules/`, archivos `.env` y logs. La publicación de los cambios (`git push`) la realiza el estudiante cuando lo autorice.
+Al finalizar, copia las salidas (`UserPoolId`, `UserPoolClientId`, nombres de tablas y
+bucket) a los archivos `.env` de `backend` y `frontend`. También quedan en
+`infra/cdk-outputs.json`.
+
+Alta opcional de un usuario de prueba:
+
+```bash
+$env:USER_POOL_ID="us-east-2_XXXX"; $env:EMAIL="admin@bmw.com"; $env:PASSWORD="Passw0rd123"; $env:ROLE="admin"; $env:NAME="Admin Demo"; npm run create-user
+```
+
+### 2. Backend
+
+```bash
+cd backend
+npm install
+# crea backend/.env a partir de backend/.env.example con los valores reales
+npm start           # http://localhost:3000
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+# crea frontend/.env a partir de frontend/.env.example con los valores reales
+npm run dev         # http://localhost:5173
+```
+
+---
+
+## Variables de entorno
+
+Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales.
+
+**`backend/.env`**
+
+| Variable | Descripción |
+| --- | --- |
+| `PORT` | Puerto del servidor (por defecto `3000`) |
+| `AWS_REGION` | Región AWS (por defecto `us-east-2`) |
+| `USER_POOL_ID` | ID del User Pool de Cognito |
+| `USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
+| `USUARIOS_TABLE_NAME` | Tabla DynamoDB de usuarios |
+| `VEHICULOS_TABLE_NAME` | Tabla DynamoDB de vehículos |
+| `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
+| `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
+
+**`frontend/.env`**
+
+| Variable | Descripción |
+| --- | --- |
+| `VITE_AWS_REGION` | Región AWS |
+| `VITE_USER_POOL_ID` | ID del User Pool de Cognito |
+| `VITE_USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
+| `VITE_API_URL` | URL base del backend (`http://localhost:3000`) |
+
+---
+
+## API (resumen)
+
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| GET | `/` , `/info`, `/api/productos` | Público |
+| GET | `/api/auth/session` | Autenticado |
+| GET/POST | `/api/usuarios` | `admin` |
+| GET/PATCH | `/api/usuarios/:userId` | `admin` |
+| PATCH | `/api/usuarios/:userId/estado` | `admin` |
+| GET | `/api/vehiculos` | Autenticado |
+| GET | `/api/vehiculos/:vehiculoId` | Autenticado |
+| POST | `/api/vehiculos` | `admin`, `vendedor` |
+| PATCH | `/api/vehiculos/:vehiculoId` | `admin`, `vendedor` |
+| POST | `/api/vehiculos/fotos/presign` | `admin`, `vendedor` |
+
+Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
+
+---
+
+## Costos y seguridad
+
+- **Solo capa gratuita de AWS**: no se agregan recursos con costo. Ver
+  [`Rules/aws.md`](./Rules/aws.md) para el detalle por servicio.
+- Bucket y tablas **privados**; las fotos se acceden mediante **URLs prefirmadas**.
+- Sin secretos en el repositorio; las credenciales AWS provienen del entorno.
+
+---
+
+## Convenciones
+
+Antes de contribuir, lee [`Rules/README.md`](./Rules/README.md) y el documento del área
+que vayas a modificar. Puntos clave: clean code, SOLID, MVC por capas, validación con
+Zod, tokens de diseño en el frontend y español como idioma del código y la UI.
+
+Repositorio remoto: `https://github.com/dgschahvqvc17/Concesionaria-BMW.git`.

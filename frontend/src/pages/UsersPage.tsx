@@ -3,7 +3,7 @@ import { Loader2, Plus, Search, Users as UsersIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { AppHeader } from '@/components/layout/AppHeader';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,71 +95,72 @@ export function UsersPage() {
   const currentUserId = user?.sub ?? '';
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Administración</p>
-            <h1 className="text-2xl font-semibold tracking-tight">Gestión de usuarios</h1>
-            <p className="text-sm text-muted-foreground">
-              Registra, edita y controla el acceso del personal del concesionario.
-            </p>
-          </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Administración"
+        title="Gestión de usuarios"
+        description="Registra, edita y controla el acceso del personal del concesionario."
+        actions={
           <Button onClick={abrirCrear}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             Nuevo usuario
           </Button>
-        </header>
+        }
+      />
 
-        <div className="relative max-w-sm">
-          <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-9"
-            placeholder="Buscar por nombre o correo"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+      <section className="surface-card animate-fade-in overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              className="pl-9"
+              placeholder="Buscar por nombre o correo"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          {!loading && !error && (
+            <p className="text-xs text-muted-foreground">
+              {filtrados.length} de {usuarios.length} usuarios
+            </p>
+          )}
         </div>
 
-        <section className="animate-fade-in overflow-hidden rounded-xl border bg-card shadow-sm">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Cargando usuarios…
-            </div>
-          ) : error ? (
-            <div className="p-6">
-              <Alert variant="destructive">
-                <AlertTitle>No se pudieron cargar los usuarios</AlertTitle>
-                <AlertDescription className="flex flex-col gap-3">
-                  {error}
-                  <Button variant="outline" size="sm" className="w-fit" onClick={() => void recargar()}>
-                    Reintentar
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
-          ) : filtrados.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 p-12 text-center text-sm text-muted-foreground">
-              <UsersIcon className="h-8 w-8" aria-hidden="true" />
-              {query ? 'No se encontraron usuarios con ese criterio.' : 'Aún no hay usuarios registrados.'}
-            </div>
-          ) : (
-            <UsersTable
-              usuarios={filtrados}
-              currentUserId={currentUserId}
-              estadoLoadingId={estadoLoadingId}
-              onEditar={abrirEditar}
-              onToggleEstado={handleToggleEstado}
-            />
-          )}
-        </section>
-      </main>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Cargando usuarios…
+          </div>
+        ) : error ? (
+          <div className="p-6">
+            <Alert variant="destructive">
+              <AlertTitle>No se pudo cargar el listado de usuarios</AlertTitle>
+              <AlertDescription className="flex flex-col gap-3">
+                {error}
+                <Button variant="outline" size="sm" className="w-fit" onClick={() => void recargar()}>
+                  Reintentar
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        ) : filtrados.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 p-12 text-center text-sm text-muted-foreground">
+            <UsersIcon className="h-8 w-8" aria-hidden="true" />
+            {query ? 'No se encontraron usuarios con ese criterio.' : 'Aún no hay usuarios registrados.'}
+          </div>
+        ) : (
+          <UsersTable
+            usuarios={filtrados}
+            currentUserId={currentUserId}
+            estadoLoadingId={estadoLoadingId}
+            onEditar={abrirEditar}
+            onToggleEstado={handleToggleEstado}
+          />
+        )}
+      </section>
 
       <UserFormDialog
         open={dialogOpen}
@@ -177,8 +178,8 @@ export function UsersPage() {
         title="Desactivar usuario"
         description={
           confirmUser
-            ? `¿Deseas desactivar a ${confirmUser.nombre}? No podrá iniciar sesión hasta que lo actives nuevamente.`
-            : undefined
+            ? `¿Desactivar a ${confirmUser.nombre}? El usuario no podrá iniciar sesión hasta que lo actives de nuevo.`
+            : ''
         }
         confirmLabel="Desactivar"
         destructive

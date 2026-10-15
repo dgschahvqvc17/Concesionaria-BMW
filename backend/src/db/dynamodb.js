@@ -4,11 +4,11 @@ const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
 const { config } = require('../config');
 
 /**
- * Cliente de DynamoDB (documento). Exporta el cliente y el nombre de tabla
- * para que la capa de repositorios no conozca detalles de configuración.
+ * Cliente de DynamoDB (documento) compartido por todos los repositorios.
+ * Los repositorios obtienen el nombre de su tabla desde la configuración.
  */
 const documentClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: config.awsRegion }), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-module.exports = { documentClient, tableName: config.usuariosTableName };
+module.exports = { documentClient };

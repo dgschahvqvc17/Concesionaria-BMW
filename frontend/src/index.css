@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 214 45% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -16,14 +16,14 @@
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --accent: 213 45% 95%;
     --accent-foreground: 222 47% 11%;
     --destructive: 358 78% 50%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 215 76% 47%;
-    --radius: 0.75rem;
+    --radius: 0.85rem;
   }
 
   .dark {
@@ -54,11 +54,65 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   ::selection {
     @apply bg-primary/20;
+  }
+}
+
+@layer components {
+  /* Superficie translúcida con desenfoque, para barras y paneles flotantes. */
+  .glass {
+    @apply border border-white/60 bg-white/70 backdrop-blur-xl;
+  }
+
+  /* Tarjeta con elevación sutil y borde degradado premium. */
+  .surface-card {
+    @apply relative rounded-2xl border border-border/70 bg-card shadow-card;
+  }
+
+  /* Degradado de texto con acento BMW. */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-blue-deep via-brand-blue to-brand-blue-electric bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  /* Scrollbar discreta para paneles internos. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Detiene la animación cuando el usuario prefiere menos movimiento. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-slide-up,
+    .animate-fade-in,
+    .animate-panel-in {
+      animation: none !important;
+    }
   }
 }
