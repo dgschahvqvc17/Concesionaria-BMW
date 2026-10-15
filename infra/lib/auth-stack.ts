@@ -8,7 +8,7 @@ import { Construct } from 'constructs';
  * El rol del usuario viaja dentro del ID token en el claim `cognito:groups`.
  * El orden define la precedencia (menor índice = mayor jerarquía).
  */
-export const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'] as const;
+export const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico', 'cliente'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface AuthStackProps extends cdk.StackProps {

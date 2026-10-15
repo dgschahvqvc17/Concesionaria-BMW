@@ -51,10 +51,11 @@ el 100 % en capa gratuita, se podría pasar DynamoDB a **provisioned 25/25**.
 
 ```text
 infra/
-├── bin/concesionaria.ts        # Define la app CDK y las dos stacks
+├── bin/concesionaria.ts        # Define la app CDK y las tres stacks
 ├── lib/
 │   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
-│   └── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
+│   ├── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
+│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario)
 └── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
 ```
 
@@ -62,7 +63,8 @@ infra/
 
 - **Cognito User Pool**: login por email, auto-verificación de email, política de
   contraseña (mín. 8, mayúscula, minúscula, número; sin símbolos).
-- **Groups** (roles): `admin`, `vendedor`, `jefe_taller`, `mecanico` (con precedencia).
+- **Groups** (roles): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente` (con precedencia).
+  Los clientes se autorregistran; el personal lo administra el `admin`.
 - **App Client** (SPA, sin secreto): flujos SRP y `USER_PASSWORD_AUTH`, tokens de 1 h.
 - **Tabla `Usuarios`** (DynamoDB): PK `userId`, GSI `email-index`.
 - Salidas: `UserPoolId`, `UserPoolClientId`, `UsuariosTableName`, `Region`.
@@ -74,6 +76,13 @@ infra/
   `S3_MANAGED`, `enforceSSL`, CORS para `http://localhost:5173`,
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
+
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04)
+
+- **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
+- **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
+  `repuesto-index` (`repuestoId` + `createdAt`).
+- Salidas: `RepuestosTableName`, `MovimientosTableName`, `Region`.
 
 Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
 de `backend` y `frontend`.

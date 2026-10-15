@@ -8,6 +8,9 @@ export interface Usuario {
   nombre: string;
   rol: UserRole;
   estado: EstadoUsuario;
+  fechaNacimiento?: string;
+  carnetIdentidad?: string;
+  celular?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,4 +36,14 @@ export interface UsuariosResponse {
 export interface UsuarioResponse {
   message?: string;
   usuario: Usuario;
+}
+
+/** Datos del autorregistro público de clientes. */
+export interface RegistroClienteInput {
+  nombre: string;
+  email: string;
+  password: string;
+  fechaNacimiento: string;
+  carnetIdentidad: string;
+  celular: string;
 }

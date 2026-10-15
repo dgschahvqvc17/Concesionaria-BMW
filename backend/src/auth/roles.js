@@ -1,5 +1,8 @@
 /** Roles del sistema (coinciden con los Groups de Cognito creados en CDK). */
-const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'];
+const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico', 'cliente'];
+
+/** Roles internos (personal) gestionables por un administrador. Los clientes se autorregistran. */
+const STAFF_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'];
 
 /** Rol por defecto cuando el usuario no tiene un group válido asignado. */
 const DEFAULT_ROLE = 'mecanico';
@@ -20,4 +23,4 @@ function primaryRole(roles) {
   return USER_ROLES.find((role) => roles.includes(role)) ?? DEFAULT_ROLE;
 }
 
-module.exports = { USER_ROLES, DEFAULT_ROLE, isUserRole, normalizeRoles, primaryRole };
+module.exports = { USER_ROLES, STAFF_ROLES, DEFAULT_ROLE, isUserRole, normalizeRoles, primaryRole };

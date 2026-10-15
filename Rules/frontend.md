@@ -23,17 +23,17 @@ frontend/src/
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── common/             # ConfirmDialog
 │   ├── dashboard/          # InfoTile
-│   ├── inventory/          # InventarioFiltros, VehiculosTable, VehiculoFormDialog, PhotoUploader
+│   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos
+├── hooks/                  # useUsuarios, useVehiculos, useRepuestos, useMovimientos
 ├── lib/                    # api, amplify, brand, roles, vehiculos, cognito-errors, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, UsersPage, UnauthorizedPage
-├── services/               # usuarios, vehiculos (llamadas a la API)
-└── types/                  # usuario, vehiculo
+├── services/               # usuarios, vehiculos, repuestos, movimientos (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto
 ```
 
 ### Flujo de datos
@@ -117,11 +117,14 @@ degradado BMW).
 - `lib/amplify.ts`: configura Amplify (`configureAmplify()` se llama en `main.tsx`).
 - `context/AuthContext.tsx`: provee `{ user, status, login, logout }`. Carga el perfil
   real desde el backend (`/api/auth/session`) y bloquea usuarios inactivos.
-- `lib/roles.ts`: `UserRole`, `normalizeRoles`, `primaryRole`
-  (roles: `admin`, `vendedor`, `jefe_taller`, `mecanico`).
+- `lib/roles.ts`: `UserRole`, `STAFF_ROLES`, `normalizeRoles`, `primaryRole`
+  (roles: `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`).
 - `components/ProtectedRoute.tsx`: exige sesión y, opcionalmente, roles.
 - `App.tsx`: define el enrutado. Las rutas protegidas viven dentro de `<AppLayout />`;
-  `/usuarios` está anidada bajo `ProtectedRoute roles={['admin']}`.
+  `/inventario` y `/repuestos` bajo `ProtectedRoute roles={STAFF_ROLES}` (no accesibles
+  para clientes) y `/usuarios` bajo `ProtectedRoute roles={['admin']}`.
+- `components/auth/LoginPage` alterna entre `LoginForm` y `RegisterClienteForm`
+  (autorregistro de clientes) mediante el estado `mode`.
 
 ## Acceso a la API
 

@@ -18,10 +18,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getFieldErrors } from '@/lib/api';
 import { ROLE_LABELS } from '@/lib/brand';
-import { USER_ROLES, type UserRole } from '@/lib/roles';
+import { STAFF_ROLES, isStaffRole, type StaffRole } from '@/lib/roles';
 import type { CreateUsuarioInput, EstadoUsuario, UpdateUsuarioInput, Usuario } from '@/types/usuario';
 
-const roleEnum = z.enum([...USER_ROLES] as [UserRole, ...UserRole[]]);
+const roleEnum = z.enum([...STAFF_ROLES] as [StaffRole, ...StaffRole[]]);
 
 const passwordSchema = z
   .string()
@@ -46,7 +46,7 @@ const editSchema = z.object({
 interface FormValues {
   nombre: string;
   email: string;
-  rol: UserRole;
+  rol: StaffRole;
   password: string;
   estado: EstadoUsuario;
 }
@@ -64,7 +64,7 @@ function getDefaults(usuario: Usuario | null): FormValues {
   return {
     nombre: usuario?.nombre ?? '',
     email: usuario?.email ?? '',
-    rol: usuario?.rol ?? 'mecanico',
+    rol: usuario && isStaffRole(usuario.rol) ? usuario.rol : 'mecanico',
     password: '',
     estado: usuario?.estado ?? 'activo',
   };
@@ -73,6 +73,7 @@ function getDefaults(usuario: Usuario | null): FormValues {
 /** Formulario de registro y edición de usuarios (HU02). */
 export function UserFormDialog({ open, onOpenChange, usuario, submitting, onSubmit }: UserFormDialogProps) {
   const isEdit = Boolean(usuario);
+  const esCliente = usuario?.rol === 'cliente';
   const [showPassword, setShowPassword] = useState(false);
 
   const resolver = useMemo(
@@ -100,7 +101,11 @@ export function UserFormDialog({ open, onOpenChange, usuario, submitting, onSubm
   const submit = handleSubmit(async (values) => {
     try {
       if (isEdit && usuario) {
-        await onSubmit({ nombre: values.nombre, rol: values.rol, estado: values.estado });
+        if (usuario.rol === 'cliente') {
+          await onSubmit({ nombre: values.nombre, estado: values.estado });
+        } else {
+          await onSubmit({ nombre: values.nombre, rol: values.rol, estado: values.estado });
+        }
       } else {
         await onSubmit({
           nombre: values.nombre,
@@ -152,25 +157,41 @@ export function UserFormDialog({ open, onOpenChange, usuario, submitting, onSubm
 
           <div className="space-y-2">
             <Label htmlFor="rol">Rol</Label>
-            <Controller
-              control={control}
-              name="rol"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="rol">
-                    <SelectValue placeholder="Selecciona un rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {USER_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {ROLE_LABELS[role]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.rol && <p className="text-xs text-destructive">{errors.rol.message}</p>}
+            {esCliente ? (
+              <>
+                <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
+                  {ROLE_LABELS.cliente}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Los clientes se autorregistran desde el login; su rol no puede modificarse.
+                </p>
+              </>
+            ) : (
+              <>
+                <Controller
+                  control={control}
+                  name="rol"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="rol">
+                        <SelectValue placeholder="Selecciona un rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STAFF_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {ROLE_LABELS[role]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-xs text-muted-foreground">
+                  El personal se gestiona aquí; los clientes se crean desde el registro público.
+                </p>
+                {errors.rol && <p className="text-xs text-destructive">{errors.rol.message}</p>}
+              </>
+            )}
           </div>
 
           {isEdit ? (

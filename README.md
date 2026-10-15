@@ -1,8 +1,8 @@
 # Concesionaria BMW
 
 Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
-usuarios con roles, administración de usuarios y control del inventario de vehículos con
-fotografías.
+usuarios con roles, autorregistro de clientes, administración de usuarios e inventario de
+vehículos y repuestos con fotografías.
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -27,8 +27,11 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU01** | Inicio de sesión con Cognito y control de acceso por rol. | Implementada y verificada |
 | **HU02** | Administración de usuarios y roles (solo `admin`). | Implementada y verificada |
 | **HU03** | Inventario de vehículos: alta, edición, filtros y fotos en S3. | Implementada y verificada |
+| **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada |
 
-**Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`.
+**Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
+Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
+celular); el administrador gestiona solo al personal y no crea clientes.
 
 ---
 
@@ -119,6 +122,8 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
 | `USUARIOS_TABLE_NAME` | Tabla DynamoDB de usuarios |
 | `VEHICULOS_TABLE_NAME` | Tabla DynamoDB de vehículos |
+| `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
+| `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -139,6 +144,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | --- | --- | --- |
 | GET | `/` , `/info`, `/api/productos` | Público |
 | GET | `/api/auth/session` | Autenticado |
+| POST | `/api/clientes/registro` | Público (autorregistro de clientes) |
 | GET/POST | `/api/usuarios` | `admin` |
 | GET/PATCH | `/api/usuarios/:userId` | `admin` |
 | PATCH | `/api/usuarios/:userId/estado` | `admin` |
@@ -147,6 +153,12 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | POST | `/api/vehiculos` | `admin`, `vendedor` |
 | PATCH | `/api/vehiculos/:vehiculoId` | `admin`, `vendedor` |
 | POST | `/api/vehiculos/fotos/presign` | `admin`, `vendedor` |
+| GET | `/api/repuestos` | Autenticado |
+| GET | `/api/repuestos/:repuestoId` | Autenticado |
+| POST | `/api/repuestos` | `admin`, `vendedor`, `jefe_taller` |
+| PATCH | `/api/repuestos/:repuestoId` | `admin`, `vendedor`, `jefe_taller` |
+| GET | `/api/movimientos` | Autenticado |
+| POST | `/api/movimientos` | `admin`, `vendedor`, `jefe_taller` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

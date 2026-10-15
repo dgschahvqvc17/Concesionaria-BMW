@@ -1,10 +1,23 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
+
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { LoginForm } from '@/components/auth/LoginForm';
+import { RegisterClienteForm } from '@/components/auth/RegisterClienteForm';
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
 import { MStripe } from '@/components/brand/MStripe';
 import { APP_NAME, APP_TAGLINE } from '@/lib/brand';
 
 export function LoginPage() {
+  const [mode, setMode] = useState<'login' | 'registro'>('login');
+  const [registeredEmail, setRegisteredEmail] = useState('');
+
+  const handleRegistered = (email: string) => {
+    setRegisteredEmail(email);
+    setMode('login');
+    toast.success('Cuenta creada correctamente. Ya puedes iniciar sesión.');
+  };
+
   return (
     <div className="flex min-h-screen bg-background">
       <AuthBrandPanel />
@@ -26,7 +39,11 @@ export function LoginPage() {
             </div>
           </div>
 
-          <LoginForm />
+          {mode === 'login' ? (
+            <LoginForm onCreateAccount={() => setMode('registro')} initialEmail={registeredEmail} />
+          ) : (
+            <RegisterClienteForm onBack={() => setMode('login')} onRegistered={handleRegistered} />
+          )}
         </div>
       </main>
     </div>

@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,17 +33,21 @@ function validate({ email, password }: { email: string; password: string }): Fie
   return errors;
 }
 
-export function LoginForm() {
+export function LoginForm({ onCreateAccount, initialEmail }: { onCreateAccount: () => void; initialEmail?: string }) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialEmail) setEmail(initialEmail);
+  }, [initialEmail]);
 
   const redirectTo = location.state?.from?.pathname ?? '/dashboard';
 
@@ -161,6 +165,20 @@ export function LoginForm() {
             </>
           )}
         </Button>
+
+        <div className="border-t border-border/60 pt-5 text-center">
+          <p className="text-sm text-muted-foreground">¿Eres cliente y aún no tienes cuenta?</p>
+          <Button
+            type="button"
+            variant="link"
+            className="mt-1 h-auto gap-1.5 p-0 text-sm font-semibold"
+            onClick={onCreateAccount}
+            disabled={loading}
+          >
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+            Crear cuenta nueva
+          </Button>
+        </div>
       </form>
     </div>
   );

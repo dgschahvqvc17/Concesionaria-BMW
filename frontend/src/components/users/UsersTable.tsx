@@ -26,7 +26,8 @@ const ROLE_STYLES: Record<UserRole, string> = {
   admin: 'border-transparent bg-brand-blue/10 text-brand-blue-deep',
   vendedor: 'border-transparent bg-emerald-500/10 text-emerald-700',
   jefe_taller: 'border-transparent bg-amber-500/10 text-amber-700',
-  mecanico: 'border-transparent bg-zinc-500/10 text-zinc-700',
+  mecanico: 'border-transparent bg-slate-500/10 text-slate-700',
+  cliente: 'border-transparent bg-sky-500/10 text-sky-700',
 };
 
 /** Tabla de usuarios con acciones de edición y activación/desactivación. */

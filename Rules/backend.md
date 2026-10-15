@@ -99,8 +99,11 @@ backend/
 - `requireAuth`: exige `Authorization: Bearer <ID token>` y valida el JWT contra el
   User Pool (`src/auth/verify.js`). Deja `req.auth` (payload) y `req.authRoles`.
 - `requireRole('admin', 'vendedor', ...)`: exige al menos uno de los roles.
-- Roles del sistema (orden = precedencia): `['admin', 'vendedor', 'jefe_taller', 'mecanico']`.
+- Roles del sistema (orden = precedencia): `['admin', 'vendedor', 'jefe_taller', 'mecanico', 'cliente']`.
   Rol por defecto: `mecanico`.
+- `STAFF_ROLES` (admin/vendedor/jefe_taller/mecanico) son los roles internos gestionables
+  por un administrador. Los **clientes** se autorregistran en `POST /api/clientes/registro`
+  (ruta pública) y no pueden crearse ni cambiar de rol desde la gestión de usuarios.
 
 ## Cómo agregar un nuevo endpoint (paso a paso)
 
@@ -147,6 +150,38 @@ Ejemplo: recurso `clientes`.
 | `fotos` | string[] | claves (keys) de S3 |
 | `createdAt`/`updatedAt` | string | ISO-8601 |
 
+### Tabla `Repuestos` (RepuestosStack)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `repuestoId` (PK) | string | UUID |
+| `codigo` | string | índice secundario `codigo-index`; único |
+| `nombre`,`descripcion` | string | |
+| `precio` | number | |
+| `cantidad` | number | existencias actuales (solo cambian con movimientos) |
+| `cantidadMinima` | number | umbral de reposición |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Regla de negocio: `requiereReposicion = cantidad <= cantidadMinima` (lo calcula el servicio).
+
+### Tabla `MovimientosInventario` (RepuestosStack)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `movimientoId` (PK) | string | UUID |
+| `repuestoId` | string | índice secundario `repuesto-index` (+ `createdAt`) |
+| `repuestoCodigo`,`repuestoNombre` | string | desnormalizado para mostrar |
+| `tipo` | string | `entrada` \| `salida` |
+| `cantidad` | number | siempre positivo |
+| `cantidadResultante` | number | existencias después del movimiento |
+| `motivo` | string | opcional |
+| `usuarioId`/`usuarioNombre` | string | autor del movimiento |
+| `createdAt` | string | ISO-8601 |
+
+La salida se registra con un `UpdateItem` condicional (atómico): si el stock
+resultante sería negativo, DynamoDB lanza `ConditionalCheckFailedException` y el
+servicio responde `409 Conflict`.
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -155,6 +190,7 @@ Ejemplo: recurso `clientes`.
 | GET | `/info` | — | Estado de la API (pública) |
 | GET | `/api/productos` | — | Lista demo (pública) |
 | GET | `/api/auth/session` | token | Perfil del usuario autenticado |
+| POST | `/api/clientes/registro` | — | Autorregistro público de clientes |
 | GET | `/api/usuarios` | admin | Listar usuarios |
 | POST | `/api/usuarios` | admin | Crear usuario (Cognito + DynamoDB) |
 | GET | `/api/usuarios/:userId` | admin | Obtener usuario |
@@ -165,6 +201,12 @@ Ejemplo: recurso `clientes`.
 | POST | `/api/vehiculos` | admin/vendedor | Registrar vehículo |
 | PATCH | `/api/vehiculos/:vehiculoId` | admin/vendedor | Actualizar vehículo |
 | POST | `/api/vehiculos/fotos/presign` | admin/vendedor | URL prefirmada de subida |
+| GET | `/api/repuestos` | token | Listar repuestos (con `requiereReposicion`) |
+| GET | `/api/repuestos/:repuestoId` | token | Obtener repuesto |
+| POST | `/api/repuestos` | admin/vendedor/jefe_taller | Registrar repuesto |
+| PATCH | `/api/repuestos/:repuestoId` | admin/vendedor/jefe_taller | Actualizar datos (no `cantidad`) |
+| GET | `/api/movimientos` | token | Historial (`?repuestoId=&tipo=`) |
+| POST | `/api/movimientos` | admin/vendedor/jefe_taller | Registrar entrada o salida |
 
 ## Variables de entorno
 

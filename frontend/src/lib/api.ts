@@ -69,6 +69,25 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   return data as T;
 }
 
+/** Petición pública sin token (p. ej. autorregistro de clientes). */
+export async function publicRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: options.method ?? 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+  });
+
+  const text = await res.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+
+  if (!res.ok) {
+    const message = (data as { error?: string } | null)?.error ?? 'Ocurrió un error inesperado.';
+    throw new ApiError(message, res.status, (data as { details?: unknown } | null)?.details);
+  }
+
+  return data as T;
+}
+
 /** Mensaje de error legible a partir de cualquier excepción. */
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;

@@ -44,7 +44,10 @@ cd infra; npx tsc --noEmit
 
 ## Contexto útil
 
-- Roles: `admin`, `vendedor`, `jefe_taller`, `mecanico` (orden = precedencia; por defecto `mecanico`).
-- HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos (todas implementadas y verificadas).
+- Roles: `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente` (orden = precedencia;
+  por defecto `mecanico`). Los **clientes** se autorregistran desde el login
+  (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
+- HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos y HU04 inventario de repuestos
+  (implementadas; HU01–HU03 verificadas end-to-end).
 - Región AWS: `us-east-2`. Los valores reales de recursos están en los `.env` (no versionados)
   y en `infra/cdk-outputs.json`.
