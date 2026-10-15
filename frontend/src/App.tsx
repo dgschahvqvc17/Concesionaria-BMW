@@ -1,10 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/context/AuthContext';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
+import { UsersPage } from '@/pages/UsersPage';
 
 export function App() {
   return (
@@ -19,15 +21,16 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
           </Route>
 
-          {/* Rutas protegidas por rol: ej. solo admin */}
+          {/* Rutas protegidas por rol: gestión de usuarios solo para admin */}
           <Route element={<ProtectedRoute roles={['admin']} />}>
-            <Route path="/admin" element={<DashboardPage />} />
+            <Route path="/usuarios" element={<UsersPage />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <Toaster />
     </AuthProvider>
   );
 }

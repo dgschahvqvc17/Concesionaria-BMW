@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const config = {
   port: process.env.PORT || 3000,
-  awsRegion: process.env.AWS_REGION || process.env.CDK_DEFAULT_REGION || 'us-east-1',
+  awsRegion: process.env.AWS_REGION || process.env.CDK_DEFAULT_REGION || 'us-east-2',
   userPoolId: process.env.USER_POOL_ID,
   userPoolClientId: process.env.USER_POOL_CLIENT_ID,
   usuariosTableName: process.env.USUARIOS_TABLE_NAME || 'Usuarios',
