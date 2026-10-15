@@ -6,8 +6,9 @@ import { Construct } from 'constructs';
 /**
  * Roles del sistema. Se materializan como "Groups" en Cognito.
  * El rol del usuario viaja dentro del ID token en el claim `cognito:groups`.
+ * El orden define la precedencia (menor índice = mayor jerarquía).
  */
-export const USER_ROLES = ['admin', 'vendedor', 'cliente'] as const;
+export const USER_ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface AuthStackProps extends cdk.StackProps {
@@ -50,14 +51,14 @@ export class AuthStack extends cdk.Stack {
     });
 
     // Cada usuario se copia con su rol en un grupo.
-    for (const role of USER_ROLES) {
+    USER_ROLES.forEach((role, index) => {
       new cognito.CfnUserPoolGroup(this, `Grupo_${role}`, {
         userPoolId: this.userPool.userPoolId,
         groupName: role,
         description: `Rol ${role} del sistema Concesionaria BMW`,
-        precedence: role === 'admin' ? 0 : role === 'vendedor' ? 1 : 2,
+        precedence: index,
       });
-    }
+    });
 
     // App Client para SPA (React): sin secreto, flujo SRP + contraseña.
     this.userPoolClient = this.userPool.addClient('SpaAppClient', {

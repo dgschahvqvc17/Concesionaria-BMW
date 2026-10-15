@@ -3,7 +3,7 @@
  * con su rol asignado como Group de Cognito.
  *
  * Uso (desde infra/):
- *   USER_POOL_ID=us-east-1_XXXX EMAIL=admin@bmw.com PASSWORD='Passw0rd' ROLE=admin NAME='Ana Pérez' npm run create-user
+ *   USER_POOL_ID=us-east-2_XXXX EMAIL=admin@bmw.com PASSWORD='Passw0rd' ROLE=admin NAME='Ana Pérez' npm run create-user
  *
  * Requiere credenciales AWS válidas en el entorno (aws configure / variables).
  */
@@ -15,18 +15,18 @@ import {
   AdminUpdateUserAttributesCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
-const REGION = process.env.AWS_REGION || process.env.CDK_DEFAULT_REGION || 'us-east-1';
+const REGION = process.env.AWS_REGION || process.env.CDK_DEFAULT_REGION || 'us-east-2';
 const USER_POOL_ID = process.env.USER_POOL_ID;
 const EMAIL = process.env.EMAIL;
 const PASSWORD = process.env.PASSWORD || 'Passw0rd123';
 const ROLE = process.env.ROLE || 'vendedor';
 const NAME = process.env.NAME || 'Usuario Demo';
 
-const ROLES = ['admin', 'vendedor', 'cliente'];
+const ROLES = ['admin', 'vendedor', 'jefe_taller', 'mecanico'];
 
 if (!USER_POOL_ID || !EMAIL) {
   console.error('Faltan variables. Ejemplo:');
-  console.error("  USER_POOL_ID=us-east-1_XXXX EMAIL=admin@bmw.com PASSWORD='Passw0rd123' ROLE=admin NAME='Ana Pérez' npm run create-user");
+  console.error("  USER_POOL_ID=us-east-2_XXXX EMAIL=admin@bmw.com PASSWORD='Passw0rd123' ROLE=admin NAME='Ana Pérez' npm run create-user");
   process.exit(1);
 }
 

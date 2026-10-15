@@ -1,5 +1,6 @@
 const { verifyIdToken } = require('./verify');
 const { normalizeRoles } = require('./roles');
+const { UnauthorizedError, ForbiddenError } = require('../errors/AppError');
 
 /** Extrae el token del header `Authorization: Bearer <token>`. */
 function extractBearerToken(header) {
@@ -14,7 +15,7 @@ async function requireAuth(req, res, next) {
   const token = extractBearerToken(req.headers.authorization);
 
   if (!token) {
-    return res.status(401).json({ error: 'Token de autenticación faltante.' });
+    return next(new UnauthorizedError('Token de autenticación faltante.'));
   }
 
   try {
@@ -22,8 +23,8 @@ async function requireAuth(req, res, next) {
     req.auth = payload;
     req.authRoles = normalizeRoles(payload['cognito:groups']);
     return next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Token inválido o expirado. Vuelve a iniciar sesión.' });
+  } catch {
+    return next(new UnauthorizedError('Token inválido o expirado. Vuelve a iniciar sesión.'));
   }
 }
 
@@ -34,7 +35,7 @@ function requireRole(...roles) {
     const allowed = roles.some((role) => userRoles.includes(role));
 
     if (!allowed) {
-      return res.status(403).json({ error: 'No tienes permisos para acceder a este recurso.' });
+      return next(new ForbiddenError('No tienes permisos para realizar esta acción.'));
     }
     return next();
   };

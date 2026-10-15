@@ -7,11 +7,13 @@ export const APP_TAGLINE = 'Gestión de vehículos premium';
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrador',
   vendedor: 'Vendedor',
-  cliente: 'Cliente',
+  jefe_taller: 'Jefe de Taller',
+  mecanico: 'Mecánico',
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   admin: 'Tienes acceso completo: gestión de usuarios, vehículos y reportes del sistema.',
   vendedor: 'Puedes gestionar vehículos, clientes y registrar ventas.',
-  cliente: 'Puedes consultar el catálogo de vehículos y el estado de tus compras.',
+  jefe_taller: 'Puedes supervisar el taller, asignar órdenes de trabajo y gestionar mecánicos.',
+  mecanico: 'Puedes consultar y actualizar las órdenes de trabajo asignadas.',
 };
