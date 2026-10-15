@@ -1,4 +1,14 @@
-import { BadgeCheck, Car, Fingerprint, Mail, Package, ShieldCheck, UserRound, Users } from 'lucide-react';
+import {
+  BadgeCheck,
+  Car,
+  CarFront,
+  Fingerprint,
+  Mail,
+  Package,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
@@ -84,6 +94,16 @@ export function DashboardPage() {
                 </Button>
               </>
             )}
+            <Button
+              asChild
+              variant="outline"
+              className="border-white/25 bg-white/5 text-white hover:bg-white/15 hover:text-white"
+            >
+              <Link to="/catalogo">
+                <CarFront className="h-4 w-4" aria-hidden="true" />
+                Ver catálogo
+              </Link>
+            </Button>
             {esAdmin && (
               <Button
                 asChild

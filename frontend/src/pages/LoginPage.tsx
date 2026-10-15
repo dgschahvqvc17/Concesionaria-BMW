@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CarFront } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
@@ -44,6 +46,14 @@ export function LoginPage() {
           ) : (
             <RegisterClienteForm onBack={() => setMode('login')} onRegistered={handleRegistered} />
           )}
+
+          <Link
+            to="/catalogo"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <CarFront className="h-4 w-4" aria-hidden="true" />
+            Explorar el catálogo sin iniciar sesión
+          </Link>
         </div>
       </main>
     </div>

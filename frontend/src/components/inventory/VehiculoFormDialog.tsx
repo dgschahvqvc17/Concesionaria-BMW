@@ -17,12 +17,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { getFieldErrors } from '@/lib/api';
-import { CONDICIONES, CONDICION_LABELS, ESTADOS, ESTADO_LABELS } from '@/lib/vehiculos';
+import {
+  CONDICIONES,
+  CONDICION_LABELS,
+  ESTADOS,
+  ESTADO_LABELS,
+  TIPOS,
+  TIPO_LABELS,
+} from '@/lib/vehiculos';
 import type {
   CondicionVehiculo,
   CreateVehiculoInput,
   EstadoVehiculo,
+  TipoVehiculo,
   UpdateVehiculoInput,
   Vehiculo,
   VehiculoFoto,
@@ -53,7 +62,11 @@ const schema = z.object({
     .toUpperCase()
     .regex(/^[A-HJ-NPR-Z0-9]{17}$/, 'El VIN debe tener 17 caracteres válidos (sin I, O ni Q).'),
   condicion: z.enum([...CONDICIONES] as [CondicionVehiculo, ...CondicionVehiculo[]]),
+  tipo: z.enum([...TIPOS] as [TipoVehiculo, ...TipoVehiculo[]]),
   estado: z.enum([...ESTADOS] as [EstadoVehiculo, ...EstadoVehiculo[]]),
+  descripcion: z.string().trim().max(1000, 'La descripción no puede superar los 1000 caracteres.').optional(),
+  caracteristicas: z.string().optional(),
+  publicado: z.enum(['si', 'no']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -78,7 +91,11 @@ function getDefaults(vehiculo: Vehiculo | null): FormValues {
     color: vehiculo?.color ?? '',
     vin: vehiculo?.vin ?? '',
     condicion: vehiculo?.condicion ?? 'nuevo',
+    tipo: vehiculo?.tipo ?? 'sedan',
     estado: vehiculo?.estado ?? 'disponible',
+    descripcion: vehiculo?.descripcion ?? '',
+    caracteristicas: (vehiculo?.caracteristicas ?? []).join('\n'),
+    publicado: vehiculo?.publicado === false ? 'no' : 'si',
   };
 }
 
@@ -114,8 +131,23 @@ export function VehiculoFormDialog({
 
   const submit = handleSubmit(async (values) => {
     const payload: CreateVehiculoInput = {
-      ...values,
+      marca: values.marca,
+      modelo: values.modelo,
+      anio: values.anio,
+      version: values.version,
+      kilometraje: values.kilometraje,
+      precio: values.precio,
+      color: values.color,
       vin: values.vin.toUpperCase(),
+      condicion: values.condicion,
+      tipo: values.tipo,
+      estado: values.estado,
+      descripcion: values.descripcion?.trim() ?? '',
+      caracteristicas: (values.caracteristicas ?? '')
+        .split('\n')
+        .map((linea) => linea.trim())
+        .filter(Boolean),
+      publicado: values.publicado === 'si',
       fotos: fotos.map((foto) => foto.key),
     };
 
@@ -216,7 +248,30 @@ export function VehiculoFormDialog({
               {fieldError('vin') && <p className="text-xs text-destructive">{fieldError('vin')}</p>}
             </div>
 
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2">
+              <Label htmlFor="tipo">Tipo</Label>
+              <Controller
+                control={control}
+                name="tipo"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="tipo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {TIPO_LABELS[tipo]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {fieldError('tipo') && <p className="text-xs text-destructive">{fieldError('tipo')}</p>}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
               <Controller
                 control={control}
@@ -237,6 +292,52 @@ export function VehiculoFormDialog({
                 )}
               />
               {fieldError('estado') && <p className="text-xs text-destructive">{fieldError('estado')}</p>}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                placeholder="Descripción general del vehículo para el catálogo web."
+                {...register('descripcion')}
+              />
+              {fieldError('descripcion') && (
+                <p className="text-xs text-destructive">{fieldError('descripcion')}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="caracteristicas">Características principales</Label>
+              <Textarea
+                id="caracteristicas"
+                placeholder={'Una por línea, por ejemplo:\nTecho panorámico\nAsientos de cuero\nCámara 360°'}
+                {...register('caracteristicas')}
+              />
+              {fieldError('caracteristicas') && (
+                <p className="text-xs text-destructive">{fieldError('caracteristicas')}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="publicado">Catálogo web</Label>
+              <Controller
+                control={control}
+                name="publicado"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="publicado">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="si">Publicar en el catálogo</SelectItem>
+                      <SelectItem value="no">No publicar (oculto)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                Los vehículos no publicados no se muestran en el catálogo web.
+              </p>
             </div>
 
             <div className="space-y-2 sm:col-span-2">

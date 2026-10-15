@@ -12,6 +12,36 @@ async function toResponse(vehiculo) {
   return { ...vehiculo, fotos: await storageService.withViewUrls(fotos) };
 }
 
+/**
+ * Proyección pública de un vehículo para el catálogo web (HU05).
+ * Omite datos internos (VIN, autoría) y expone solo lo que ve el cliente.
+ */
+async function toCatalogoResponse(vehiculo) {
+  const fotos = vehiculo.fotos ?? [];
+  return {
+    vehiculoId: vehiculo.vehiculoId,
+    marca: vehiculo.marca,
+    modelo: vehiculo.modelo,
+    anio: vehiculo.anio,
+    version: vehiculo.version,
+    kilometraje: vehiculo.kilometraje,
+    precio: vehiculo.precio,
+    color: vehiculo.color,
+    condicion: vehiculo.condicion,
+    tipo: vehiculo.tipo ?? 'otros',
+    estado: vehiculo.estado,
+    descripcion: vehiculo.descripcion ?? '',
+    caracteristicas: vehiculo.caracteristicas ?? [],
+    fotos: await storageService.withViewUrls(fotos),
+    createdAt: vehiculo.createdAt,
+  };
+}
+
+/** Indica si un vehículo debe mostrarse en el catálogo público. */
+function esPublicado(vehiculo) {
+  return vehiculo.publicado !== false;
+}
+
 /** Registra un vehículo nuevo validando que el VIN no esté duplicado. */
 async function createVehiculo(input, actor) {
   const existente = await vehiculoRepository.findByVin(input.vin);
@@ -31,7 +61,11 @@ async function createVehiculo(input, actor) {
     color: input.color,
     vin: input.vin,
     condicion: input.condicion,
+    tipo: input.tipo,
     estado: input.estado ?? ESTADO_DISPONIBLE,
+    descripcion: input.descripcion ?? '',
+    caracteristicas: input.caracteristicas ?? [],
+    publicado: input.publicado ?? true,
     fotos: input.fotos ?? [],
     createdAt: ahora,
     updatedAt: ahora,
@@ -91,10 +125,30 @@ function createFotoUploadUrl(payload) {
   return storageService.createUploadUrl(payload);
 }
 
+/** Lista los vehículos publicados en el catálogo web (HU05). */
+async function listCatalogo() {
+  const vehiculos = await vehiculoRepository.listAll();
+  const publicados = vehiculos
+    .filter(esPublicado)
+    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
+  return Promise.all(publicados.map(toCatalogoResponse));
+}
+
+/** Obtiene un vehículo publicado por su identificador para el catálogo web (HU05). */
+async function getCatalogoVehiculo(vehiculoId) {
+  const vehiculo = await vehiculoRepository.findById(vehiculoId);
+  if (!vehiculo || vehiculo.publicado === false) {
+    throw new NotFoundError('El vehículo no está disponible en el catálogo.');
+  }
+  return toCatalogoResponse(vehiculo);
+}
+
 module.exports = {
   createVehiculo,
   updateVehiculo,
   listVehiculos,
   getVehiculo,
+  listCatalogo,
+  getCatalogoVehiculo,
   createFotoUploadUrl,
 };

@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository.js, vehiculoRepository.js
-    ├── services/                 # usuarioService, vehiculoService, cognitoService, storageService
-    ├── controllers/              # usuarioController, vehiculoController
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, vehiculoRoutes
-    ├── validation/               # usuarioSchemas.js, vehiculoSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -146,9 +146,16 @@ Ejemplo: recurso `clientes`.
 | `kilometraje` | number | |
 | `precio` | number | |
 | `condicion` | string | `nuevo` \| `seminuevo` |
+| `tipo` | string | `sedan` \| `suv` \| `coupe` \| `cabrio` \| `touring` \| `hatchback` \| `deportivo` \| `otros` |
 | `estado` | string | `disponible` \| `reservado` \| `vendido` \| `no_disponible` |
+| `descripcion` | string | texto libre para el catálogo (opcional) |
+| `caracteristicas` | string[] | características principales (opcional) |
+| `publicado` | boolean | si es `false`, no aparece en el catálogo web (por defecto `true`) |
 | `fotos` | string[] | claves (keys) de S3 |
 | `createdAt`/`updatedAt` | string | ISO-8601 |
+
+El **catálogo web (HU05)** es una proyección pública del inventario: expone solo los
+vehículos con `publicado !== false` y omite datos internos (VIN, `createdBy`, etc.).
 
 ### Tabla `Repuestos` (RepuestosStack)
 
@@ -188,9 +195,10 @@ servicio responde `409 Conflict`.
 | --- | --- | --- | --- |
 | GET | `/` | — | Bienvenida (ruta pública) |
 | GET | `/info` | — | Estado de la API (pública) |
-| GET | `/api/productos` | — | Lista demo (pública) |
 | GET | `/api/auth/session` | token | Perfil del usuario autenticado |
 | POST | `/api/clientes/registro` | — | Autorregistro público de clientes |
+| GET | `/api/catalogo` | — | Catálogo web público (solo publicados) |
+| GET | `/api/catalogo/:vehiculoId` | — | Detalle público de un vehículo publicado |
 | GET | `/api/usuarios` | admin | Listar usuarios |
 | POST | `/api/usuarios` | admin | Crear usuario (Cognito + DynamoDB) |
 | GET | `/api/usuarios/:userId` | admin | Obtener usuario |

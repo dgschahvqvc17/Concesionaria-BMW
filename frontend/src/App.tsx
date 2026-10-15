@@ -1,16 +1,19 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { CatalogoLayout } from '@/components/catalog/CatalogoLayout';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/context/AuthContext';
 import { STAFF_ROLES } from '@/lib/roles';
+import { CatalogoPage } from '@/pages/CatalogoPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { InventoryPage } from '@/pages/InventoryPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RepuestosPage } from '@/pages/RepuestosPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { UsersPage } from '@/pages/UsersPage';
+import { VehiculoDetallePage } from '@/pages/VehiculoDetallePage';
 
 export function App() {
   return (
@@ -19,6 +22,12 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/no-autorizado" element={<UnauthorizedPage />} />
+
+          {/* Catálogo web público: accesible sin iniciar sesión (HU05). */}
+          <Route element={<CatalogoLayout />}>
+            <Route path="/catalogo" element={<CatalogoPage />} />
+            <Route path="/catalogo/:vehiculoId" element={<VehiculoDetallePage />} />
+          </Route>
 
           {/* Rutas protegidas: comparten la estructura con barra lateral */}
           <Route element={<ProtectedRoute />}>
