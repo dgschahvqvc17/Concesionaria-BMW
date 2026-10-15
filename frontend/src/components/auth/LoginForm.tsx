@@ -67,11 +67,16 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md animate-slide-up rounded-2xl border border-border/70 bg-card p-8 shadow-panel">
-      <div className="mb-6 space-y-1.5">
+    <div className="relative w-full max-w-md animate-slide-up overflow-hidden rounded-3xl border border-border/70 bg-card p-8 shadow-panel">
+      <span className="absolute inset-x-0 top-0 h-1 bg-m-gradient" aria-hidden="true" />
+
+      <div className="mb-7 space-y-2">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+          Acceso al sistema
+        </p>
         <h2 className="text-2xl font-semibold tracking-tight">Iniciar sesión</h2>
         <p className="text-sm text-muted-foreground">
-          Ingresa con tu correo y contraseña para acceder al sistema.
+          Ingresa con tu correo y contraseña para continuar.
         </p>
       </div>
 
@@ -100,7 +105,7 @@ export function LoginForm() {
             className="h-11"
           />
           {fieldErrors.email && (
-            <p id="email-error" className="text-sm font-medium text-destructive">
+            <p id="email-error" className="text-xs font-medium text-destructive">
               {fieldErrors.email}
             </p>
           )}
@@ -125,21 +130,25 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword((visible) => !visible)}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground"
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               tabIndex={-1}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
             </button>
           </div>
           {fieldErrors.password && (
-            <p id="password-error" className="text-sm font-medium text-destructive">
+            <p id="password-error" className="text-xs font-medium text-destructive">
               {fieldErrors.password}
             </p>
           )}
         </div>
 
-        <Button type="submit" className="h-11 w-full text-sm font-semibold" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -147,16 +156,12 @@ export function LoginForm() {
             </>
           ) : (
             <>
-              Iniciar sesión
+              Ingresar
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </>
           )}
         </Button>
       </form>
-
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        ¿No tienes cuenta? Contacta al administrador del sistema.
-      </p>
     </div>
   );
 }

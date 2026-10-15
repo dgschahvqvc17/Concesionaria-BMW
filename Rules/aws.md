@@ -1,0 +1,118 @@
+# AWS — Servicios, infraestructura y capa gratuita
+
+Infraestructura declarada como código con **AWS CDK (TypeScript)** en `infra/`.
+
+## REGLA PRINCIPAL: solo capa gratuita (Free Tier)
+
+> **Es obligatorio mantenerse dentro de la capa gratuita de AWS.** El proyecto es una
+> práctica académica y **no debe generar gastos**.
+
+- No agregar servicios que generen costo.
+- Antes de proponer un recurso nuevo, verifica que esté cubierto por la capa gratuita
+  (y revisa [`aws.md` → Costos](#capa-gratuita-y-costos)).
+- Servicios **prohibidos** salvo justificación y confirmación explícita: EC2, RDS,
+  ElastiCache, API Gateway, NAT Gateway, ECS/EKS, OpenSearch, Redshift, etc.
+- Configura siempre límites de bajo consumo (`RemovalPolicy.DESTROY`, capacidad mínima).
+- Mantén activa la **alarma de presupuesto** de AWS Budgets.
+
+## Servicios AWS utilizados
+
+| Servicio | Para qué | Recurso |
+| --- | --- | --- |
+| **Amazon Cognito** | Autenticación (email + contraseña) y roles vía Groups. | User Pool + App Client + 4 grupos |
+| **Amazon DynamoDB** | Persistencia de usuarios y vehículos. | 2 tablas (modo on-demand) |
+| **Amazon S3** | Almacenamiento de fotografías de vehículos. | 1 bucket privado |
+| **AWS CloudFormation** | Despliegue de la infraestructura (lo usa CDK). | 3 stacks |
+| **AWS Lambda** | Helper de CDK para vaciar el bucket al destruir el stack (`autoDeleteObjects`). | 1 función auxiliar |
+| **AWS IAM** | Rol de la Lambda auxiliar. | 1 rol |
+| **AWS Budgets** | Alerta de presupuesto (`ConcesionariaBMW-1USD`). | 1 presupuesto |
+| **Amazon CloudWatch** | Métricas/alarmas del presupuesto. | mínimo |
+
+No se usa API Gateway, EC2, RDS, S3 público ni ninguna base relacional.
+
+## Regla de la capa gratuita — detalle por servicio
+
+| Servicio | Capa gratuita | Situación del proyecto |
+| --- | --- | --- |
+| **Cognito** | 50 000 MAU (plan Essentials). | Muy por debajo; **$0**. |
+| **DynamoDB (almacenamiento)** | 25 GB. | Uso ínfimo; **$0**. |
+| **DynamoDB (lecturas/escrituras)** | 25 WCU + 25 RCU **solo en modo provisioned**. | Usamos **on-demand** → no cubierto por ese tramo, pero el consumo real es ~$0. |
+| **S3** | 5 GB + 20 000 GET + 2 000 PUT durante los **primeros 12 meses**. | Uso mínimo. |
+| **CloudFormation** | Ilimitado. | **$0**. |
+| **Lambda** | 1 millón de solicitudes + 400 000 GB-s **cada mes (permanente)**. | Solo 1–2 invocaciones; **$0**. |
+| **Budgets** | 2 presupuestos gratis. | 1 usado; **$0**. |
+| **CloudWatch (alarmas)** | 10 alarmas gratis. | Dentro del límite. |
+
+Conclusión: el gasto mensual real es **~$0**, aunque técnicamente DynamoDB on-demand y
+S3 (tras los primeros 12 meses) no dependen del tramo gratuito. Si se quisiera asegurar
+el 100 % en capa gratuita, se podría pasar DynamoDB a **provisioned 25/25**.
+
+## Arquitectura de la infraestructura
+
+```text
+infra/
+├── bin/concesionaria.ts        # Define la app CDK y las dos stacks
+├── lib/
+│   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
+│   └── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
+└── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
+```
+
+### Stack 1 — `ConcesionariaBmwAuthStack` (HU01/HU02)
+
+- **Cognito User Pool**: login por email, auto-verificación de email, política de
+  contraseña (mín. 8, mayúscula, minúscula, número; sin símbolos).
+- **Groups** (roles): `admin`, `vendedor`, `jefe_taller`, `mecanico` (con precedencia).
+- **App Client** (SPA, sin secreto): flujos SRP y `USER_PASSWORD_AUTH`, tokens de 1 h.
+- **Tabla `Usuarios`** (DynamoDB): PK `userId`, GSI `email-index`.
+- Salidas: `UserPoolId`, `UserPoolClientId`, `UsuariosTableName`, `Region`.
+
+### Stack 2 — `ConcesionariaBmwInventarioStack` (HU03)
+
+- **Tabla `Vehiculos`** (DynamoDB): PK `vehiculoId`, GSI `vin-index`.
+- **Bucket `FotosVehiculosBucket`** (S3): **privado** (`BLOCK_ALL`), cifrado
+  `S3_MANAGED`, `enforceSSL`, CORS para `http://localhost:5173`,
+  `autoDeleteObjects` + `DESTROY`.
+- Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
+
+Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
+de `backend` y `frontend`.
+
+## Seguridad
+
+- **S3 nunca público**: las imágenes se suben/leen con **URLs prefirmadas** (expiran en
+  1 hora) generadas por el backend (`src/services/storageService.js`).
+- Validación de `content-type` permitido (jpg/png/webp/gif) antes de firmar la subida.
+- Autenticación por **ID token de Cognito** verificado en el backend (firma, exp, iss, aud).
+- **Nunca** subir credenciales AWS, `.env` ni tokens al repositorio.
+- Las credenciales AWS deben venir del entorno (`aws configure` / variables), nunca del código.
+
+## Región
+
+`us-east-2` (Ohio), configurable con `CDK_DEFAULT_REGION` / `AWS_REGION`.
+
+## Comandos (desde `infra/`)
+
+```bash
+npm install                 # dependencias
+npm run synth               # generar plantillas CloudFormation
+npm run deploy              # cdk deploy --require-approval never
+npm run destroy             # eliminar las stacks
+npm run create-user         # alta de usuario (ver variables abajo)
+```
+
+Alta de usuario de prueba:
+
+```bash
+# PowerShell
+$env:USER_POOL_ID="us-east-2_XXXX"; $env:EMAIL="admin@bmw.com"; $env:PASSWORD="Passw0rd123"; $env:ROLE="admin"; $env:NAME="Admin Demo"; npm run create-user
+```
+
+## Reglas al tocar la infraestructura
+
+- Mantener `RemovalPolicy.DESTROY` y `autoDeleteObjects` (entorno de práctica).
+- No habilitar funcionalidades de Cognito con costo (SMS, MFA por SMS, advanced security
+  avanzada).
+- No exponer buckets ni tablas públicamente.
+- Toda salida necesaria para el backend/frontend debe declararse como `CfnOutput`.
+- Si agregas un recurso, verifica que esté dentro de la capa gratuita y documéntalo aquí.

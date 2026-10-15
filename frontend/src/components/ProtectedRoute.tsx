@@ -16,9 +16,10 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <BmwRoundel className="h-12 w-12 animate-pulse" />
-        <p className="text-sm text-muted-foreground">Verificando sesión…</p>
+      <div className="relative flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        <div className="pointer-events-none fixed inset-0 bg-bmw-mesh" aria-hidden="true" />
+        <BmwRoundel className="relative h-12 w-12 animate-float" />
+        <p className="relative text-sm text-muted-foreground">Verificando sesión…</p>
       </div>
     );
   }

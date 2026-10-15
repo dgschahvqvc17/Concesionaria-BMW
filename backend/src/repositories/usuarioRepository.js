@@ -1,6 +1,9 @@
 const { GetCommand, PutCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
-const { documentClient, tableName } = require('../db/dynamodb');
+const { documentClient } = require('../db/dynamodb');
+const { config } = require('../config');
+
+const tableName = config.usuariosTableName;
 
 /**
  * Repositorio de usuarios en DynamoDB.

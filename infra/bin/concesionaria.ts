@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
+import { InventarioStack } from '../lib/inventario-stack';
 
 const app = new cdk.App();
 
@@ -14,6 +15,12 @@ new AuthStack(app, 'ConcesionariaBmwAuthStack', {
   env,
   description:
     'HU01 - Iniciar sesión: Cognito User Pool (autenticación + roles por Groups) y tabla DynamoDB de usuarios.',
+});
+
+new InventarioStack(app, 'ConcesionariaBmwInventarioStack', {
+  env,
+  description:
+    'HU03 - Inventario de vehículos: tabla DynamoDB de vehículos y bucket S3 de fotografías.',
 });
 
 app.synth();

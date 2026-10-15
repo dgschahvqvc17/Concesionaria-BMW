@@ -6,6 +6,8 @@ const config = {
   userPoolId: process.env.USER_POOL_ID,
   userPoolClientId: process.env.USER_POOL_CLIENT_ID,
   usuariosTableName: process.env.USUARIOS_TABLE_NAME || 'Usuarios',
+  vehiculosTableName: process.env.VEHICULOS_TABLE_NAME || 'Vehiculos',
+  fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };
 
@@ -14,10 +16,11 @@ function assertAuthConfig() {
   const missing = [];
   if (!config.userPoolId) missing.push('USER_POOL_ID');
   if (!config.userPoolClientId) missing.push('USER_POOL_CLIENT_ID');
+  if (!config.fotosBucketName) missing.push('FOTOS_BUCKET_NAME');
 
   if (missing.length > 0) {
     throw new Error(
-      `Faltan variables de entorno para Cognito: ${missing.join(', ')}. Copia .env.example a .env y completa los valores del despliegue de CDK.`
+      `Faltan variables de entorno: ${missing.join(', ')}. Copia .env.example a .env y completa los valores del despliegue de CDK.`
     );
   }
 }
