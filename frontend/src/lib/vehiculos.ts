@@ -1,12 +1,34 @@
-import type { CondicionVehiculo, EstadoVehiculo } from '@/types/vehiculo';
+import type { CondicionVehiculo, EstadoVehiculo, TipoVehiculo } from '@/types/vehiculo';
 
 export const CONDICIONES: CondicionVehiculo[] = ['nuevo', 'seminuevo'];
 
 export const ESTADOS: EstadoVehiculo[] = ['disponible', 'reservado', 'vendido', 'no_disponible'];
 
+export const TIPOS: TipoVehiculo[] = [
+  'sedan',
+  'suv',
+  'coupe',
+  'cabrio',
+  'touring',
+  'hatchback',
+  'deportivo',
+  'otros',
+];
+
 export const CONDICION_LABELS: Record<CondicionVehiculo, string> = {
   nuevo: 'Nuevo',
   seminuevo: 'Seminuevo',
+};
+
+export const TIPO_LABELS: Record<TipoVehiculo, string> = {
+  sedan: 'Sedán',
+  suv: 'SUV',
+  coupe: 'Coupé',
+  cabrio: 'Cabrio',
+  touring: 'Touring',
+  hatchback: 'Hatchback',
+  deportivo: 'Deportivo',
+  otros: 'Otros',
 };
 
 export const ESTADO_LABELS: Record<EstadoVehiculo, string> = {

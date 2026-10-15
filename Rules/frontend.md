@@ -19,20 +19,21 @@ frontend/src/
 ├── main.tsx                # Punto de entrada; configureAmplify()
 ├── index.css               # Tokens CSS, utilidades (surface-card, glass) y base
 ├── components/
-│   ├── auth/               # LoginForm, AuthBrandPanel
+│   ├── auth/               # LoginForm, AuthBrandPanel, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
+│   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
 │   ├── common/             # ConfirmDialog
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
-│   ├── ui/                 # Primitivos shadcn/ui (button, input, card, table, ...)
+│   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useRepuestos, useMovimientos
-├── lib/                    # api, amplify, brand, roles, vehiculos, cognito-errors, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, UsersPage, UnauthorizedPage
-├── services/               # usuarios, vehiculos, repuestos, movimientos (llamadas a la API)
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, cognito-errors, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos (llamadas a la API)
 └── types/                  # usuario, vehiculo, repuesto
 ```
 
@@ -97,8 +98,8 @@ variables CSS (HSL) en `src/index.css`, con variantes clara y `.dark`.
 ### Primitivos UI (shadcn/ui)
 
 En `src/components/ui`. **Reutilízalos** en vez de crear estilos ad hoc:
-`button`, `input`, `label`, `card`, `table`, `dialog`, `select`, `badge`, `alert`,
-`sonner` (toasts). Están alineados a la marca (p. ej. el botón por defecto usa
+`button`, `input`, `textarea`, `label`, `card`, `table`, `dialog`, `select`, `badge`,
+`alert`, `sonner` (toasts). Están alineados a la marca (p. ej. el botón por defecto usa
 degradado BMW).
 
 ## Convenciones de componentes
@@ -122,14 +123,24 @@ degradado BMW).
 - `components/ProtectedRoute.tsx`: exige sesión y, opcionalmente, roles.
 - `App.tsx`: define el enrutado. Las rutas protegidas viven dentro de `<AppLayout />`;
   `/inventario` y `/repuestos` bajo `ProtectedRoute roles={STAFF_ROLES}` (no accesibles
-  para clientes) y `/usuarios` bajo `ProtectedRoute roles={['admin']}`.
+  para clientes) y `/usuarios` bajo `ProtectedRoute roles={['admin']}`. El **catálogo web**
+  (`/catalogo` y `/catalogo/:vehiculoId`) es **público**, bajo `<CatalogoLayout />`, sin sesión.
 - `components/auth/LoginPage` alterna entre `LoginForm` y `RegisterClienteForm`
   (autorregistro de clientes) mediante el estado `mode`.
+
+## Catálogo web (HU05)
+
+- Público y responsive: `components/catalog/` (`CatalogoLayout`, `CatalogoCard`,
+  `CatalogoFiltros`, `VehiculoGaleria`) y `pages/CatalogoPage` / `pages/VehiculoDetallePage`.
+- Datos: `services/catalogo.ts` (`catalogoService.list/get`) + `hooks/useCatalogo.ts`;
+  filtrado por palabra clave, tipo, condición, año y precio en `lib/catalogo.ts`.
+- Se alimenta del mismo inventario; solo se muestran los vehículos `publicado !== false`.
 
 ## Acceso a la API
 
 - `lib/api.ts`: `apiRequest<T>()` adjunta el ID token de Cognito y normaliza errores
-  como `ApiError`. Helpers: `getErrorMessage`, `getFieldErrors`, `getSessionProfile`.
+  como `ApiError`. `publicRequest<T>()` es para endpoints públicos (catálogo, autorregistro).
+  Helpers: `getErrorMessage`, `getFieldErrors`, `getSessionProfile`.
 - `services/*.ts`: un objeto con funciones por endpoint (p. ej. `usuariosService.list`).
 - `hooks/*`: estado (`loading`, `error`) + acciones; exponen operaciones listas para la UI.
 - Subida de fotos: `services/vehiculos.ts` pide una URL prefirmada

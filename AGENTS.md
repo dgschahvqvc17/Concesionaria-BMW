@@ -47,7 +47,9 @@ cd infra; npx tsc --noEmit
 - Roles: `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente` (orden = precedencia;
   por defecto `mecanico`). Los **clientes** se autorregistran desde el login
   (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
-- HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos y HU04 inventario de repuestos
-  (implementadas; HU01–HU03 verificadas end-to-end).
+- HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos
+  y HU05 catálogo web público de vehículos (implementadas; HU01–HU04 verificadas end-to-end).
+- Catálogo público (HU05): `GET /api/catalogo` y `GET /api/catalogo/:vehiculoId` (sin auth);
+  solo expone vehículos con `publicado !== false`, con proyección pública (sin VIN ni datos internos).
 - Región AWS: `us-east-2`. Los valores reales de recursos están en los `.env` (no versionados)
   y en `infra/cdk-outputs.json`.

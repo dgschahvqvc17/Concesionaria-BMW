@@ -27,7 +27,8 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU01** | Inicio de sesión con Cognito y control de acceso por rol. | Implementada y verificada |
 | **HU02** | Administración de usuarios y roles (solo `admin`). | Implementada y verificada |
 | **HU03** | Inventario de vehículos: alta, edición, filtros y fotos en S3. | Implementada y verificada |
-| **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada |
+| **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada y verificada |
+| **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -142,7 +143,8 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 
 | Método | Ruta | Acceso |
 | --- | --- | --- |
-| GET | `/` , `/info`, `/api/productos` | Público |
+| GET | `/` , `/info` | Público |
+| GET | `/api/catalogo` , `/api/catalogo/:vehiculoId` | Público (catálogo web) |
 | GET | `/api/auth/session` | Autenticado |
 | POST | `/api/clientes/registro` | Público (autorregistro de clientes) |
 | GET/POST | `/api/usuarios` | `admin` |

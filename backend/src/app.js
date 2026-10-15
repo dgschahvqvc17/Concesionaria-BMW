@@ -6,6 +6,7 @@ const publicRoutes = require('./routes/publicRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
+const catalogoRoutes = require('./routes/catalogoRoutes');
 const vehiculoRoutes = require('./routes/vehiculoRoutes');
 const repuestoRoutes = require('./routes/repuestoRoutes');
 const movimientoRoutes = require('./routes/movimientoRoutes');
@@ -22,6 +23,7 @@ function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/usuarios', usuarioRoutes);
   app.use('/api/clientes', clienteRoutes);
+  app.use('/api/catalogo', catalogoRoutes);
   app.use('/api/vehiculos', vehiculoRoutes);
   app.use('/api/repuestos', repuestoRoutes);
   app.use('/api/movimientos', movimientoRoutes);

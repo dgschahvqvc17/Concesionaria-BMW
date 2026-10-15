@@ -11,7 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CONDICION_LABELS, ESTADOS, ESTADO_LABELS, ESTADO_STYLES, formatKilometraje, formatPrecio } from '@/lib/vehiculos';
+import {
+  CONDICION_LABELS,
+  ESTADOS,
+  ESTADO_LABELS,
+  ESTADO_STYLES,
+  TIPO_LABELS,
+  formatKilometraje,
+  formatPrecio,
+} from '@/lib/vehiculos';
 import type { EstadoVehiculo, Vehiculo } from '@/types/vehiculo';
 
 interface VehiculosTableProps {
@@ -64,11 +72,18 @@ export function VehiculosTable({
                 )}
               </TableCell>
               <TableCell>
-                <div className="font-medium">
-                  {vehiculo.marca} {vehiculo.modelo}
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {vehiculo.marca} {vehiculo.modelo}
+                  </span>
+                  {vehiculo.publicado === false && (
+                    <Badge className="border-transparent bg-zinc-500/10 text-zinc-600">Oculto</Badge>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {vehiculo.version} · {vehiculo.color} · {CONDICION_LABELS[vehiculo.condicion]}
+                  {vehiculo.version} · {vehiculo.color} ·{' '}
+                  {vehiculo.tipo ? TIPO_LABELS[vehiculo.tipo] : 'Sin tipo'} ·{' '}
+                  {CONDICION_LABELS[vehiculo.condicion]}
                 </div>
                 <div className="font-mono text-[11px] text-muted-foreground">VIN {vehiculo.vin}</div>
               </TableCell>

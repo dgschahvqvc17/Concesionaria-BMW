@@ -4,6 +4,7 @@ const { ValidationError } = require('../errors/AppError');
 
 const CONDICIONES = ['nuevo', 'seminuevo'];
 const ESTADOS = ['disponible', 'reservado', 'vendido', 'no_disponible'];
+const TIPOS = ['sedan', 'suv', 'coupe', 'cabrio', 'touring', 'hatchback', 'deportivo', 'otros'];
 
 /**
  * VIN estándar de 17 caracteres alfanuméricos (sin I, O ni Q).
@@ -37,7 +38,18 @@ const vehiculoBase = {
   color: z.string().trim().min(1, 'El color es obligatorio.').max(40),
   vin: vinSchema,
   condicion: z.enum(CONDICIONES, { message: 'La condición debe ser "nuevo" o "seminuevo".' }),
+  tipo: z.enum(TIPOS, { message: 'Tipo de vehículo inválido.' }),
   estado: z.enum(ESTADOS, { message: 'Estado de vehículo inválido.' }).optional(),
+  descripcion: z
+    .string()
+    .trim()
+    .max(1000, 'La descripción no puede superar los 1000 caracteres.')
+    .optional(),
+  caracteristicas: z
+    .array(z.string().trim().min(1).max(80))
+    .max(20, 'Máximo 20 características por vehículo.')
+    .optional(),
+  publicado: z.boolean().optional(),
   fotos: z.array(z.string().trim().min(1)).max(15, 'Máximo 15 fotografías por vehículo.').optional(),
 };
 
@@ -54,7 +66,11 @@ const updateVehiculoSchema = z
     color: vehiculoBase.color.optional(),
     vin: vehiculoBase.vin.optional(),
     condicion: vehiculoBase.condicion.optional(),
+    tipo: vehiculoBase.tipo.optional(),
     estado: z.enum(ESTADOS, { message: 'Estado de vehículo inválido.' }).optional(),
+    descripcion: vehiculoBase.descripcion,
+    caracteristicas: vehiculoBase.caracteristicas,
+    publicado: vehiculoBase.publicado,
     fotos: vehiculoBase.fotos,
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'No se enviaron cambios para actualizar.' });
@@ -81,6 +97,7 @@ function validate(schema, data) {
 module.exports = {
   CONDICIONES,
   ESTADOS,
+  TIPOS,
   createVehiculoSchema,
   updateVehiculoSchema,
   presignFotoSchema,

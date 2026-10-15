@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Car, LayoutDashboard, LogOut, Menu, Package, Users, X, type LucideIcon } from 'lucide-react';
+import {
+  Car,
+  CarFront,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
 import { MStripe } from '@/components/brand/MStripe';
@@ -22,6 +32,7 @@ const STAFF_NAV_ROLES: UserRole[] = [...STAFF_ROLES];
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+  { to: '/catalogo', label: 'Catálogo', icon: CarFront },
   { to: '/inventario', label: 'Inventario', icon: Car, roles: STAFF_NAV_ROLES },
   { to: '/repuestos', label: 'Repuestos', icon: Package, roles: STAFF_NAV_ROLES },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
