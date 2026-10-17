@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
+import { DocumentosUploader } from '@/components/inventory/DocumentosUploader';
 import { PhotoUploader } from '@/components/inventory/PhotoUploader';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +35,7 @@ import type {
   TipoVehiculo,
   UpdateVehiculoInput,
   Vehiculo,
+  VehiculoDocumento,
   VehiculoFoto,
 } from '@/types/vehiculo';
 
@@ -109,6 +111,7 @@ export function VehiculoFormDialog({
 }: VehiculoFormDialogProps) {
   const isEdit = Boolean(vehiculo);
   const [fotos, setFotos] = useState<VehiculoFoto[]>([]);
+  const [documentos, setDocumentos] = useState<VehiculoDocumento[]>([]);
 
   const resolver = useMemo(() => zodResolver(schema) as Resolver<FormValues>, []);
 
@@ -126,6 +129,7 @@ export function VehiculoFormDialog({
     if (open) {
       reset(getDefaults(vehiculo));
       setFotos(vehiculo?.fotos ?? []);
+      setDocumentos(vehiculo?.documentos ?? []);
     }
   }, [open, vehiculo, reset]);
 
@@ -149,6 +153,7 @@ export function VehiculoFormDialog({
         .filter(Boolean),
       publicado: values.publicado === 'si',
       fotos: fotos.map((foto) => foto.key),
+      documentos: documentos.map((documento) => ({ key: documento.key, nombre: documento.nombre })),
     };
 
     try {
@@ -343,6 +348,15 @@ export function VehiculoFormDialog({
             <div className="space-y-2 sm:col-span-2">
               <Label>Fotografías</Label>
               <PhotoUploader fotos={fotos} onChange={setFotos} disabled={submitting} />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Documentos autorizados</Label>
+              <DocumentosUploader
+                documentos={documentos}
+                onChange={setDocumentos}
+                disabled={submitting}
+              />
             </div>
           </div>
 

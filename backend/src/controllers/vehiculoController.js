@@ -4,7 +4,7 @@ const {
   validate,
   createVehiculoSchema,
   updateVehiculoSchema,
-  presignFotoSchema,
+  presignArchivoSchema,
 } = require('../validation/vehiculoSchemas');
 
 /** GET /api/vehiculos */
@@ -33,11 +33,11 @@ const update = asyncHandler(async (req, res) => {
   res.json({ message: 'Vehículo actualizado correctamente.', vehiculo });
 });
 
-/** POST /api/vehiculos/fotos/presign */
-const presignFoto = asyncHandler(async (req, res) => {
-  const { contentType } = validate(presignFotoSchema, req.body);
-  const result = await vehiculoService.createFotoUploadUrl({ contentType });
-  res.json(result);
+/** POST /api/vehiculos/archivos/presign */
+const presignArchivo = asyncHandler(async (req, res) => {
+  const data = validate(presignArchivoSchema, req.body);
+  const archivo = await vehiculoService.presignArchivo(data);
+  res.json(archivo);
 });
 
-module.exports = { list, getOne, create, update, presignFoto };
+module.exports = { list, getOne, create, update, presignArchivo };

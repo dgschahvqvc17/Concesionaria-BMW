@@ -1,6 +1,7 @@
 const { z } = require('zod');
 
 const { ValidationError } = require('../errors/AppError');
+const { CATEGORIAS_ARCHIVO } = require('../services/storageService');
 
 const CONDICIONES = ['nuevo', 'seminuevo'];
 const ESTADOS = ['disponible', 'reservado', 'vendido', 'no_disponible'];
@@ -53,6 +54,16 @@ const vehiculoBase = {
   fotos: z.array(z.string().trim().min(1)).max(15, 'Máximo 15 fotografías por vehículo.').optional(),
 };
 
+const documentoSchema = z.object({
+  key: z.string().trim().min(1, 'La clave del archivo es obligatoria.'),
+  nombre: z.string().trim().min(1, 'El nombre del archivo es obligatorio.').max(200),
+});
+
+vehiculoBase.documentos = z
+  .array(documentoSchema)
+  .max(20, 'Máximo 20 documentos por vehículo.')
+  .optional();
+
 const createVehiculoSchema = z.object(vehiculoBase);
 
 const updateVehiculoSchema = z
@@ -72,11 +83,18 @@ const updateVehiculoSchema = z
     caracteristicas: vehiculoBase.caracteristicas,
     publicado: vehiculoBase.publicado,
     fotos: vehiculoBase.fotos,
+    documentos: vehiculoBase.documentos,
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'No se enviaron cambios para actualizar.' });
 
-const presignFotoSchema = z.object({
+const presignArchivoSchema = z.object({
+  categoria: z.enum(CATEGORIAS_ARCHIVO, { message: 'Categoría de archivo inválida.' }),
   contentType: z.string().trim().min(1, 'El tipo de contenido es obligatorio.'),
+  nombre: z.string().trim().min(1, 'El nombre del archivo es obligatorio.').max(200),
+  size: z.coerce
+    .number({ invalid_type_error: 'El tamaño del archivo es obligatorio.' })
+    .int('El tamaño debe ser un número entero.')
+    .positive('El tamaño del archivo debe ser mayor a 0.'),
 });
 
 /** Valida `data` contra un esquema zod y lanza ValidationError con el detalle por campo. */
@@ -100,6 +118,6 @@ module.exports = {
   TIPOS,
   createVehiculoSchema,
   updateVehiculoSchema,
-  presignFotoSchema,
+  presignArchivoSchema,
   validate,
 };

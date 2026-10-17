@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { getErrorMessage } from '@/lib/api';
+import { REGLAS_ARCHIVO, formatBytes, validarArchivo } from '@/lib/archivos';
 import { vehiculosService } from '@/services/vehiculos';
 import type { VehiculoFoto } from '@/types/vehiculo';
 
@@ -32,11 +33,12 @@ export function PhotoUploader({ fotos, onChange, disabled = false }: PhotoUpload
     const subidas: VehiculoFoto[] = [];
     try {
       for (const file of Array.from(fileList)) {
-        if (!file.type.startsWith('image/')) {
-          toast.error(`"${file.name}" no es un archivo de imagen.`);
+        const error = validarArchivo(file, 'foto');
+        if (error) {
+          toast.error(error);
           continue;
         }
-        const key = await vehiculosService.uploadFoto(file);
+        const { key } = await vehiculosService.subirArchivo(file, 'foto');
         subidas.push({ key, url: URL.createObjectURL(file) });
       }
       if (subidas.length > 0) {
@@ -88,7 +90,7 @@ export function PhotoUploader({ fotos, onChange, disabled = false }: PhotoUpload
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept={REGLAS_ARCHIVO.foto.accept}
         multiple
         className="hidden"
         onChange={(event) => void handleFiles(event.target.files)}
@@ -96,7 +98,8 @@ export function PhotoUploader({ fotos, onChange, disabled = false }: PhotoUpload
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {fotos.length}/{MAX_FOTOS} fotografías. Formatos: JPG, PNG, WEBP o GIF.
+          {fotos.length}/{MAX_FOTOS} fotografías. Formatos: {REGLAS_ARCHIVO.foto.formatos}. Tamaño
+          máximo: {formatBytes(REGLAS_ARCHIVO.foto.maxBytes)}.
         </p>
         {fotos.length > 0 && (
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])} disabled={disabled}>

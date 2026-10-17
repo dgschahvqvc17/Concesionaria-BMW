@@ -13,7 +13,7 @@ router.get('/', vehiculoController.list);
 // Registrar/actualizar: solo administradores y vendedores autorizados.
 const puedeGestionar = requireRole('admin', 'vendedor');
 
-router.post('/fotos/presign', puedeGestionar, vehiculoController.presignFoto);
+router.post('/archivos/presign', puedeGestionar, vehiculoController.presignArchivo);
 router.post('/', puedeGestionar, vehiculoController.create);
 
 router.get('/:vehiculoId', vehiculoController.getOne);

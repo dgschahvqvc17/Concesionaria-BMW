@@ -1,8 +1,8 @@
 # Concesionaria BMW
 
 Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
-usuarios con roles, autorregistro de clientes, administración de usuarios e inventario de
-vehículos y repuestos con fotografías.
+usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
+vehículos y repuestos con fotografías y documentos, y catálogo web público.
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -13,7 +13,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 **Concesionaria BMW** es un sistema compuesto por:
 
 - un **backend REST** (Node.js + Express) que expone la API, valida los JWT de Cognito y
-  persiste en DynamoDB / S3;
+  persiste en DynamoDB / S3 (fotografías y documentos con URLs prefirmadas);
 - un **frontend SPA** (React + Vite + Tailwind + shadcn/ui) con una interfaz alineada a la
   identidad de marca BMW;
 - **infraestructura como código** (AWS CDK) que aprovisiona Cognito, DynamoDB y S3.
@@ -28,7 +28,8 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU02** | Administración de usuarios y roles (solo `admin`). | Implementada y verificada |
 | **HU03** | Inventario de vehículos: alta, edición, filtros y fotos en S3. | Implementada y verificada |
 | **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada y verificada |
-| **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada |
+| **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada y verificada |
+| **HU06** | Gestión de fotografías y documentos de los vehículos (S3, roles y mensajes de error). | Implementada y verificada |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -154,7 +155,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | GET | `/api/vehiculos/:vehiculoId` | Autenticado |
 | POST | `/api/vehiculos` | `admin`, `vendedor` |
 | PATCH | `/api/vehiculos/:vehiculoId` | `admin`, `vendedor` |
-| POST | `/api/vehiculos/fotos/presign` | `admin`, `vendedor` |
+| POST | `/api/vehiculos/archivos/presign` | `admin`, `vendedor` |
 | GET | `/api/repuestos` | Autenticado |
 | GET | `/api/repuestos/:repuestoId` | Autenticado |
 | POST | `/api/repuestos` | `admin`, `vendedor`, `jefe_taller` |
@@ -170,7 +171,8 @@ Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 
 - **Solo capa gratuita de AWS**: no se agregan recursos con costo. Ver
   [`Rules/aws.md`](./Rules/aws.md) para el detalle por servicio.
-- Bucket y tablas **privados**; las fotos se acceden mediante **URLs prefirmadas**.
+- Bucket y tablas **privados**; fotografías y documentos se acceden mediante **URLs
+  prefirmadas** (tipo y tamaño validados; 5 MB fotos / 10 MB documentos).
 - Sin secretos en el repositorio; las credenciales AWS provienen del entorno.
 
 ---

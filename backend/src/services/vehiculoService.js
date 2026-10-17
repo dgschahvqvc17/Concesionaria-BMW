@@ -6,10 +6,52 @@ const { ConflictError, NotFoundError } = require('../errors/AppError');
 
 const ESTADO_DISPONIBLE = 'disponible';
 
-/** Convierte las claves de fotos almacenadas en URLs prefirmadas para el frontend. */
+/** Convierte las claves de archivos almacenadas en URLs prefirmadas para el frontend. */
 async function toResponse(vehiculo) {
   const fotos = vehiculo.fotos ?? [];
-  return { ...vehiculo, fotos: await storageService.withViewUrls(fotos) };
+  const documentos = vehiculo.documentos ?? [];
+  return {
+    ...vehiculo,
+    fotos: await storageService.withViewUrls(fotos),
+    documentos: await storageService.withDocumentViewUrls(documentos),
+  };
+}
+
+/** Comprueba que las fotografías nuevas existan en S3 y cumplan las reglas. */
+async function verificarFotosNuevas(fotos, fotosActuales) {
+  const nuevas = fotos.filter((key) => !fotosActuales.includes(key));
+  for (const key of nuevas) {
+    await storageService.assertArchivo(key, 'foto');
+  }
+}
+
+/**
+ * Arma la lista definitiva de documentos: conserva los ya registrados y
+ * verifica en S3 los nuevos, guardando su metadata autoritativa (HU06).
+ */
+async function registrarDocumentos(documentos, documentosActuales, actor, ahora) {
+  const actuales = new Map(documentosActuales.map((documento) => [documento.key, documento]));
+  const resultado = [];
+
+  for (const documento of documentos) {
+    const existente = actuales.get(documento.key);
+    if (existente) {
+      resultado.push(existente);
+      continue;
+    }
+
+    const { contentType, size } = await storageService.assertArchivo(documento.key, 'documento');
+    resultado.push({
+      key: documento.key,
+      nombre: documento.nombre,
+      contentType,
+      size,
+      uploadedAt: ahora,
+      uploadedBy: actor?.sub ?? null,
+    });
+  }
+
+  return resultado;
 }
 
 /**
@@ -50,6 +92,10 @@ async function createVehiculo(input, actor) {
   }
 
   const ahora = new Date().toISOString();
+  const fotos = input.fotos ?? [];
+  await verificarFotosNuevas(fotos, []);
+  const documentos = await registrarDocumentos(input.documentos ?? [], [], actor, ahora);
+
   const vehiculo = {
     vehiculoId: randomUUID(),
     marca: input.marca,
@@ -66,7 +112,8 @@ async function createVehiculo(input, actor) {
     descripcion: input.descripcion ?? '',
     caracteristicas: input.caracteristicas ?? [],
     publicado: input.publicado ?? true,
-    fotos: input.fotos ?? [],
+    fotos,
+    documentos,
     createdAt: ahora,
     updatedAt: ahora,
     createdBy: actor?.sub ?? null,
@@ -91,10 +138,32 @@ async function updateVehiculo(vehiculoId, changes, actor) {
     }
   }
 
+  const ahora = new Date().toISOString();
+  const fotosActuales = actual.fotos ?? [];
+  const documentosActuales = actual.documentos ?? [];
+  let fotos = fotosActuales;
+  let documentos = documentosActuales;
+
+  if (changes.fotos) {
+    await verificarFotosNuevas(changes.fotos, fotosActuales);
+    const eliminadas = fotosActuales.filter((key) => !changes.fotos.includes(key));
+    await Promise.all(eliminadas.map((key) => storageService.deleteObject(key)));
+    fotos = changes.fotos;
+  }
+
+  if (changes.documentos) {
+    documentos = await registrarDocumentos(changes.documentos, documentosActuales, actor, ahora);
+    const vigentes = new Set(documentos.map((documento) => documento.key));
+    const eliminados = documentosActuales.filter((documento) => !vigentes.has(documento.key));
+    await Promise.all(eliminados.map((documento) => storageService.deleteObject(documento.key)));
+  }
+
   const actualizado = {
     ...actual,
     ...changes,
-    updatedAt: new Date().toISOString(),
+    fotos,
+    documentos,
+    updatedAt: ahora,
     updatedBy: actor?.sub ?? null,
   };
 
@@ -120,8 +189,8 @@ async function getVehiculo(vehiculoId) {
   return toResponse(vehiculo);
 }
 
-/** Genera una URL prefirmada para subir una fotografía. */
-function createFotoUploadUrl(payload) {
+/** Genera una URL prefirmada para subir una fotografía o documento (HU06). */
+function presignArchivo(payload) {
   return storageService.createUploadUrl(payload);
 }
 
@@ -150,5 +219,5 @@ module.exports = {
   getVehiculo,
   listCatalogo,
   getCatalogoVehiculo,
-  createFotoUploadUrl,
+  presignArchivo,
 };

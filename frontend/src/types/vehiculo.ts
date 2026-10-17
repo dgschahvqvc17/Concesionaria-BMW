@@ -12,9 +12,21 @@ export type TipoVehiculo =
   | 'deportivo'
   | 'otros';
 
+export type CategoriaArchivo = 'foto' | 'documento';
+
 export interface VehiculoFoto {
   key: string;
   url: string;
+}
+
+/** Documento asociado a un vehículo (HU06). */
+export interface VehiculoDocumento {
+  key: string;
+  nombre: string;
+  contentType?: string;
+  size?: number;
+  /** URL prefirmada de lectura (solo disponible en documentos ya guardados). */
+  url?: string;
 }
 
 export interface Vehiculo {
@@ -35,6 +47,7 @@ export interface Vehiculo {
   /** Si es `false`, el vehículo no se publica en el catálogo web. */
   publicado?: boolean;
   fotos: VehiculoFoto[];
+  documentos?: VehiculoDocumento[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -56,6 +69,8 @@ export interface CreateVehiculoInput {
   publicado?: boolean;
   /** Claves de las fotografías ya subidas a S3. */
   fotos?: string[];
+  /** Documentos (key + nombre) ya subidos a S3. */
+  documentos?: VehiculoDocumento[];
 }
 
 export type UpdateVehiculoInput = Partial<CreateVehiculoInput>;
@@ -70,7 +85,15 @@ export interface VehiculoResponse {
   vehiculo: Vehiculo;
 }
 
-export interface PresignFotoResponse {
+export interface PresignArchivoInput {
+  categoria: CategoriaArchivo;
+  contentType: string;
+  nombre: string;
+  size: number;
+}
+
+export interface PresignArchivoResponse {
   key: string;
   uploadUrl: string;
+  maxSize: number;
 }

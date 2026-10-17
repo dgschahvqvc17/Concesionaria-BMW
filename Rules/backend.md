@@ -151,11 +151,26 @@ Ejemplo: recurso `clientes`.
 | `descripcion` | string | texto libre para el catálogo (opcional) |
 | `caracteristicas` | string[] | características principales (opcional) |
 | `publicado` | boolean | si es `false`, no aparece en el catálogo web (por defecto `true`) |
-| `fotos` | string[] | claves (keys) de S3 |
+| `fotos` | string[] | claves (keys) de S3 de las fotografías |
+| `documentos` | object[] | documentos autorizados (HU06): `{ key, nombre, contentType, size, uploadedAt, uploadedBy }` |
 | `createdAt`/`updatedAt` | string | ISO-8601 |
+| `createdBy`/`updatedBy` | string | `sub` de Cognito |
 
 El **catálogo web (HU05)** es una proyección pública del inventario: expone solo los
-vehículos con `publicado !== false` y omite datos internos (VIN, `createdBy`, etc.).
+vehículos con `publicado !== false` y omite datos internos (VIN, `createdBy`, **documentos**).
+
+### Gestión de archivos (HU06) — `storageService`
+
+- Todo archivo vive en el bucket **privado**; el backend genera **URLs prefirmadas**
+  (`createUploadUrl`, `createViewUrl`) y nunca expone el bucket.
+- Categorías y reglas (`REGLAS_ARCHIVO`): `foto` (JPG/PNG/WEBP/GIF, ≤ 5 MB) y
+  `documento` (PDF/Word/Excel/TXT, ≤ 10 MB).
+- La URL de subida firma el `Content-Length` exacto → S3 rechaza tamaños distintos.
+- `assertArchivo(key, categoria)` verifica con `HeadObject` que el objeto exista y cumpla
+  las reglas; se ejecuta al crear/actualizar el vehículo (guarda la metadata real).
+- `deleteObject(key)` elimina el objeto cuando se quita de la lista (solo admin/vendedor).
+- Solo `admin`/`vendedor` suben/eliminan; cualquier usuario autenticado puede consultar
+  (las URLs de lectura también son prefirmadas y expiran en 1 hora).
 
 ### Tabla `Repuestos` (RepuestosStack)
 
@@ -208,7 +223,7 @@ servicio responde `409 Conflict`.
 | GET | `/api/vehiculos/:vehiculoId` | token | Obtener vehículo |
 | POST | `/api/vehiculos` | admin/vendedor | Registrar vehículo |
 | PATCH | `/api/vehiculos/:vehiculoId` | admin/vendedor | Actualizar vehículo |
-| POST | `/api/vehiculos/fotos/presign` | admin/vendedor | URL prefirmada de subida |
+| POST | `/api/vehiculos/archivos/presign` | admin/vendedor | URL prefirmada de subida (foto/documento) |
 | GET | `/api/repuestos` | token | Listar repuestos (con `requiereReposicion`) |
 | GET | `/api/repuestos/:repuestoId` | token | Obtener repuesto |
 | POST | `/api/repuestos` | admin/vendedor/jefe_taller | Registrar repuesto |

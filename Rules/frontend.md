@@ -24,14 +24,14 @@ frontend/src/
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
 │   ├── common/             # ConfirmDialog
 │   ├── dashboard/          # InfoTile
-│   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos)
+│   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
 ├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, cognito-errors, utils
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cognito-errors, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
 ├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos (llamadas a la API)
 └── types/                  # usuario, vehiculo, repuesto
@@ -124,7 +124,9 @@ degradado BMW).
 - `App.tsx`: define el enrutado. Las rutas protegidas viven dentro de `<AppLayout />`;
   `/inventario` y `/repuestos` bajo `ProtectedRoute roles={STAFF_ROLES}` (no accesibles
   para clientes) y `/usuarios` bajo `ProtectedRoute roles={['admin']}`. El **catálogo web**
-  (`/catalogo` y `/catalogo/:vehiculoId`) es **público**, bajo `<CatalogoLayout />`, sin sesión.
+  (`/catalogo` y `/catalogo/:vehiculoId`) usa `CatalogoShell`: es **público** y siempre
+  accesible, pero mantiene la barra lateral si hay sesión y, si no, muestra el diseño
+  público (`CatalogoLayout`) con el botón de iniciar sesión.
 - `components/auth/LoginPage` alterna entre `LoginForm` y `RegisterClienteForm`
   (autorregistro de clientes) mediante el estado `mode`.
 
@@ -136,6 +138,15 @@ degradado BMW).
   filtrado por palabra clave, tipo, condición, año y precio en `lib/catalogo.ts`.
 - Se alimenta del mismo inventario; solo se muestran los vehículos `publicado !== false`.
 
+## Gestión de archivos (HU06)
+
+- `lib/archivos.ts`: reglas de formatos/tamaños por categoría (`REGLAS_ARCHIVO`),
+  `formatBytes` y `validarArchivo(file, categoria)` (validación previa en el cliente).
+- `PhotoUploader` (fotos) y `DocumentosUploader` (documentos autorizados) suben
+  directamente a S3 con URLs prefirmadas y muestran los errores con `toast`.
+- El **catálogo público** nunca expone documentos: solo la proyección pública (HU05).
+- Los documentos ya guardados incluyen `url` prefirmada de lectura (botón «Ver»).
+
 ## Acceso a la API
 
 - `lib/api.ts`: `apiRequest<T>()` adjunta el ID token de Cognito y normaliza errores
@@ -143,8 +154,8 @@ degradado BMW).
   Helpers: `getErrorMessage`, `getFieldErrors`, `getSessionProfile`.
 - `services/*.ts`: un objeto con funciones por endpoint (p. ej. `usuariosService.list`).
 - `hooks/*`: estado (`loading`, `error`) + acciones; exponen operaciones listas para la UI.
-- Subida de fotos: `services/vehiculos.ts` pide una URL prefirmada
-  (`/api/vehiculos/fotos/presign`) y hace `PUT` directo a S3.
+- Subida de archivos: `services/vehiculos.ts` pide una URL prefirmada
+  (`/api/vehiculos/archivos/presign`) y hace `PUT` directo a S3 (< 5 MB fotos, ≤ 10 MB documentos).
 
 ## Formularios
 
