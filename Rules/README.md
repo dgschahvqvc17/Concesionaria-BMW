@@ -24,6 +24,8 @@ BMW. Se construye por Historias de Usuario (HU):
 - **HU02** — Gestionar usuarios y roles (solo admin).
 - **HU03** — Gestionar inventario de vehículos (listar, registrar, modificar, fotos).
 - **HU04** — Gestionar inventario de repuestos (existencias, entradas/salidas, reposición).
+- **HU05** — Catálogo web público de vehículos (filtros, detalle, proyección pública).
+- **HU06** — Gestionar fotografías y documentos de los vehículos (S3, roles, validación).
 
 ## Stack
 

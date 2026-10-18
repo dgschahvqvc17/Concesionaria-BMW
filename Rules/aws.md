@@ -89,9 +89,13 @@ de `backend` y `frontend`.
 
 ## Seguridad
 
-- **S3 nunca público**: las imágenes se suben/leen con **URLs prefirmadas** (expiran en
-  1 hora) generadas por el backend (`src/services/storageService.js`).
-- Validación de `content-type` permitido (jpg/png/webp/gif) antes de firmar la subida.
+- **S3 nunca público**: fotos y documentos se suben/leen con **URLs prefirmadas** (expiran
+  en 1 hora) generadas por el backend (`src/services/storageService.js`). Los archivos
+  privados (documentos) nunca quedan accesibles públicamente sin autorización.
+- La URL de subida firma el `Content-Length` exacto: S3 rechaza archivos cuyo tamaño no
+  coincida con el declarado (límite real: 5 MB fotos, 10 MB documentos).
+- Validación de `content-type` permitido según la categoría (`foto`/`documento`) antes de
+  firmar la subida, y verificación del objeto en S3 al guardar la referencia.
 - Autenticación por **ID token de Cognito** verificado en el backend (firma, exp, iss, aud).
 - **Nunca** subir credenciales AWS, `.env` ni tokens al repositorio.
 - Las credenciales AWS deben venir del entorno (`aws configure` / variables), nunca del código.

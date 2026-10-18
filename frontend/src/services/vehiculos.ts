@@ -1,13 +1,23 @@
 import { apiRequest } from '@/lib/api';
 import type {
+  CategoriaArchivo,
   CreateVehiculoInput,
-  PresignFotoResponse,
+  PresignArchivoInput,
+  PresignArchivoResponse,
   UpdateVehiculoInput,
   VehiculoResponse,
   VehiculosResponse,
 } from '@/types/vehiculo';
 
-/** Acceso a los endpoints de inventario de vehículos (HU03). */
+/** Archivo subido a S3, listo para asociarse a un vehículo. */
+export interface ArchivoSubido {
+  key: string;
+  nombre: string;
+  contentType: string;
+  size: number;
+}
+
+/** Acceso a los endpoints de inventario de vehículos (HU03) y sus archivos (HU06). */
 export const vehiculosService = {
   list: () => apiRequest<VehiculosResponse>('/api/vehiculos'),
 
@@ -19,23 +29,31 @@ export const vehiculosService = {
   update: (vehiculoId: string, input: UpdateVehiculoInput) =>
     apiRequest<VehiculoResponse>(`/api/vehiculos/${vehiculoId}`, { method: 'PATCH', body: input }),
 
-  presignFoto: (contentType: string) =>
-    apiRequest<PresignFotoResponse>('/api/vehiculos/fotos/presign', {
+  presignArchivo: (input: PresignArchivoInput) =>
+    apiRequest<PresignArchivoResponse>('/api/vehiculos/archivos/presign', {
       method: 'POST',
-      body: { contentType },
+      body: input,
     }),
 
-  /** Sube una fotografía directamente a S3 usando la URL prefirmada. */
-  async uploadFoto(file: File): Promise<string> {
-    const { key, uploadUrl } = await vehiculosService.presignFoto(file.type);
+  /** Sube un archivo directamente a S3 usando la URL prefirmada. */
+  async subirArchivo(file: File, categoria: CategoriaArchivo): Promise<ArchivoSubido> {
+    const { key, uploadUrl } = await vehiculosService.presignArchivo({
+      categoria,
+      contentType: file.type,
+      nombre: file.name,
+      size: file.size,
+    });
+
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
       body: file,
     });
+
     if (!response.ok) {
-      throw new Error('No se pudo subir la fotografía.');
+      throw new Error('No se pudo subir el archivo. Inténtalo nuevamente.');
     }
-    return key;
+
+    return { key, nombre: file.name, contentType: file.type, size: file.size };
   },
 };

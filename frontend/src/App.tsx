@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { CatalogoShell } from '@/components/catalog/CatalogoShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { CatalogoLayout } from '@/components/catalog/CatalogoLayout';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/context/AuthContext';
@@ -23,8 +23,8 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/no-autorizado" element={<UnauthorizedPage />} />
 
-          {/* Catálogo web público: accesible sin iniciar sesión (HU05). */}
-          <Route element={<CatalogoLayout />}>
+          {/* Catálogo web público (HU05): usa la barra lateral si hay sesión. */}
+          <Route element={<CatalogoShell />}>
             <Route path="/catalogo" element={<CatalogoPage />} />
             <Route path="/catalogo/:vehiculoId" element={<VehiculoDetallePage />} />
           </Route>
