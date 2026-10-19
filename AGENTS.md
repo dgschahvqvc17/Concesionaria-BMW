@@ -49,8 +49,9 @@ cd infra; npx tsc --noEmit
   (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
-  HU07 seguimiento comercial de clientes y HU08 cotizaciones (HU01–HU06 verificadas
-  end-to-end; HU07 y HU08 con backend verificado e2e y frontend compilando).
+  HU07 seguimiento comercial de clientes, HU08 cotizaciones y HU09 reservas de vehículos
+  (HU01–HU06 verificadas end-to-end; HU07, HU08 y HU09 con backend verificado e2e y
+  frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
   con anti-duplicados (409) e historial de consultas. Al registrar una consulta, el frontend
@@ -61,6 +62,14 @@ cd infra; npx tsc --noEmit
   autorizado ≤ 20%, estados `pendiente`/`aceptada`/`rechazada`/`vencida` (vencida se deriva
   de `fechaVencimiento`). El PDF se genera en el frontend con **jsPDF** y el envío por correo
   usa un enlace **`mailto:`** (sin AWS SES, para no salir de la capa gratuita).
+- Reservas (HU09): tabla `Reservas` (GSIs `vehiculo-index`, `cliente-index` y `numero-index`;
+  número único `RES-AAAA-######` reservado de forma atómica); rutas `/api/reservas`
+  (solo `admin`/`vendedor`) con `POST /`, `GET /`, `GET /:reservaId`,
+  `POST /:reservaId/cancelar` y `POST /:reservaId/convertir`. Solo se reservan vehículos
+  `disponible` (409 en conflicto); al reservar el vehículo pasa a `reservado` con un update
+  condicional atómico. Estados `activa`/`cancelada`/`vencida`/`convertida` (vencida se deriva
+  de `fechaVencimiento` y libera la unidad); convertir en venta deja el vehículo `vendido`.
+  `condiciones`, `monto` opcional, vigencia por defecto 30 días e historial de estados.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

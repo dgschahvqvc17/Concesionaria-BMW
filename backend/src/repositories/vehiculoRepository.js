@@ -1,4 +1,4 @@
-const { GetCommand, PutCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { GetCommand, PutCommand, ScanCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 
 const { documentClient } = require('../db/dynamodb');
 const { config } = require('../config');
@@ -49,4 +49,32 @@ async function save(vehiculo) {
   return vehiculo;
 }
 
-module.exports = { findById, findByVin, listAll, save };
+/**
+ * Cambia el estado del vehículo solo si su estado actual es `de` (condición
+ * atómica). Devuelve el vehículo actualizado o `null` si la condición no se
+ * cumplió (p. ej. otra reserva cambió el estado primero).
+ */
+async function cambiarEstadoCondicional(vehiculoId, de, a, actor) {
+  const ahora = new Date().toISOString();
+  try {
+    const result = await documentClient.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { vehiculoId },
+      UpdateExpression: 'SET #estado = :a, #updatedAt = :ahora, #updatedBy = :actor',
+      ConditionExpression: '#estado = :de',
+      ExpressionAttributeNames: {
+        '#estado': 'estado',
+        '#updatedAt': 'updatedAt',
+        '#updatedBy': 'updatedBy',
+      },
+      ExpressionAttributeValues: { ':a': a, ':de': de, ':ahora': ahora, ':actor': actor?.sub ?? null },
+      ReturnValues: 'ALL_NEW',
+    }));
+    return result.Attributes;
+  } catch (error) {
+    if (error?.name === 'ConditionalCheckFailedException') return null;
+    throw error;
+  }
+}
+
+module.exports = { findById, findByVin, listAll, save, cambiarEstadoCondicional };

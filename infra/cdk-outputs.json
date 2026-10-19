@@ -11,6 +11,7 @@
     "MovimientosTableName": "ConcesionariaBmwRepuestosStack-MovimientosTableDDEDD203-EQN7AVQE50ZO",
     "ClientesComercialesTableName": "ConcesionariaBmwRepuestosStack-ClientesComercialesTableCF55FE95-1J1UGMBT2PFYG",
     "CotizacionesTableName": "ConcesionariaBmwRepuestosStack-CotizacionesTable9C14E5CF-1QDRYEMOF3GX8",
+    "ReservasTableName": "ConcesionariaBmwRepuestosStack-ReservasTableCC690889-MGXN6EH7JVDO",
     "Region": "us-east-2"
   }
 }

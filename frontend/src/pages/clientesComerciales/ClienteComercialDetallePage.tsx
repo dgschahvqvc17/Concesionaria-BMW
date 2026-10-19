@@ -11,10 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
 import { useCotizaciones } from '@/hooks/useCotizaciones';
+import { useReservas } from '@/hooks/useReservas';
 import { getErrorMessage } from '@/lib/api';
 import { abrirCorreoConsulta } from '@/lib/consultaEmail';
 import { descargarCotizacionPdf } from '@/lib/cotizacionPdf';
 import { ESTADO_COTIZACION_LABELS, ESTADO_COTIZACION_STYLES } from '@/lib/cotizaciones';
+import { ESTADO_RESERVA_LABELS, ESTADO_RESERVA_STYLES } from '@/lib/reservas';
 import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import { clientesComercialesService } from '@/services/clientesComerciales';
 import type { ClienteComercial } from '@/types/clienteComercial';
@@ -24,6 +26,7 @@ export function ClienteComercialDetallePage() {
   const navigate = useNavigate();
   const { agregarConsulta, recargar } = useClientesComerciales();
   const { cotizaciones, loading: cargandoCotizaciones } = useCotizaciones({ clienteId });
+  const { reservas, loading: cargandoReservas } = useReservas({ clienteId });
   const [cliente, setCliente] = useState<ClienteComercial | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -136,6 +139,35 @@ export function ClienteComercialDetallePage() {
                       PDF
                     </Button>
                   </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Reservas</CardTitle></CardHeader>
+        <CardContent>
+          {cargandoReservas ? (
+            <p className="text-sm text-muted-foreground">Cargando reservas…</p>
+          ) : reservas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin reservas registradas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {reservas.map((reserva) => (
+                <li key={reserva.reservaId} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">
+                      {reserva.numero} · {reserva.vehiculo.marca} {reserva.vehiculo.modelo}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Vence {formatFecha(reserva.fechaVencimiento)}
+                      {reserva.monto != null ? ` · ${formatPrecio(reserva.monto)}` : ''}
+                    </div>
+                  </div>
+                  <Badge className={ESTADO_RESERVA_STYLES[reserva.estado]}>
+                    {ESTADO_RESERVA_LABELS[reserva.estado]}
+                  </Badge>
                 </li>
               ))}
             </ul>

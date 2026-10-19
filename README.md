@@ -3,7 +3,7 @@
 Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
 usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
 vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
-comercial de clientes potenciales y generación de cotizaciones.
+comercial de clientes potenciales, generación de cotizaciones y reservas de vehículos.
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -33,6 +33,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU06** | Gestión de fotografías y documentos de los vehículos (S3, roles y mensajes de error). | Implementada y verificada |
 | **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas, estados y notificación por correo (`mailto:`). | Implementada (backend verificado e2e) |
 | **HU08** | Cotizaciones: generación con precios vigentes, descuentos ≤ 20%, estados, PDF (jsPDF) y envío por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU09** | Reservas de vehículos: apartado con vigencia, estados e historial, cancelación y conversión en venta. | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -131,6 +132,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
+| `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -172,6 +174,10 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | POST | `/api/clientes-comerciales/:clienteId/consultas` | `admin`, `vendedor` |
 | GET/POST | `/api/cotizaciones` | `admin`, `vendedor` |
 | GET/PATCH | `/api/cotizaciones/:cotizacionId` | `admin`, `vendedor` |
+| GET/POST | `/api/reservas` | `admin`, `vendedor` |
+| GET | `/api/reservas/:reservaId` | `admin`, `vendedor` |
+| POST | `/api/reservas/:reservaId/cancelar` | `admin`, `vendedor` |
+| POST | `/api/reservas/:reservaId/convertir` | `admin`, `vendedor` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

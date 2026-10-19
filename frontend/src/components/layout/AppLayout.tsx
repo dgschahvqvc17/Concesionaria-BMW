@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
+  CalendarCheck,
   Car,
   CarFront,
   Contact,
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/repuestos', label: 'Repuestos', icon: Package, roles: STAFF_NAV_ROLES },
   { to: '/clientes-comerciales', label: 'Clientes', icon: Contact, roles: ['admin', 'vendedor'] },
   { to: '/cotizaciones', label: 'Cotizaciones', icon: FileText, roles: ['admin', 'vendedor'] },
+  { to: '/reservas', label: 'Reservas', icon: CalendarCheck, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
 

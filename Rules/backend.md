@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -254,6 +254,40 @@ Reglas de negocio (HU08):
   responde `409 Conflict`. Una cotización `pendiente` cuya `fechaVencimiento` ya pasó se
   presenta como `vencida` (estado derivado, sin escritura en lectura).
 
+### Tabla `Reservas` (RepuestosStack, HU09)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `reservaId` (PK) | string | UUID (o `secuencia#<año>` para el contador interno) |
+| `numero` | string | `RES-AAAA-######`; índice secundario `numero-index`; único |
+| `clienteId` | string | índice secundario `cliente-index` (+ `createdAt`) |
+| `cliente` | object | snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `vehiculoId` | string | índice secundario `vehiculo-index` (+ `createdAt`) |
+| `vehiculo` | object | snapshot: `{ vehiculoId, marca, modelo, version, anio, vin, precio }` |
+| `condiciones` | string | opcional (≤ 1000 caracteres) |
+| `monto` | number | opcional (monto de la reserva) |
+| `estado` | string | `activa` \| `cancelada` \| `vencida` \| `convertida` |
+| `vigenciaDias` | number | días de validez (1–365; por defecto 30) |
+| `fechaVencimiento` | string | ISO-8601 (`createdAt` + `vigenciaDias`) |
+| `observaciones` | string | opcional (notas de la conversión en venta) |
+| `historial` | object[] | `{ estado, fecha, usuario?, motivo? }` |
+| `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU09):
+- Solo se puede reservar un vehículo en estado `disponible`; si está `vendido`,
+  `no_disponible` o ya tiene una reserva activa, el servicio responde `409 Conflict`.
+- Al reservar, el vehículo pasa a `reservado` con un **update condicional atómico**
+  (`cambiarEstadoCondicional` en `vehiculoRepository`): la condición `estado = disponible`
+  evita que dos reservas tomen la misma unidad.
+- El **número** se reserva de forma atómica (`UpdateItem` con `ADD` sobre la partición
+  `secuencia#<año>`), garantizando que no se repita.
+- Una reserva `activa` cuya `fechaVencimiento` ya pasó se presenta como `vencida`; al
+  detectarlo se **libera la unidad** (`reservado → disponible`) y se registra la entrada en
+  el historial.
+- Cancelar solo procede sobre reservas `activa` (libera la unidad); convertir en venta deja
+  la reserva `convertida` y el vehículo `vendido` (update condicional sobre `reservado`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -289,6 +323,11 @@ Reglas de negocio (HU08):
 | POST | `/api/cotizaciones` | admin/vendedor | Generar cotización (número único, 201) |
 | GET | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Obtener cotización |
 | PATCH | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Actualizar descuento, observaciones o estado |
+| GET | `/api/reservas` | admin/vendedor | Listar reservas (`?clienteId=&vehiculoId=&estado=`) |
+| POST | `/api/reservas` | admin/vendedor | Registrar reserva (número único, 201) |
+| GET | `/api/reservas/:reservaId` | admin/vendedor | Obtener reserva |
+| POST | `/api/reservas/:reservaId/cancelar` | admin/vendedor | Cancelar reserva y liberar vehículo |
+| POST | `/api/reservas/:reservaId/convertir` | admin/vendedor | Convertir en venta (vehículo `vendido`) |
 
 ## Variables de entorno
 
@@ -306,6 +345,7 @@ Ver `backend/.env.example`:
 | `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
+| `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

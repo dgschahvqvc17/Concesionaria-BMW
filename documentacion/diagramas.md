@@ -26,6 +26,7 @@ cualquier editor compatible.
 | 9 | Movimiento de inventario (stock condicional) | Secuencia |
 | 10 | Seguimiento comercial de clientes (HU07) | Secuencia |
 | 11 | Generación de cotización (HU08) | Secuencia |
+| 12 | Reserva de vehículo y conversión en venta (HU09) | Secuencia |
 
 ---
 
@@ -50,7 +51,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(6 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(7 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -92,6 +93,7 @@ cloud "AWS us-east-2" {
     database "MovimientosInventario" as t4
     database "ClientesComerciales" as t5
     database "Cotizaciones" as t6
+    database "Reservas" as t7
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -143,6 +145,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Registrar movimientos" as UC_movimientos
   usecase "Gestionar clientes comerciales (HU07)" as UC_clientes
   usecase "Generar cotizaciones (HU08)" as UC_cotizaciones
+  usecase "Gestionar reservas (HU09)" as UC_reservas
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -166,6 +169,7 @@ vendedor --> UC_repuestos
 vendedor --> UC_movimientos
 vendedor --> UC_clientes
 vendedor --> UC_cotizaciones
+vendedor --> UC_reservas
 
 admin --> UC_login
 admin --> UC_vehiculos
@@ -174,6 +178,7 @@ admin --> UC_repuestos
 admin --> UC_movimientos
 admin --> UC_clientes
 admin --> UC_cotizaciones
+admin --> UC_reservas
 admin --> UC_usuarios
 @enduml
 ```
@@ -187,7 +192,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (6 tablas)
+title Modelo de datos — DynamoDB (7 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -289,6 +294,25 @@ entity "Cotizaciones" as cotizaciones {
   updatedAt : string
 }
 
+entity "Reservas" as reservas {
+  * reservaId <<PK>> : string
+  --
+  numero <<GSI numero-index>> : string
+  clienteId <<GSI cliente-index>> : string
+  cliente : object
+  vehiculoId <<GSI vehiculo-index>> : string
+  vehiculo : object
+  condiciones : string
+  monto : number
+  estado : string
+  vigenciaDias : number
+  fechaVencimiento : string
+  observaciones : string
+  historial : list<object>
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
@@ -296,6 +320,8 @@ usuarios ||..o{ repuestos : "gestiona"
 usuarios ||..o{ clientes : "da seguimiento"
 clientes ||..o{ cotizaciones : "recibe"
 vehiculos ||..o{ cotizaciones : "se cotiza"
+clientes ||..o{ reservas : "reserva"
+vehiculos ||..o{ reservas : "se reserva"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -571,6 +597,55 @@ end
 v -> fe : Descargar PDF / Enviar por correo
 fe -> fe : jsPDF genera el PDF / buildMailto abre el cliente
 fe --> v : PDF descargado / correo redactado (mailto:)
+@enduml
+```
+
+---
+
+## Diagrama 12 — Reserva de vehículo y conversión en venta (HU09)
+
+```plantuml
+@startuml
+title Secuencia — Reservar vehículo (HU09)
+skinparam shadowing false
+
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nReservas" as db
+database "DynamoDB\nVehiculos/Clientes" as db2
+
+v -> fe : Selecciona cliente y vehículo disponible
+fe -> be : POST /api/reservas\n(Bearer token admin/vendedor)
+be -> be : validate(createReservaSchema)\n(vigencia 1-365)
+be -> db2 : GetCommand cliente + vehiculo
+alt Vehículo no disponible / cliente inexistente
+  db2 --> be : reservado / vendido / no existe
+  be --> fe : 409 CONFLICT / 404 NOT FOUND
+  fe --> v : Toast de error
+else Datos válidos
+  be -> db2 : UpdateItem estado=reservado\nConditionExpression estado=disponible
+  alt Condición no cumplida
+    db2 --> be : ConditionalCheckFailed
+    be --> fe : 409 CONFLICT
+  else Condición cumplida
+    db2 --> be : vehiculo reservado
+    be -> db : UpdateItem ADD secuencia#<año> (número único)
+    db --> be : secuencia
+    be -> be : snapshot cliente/vehiculo\nnumero = RES-AAAA-######
+    be -> db : PutCommand (reservaId = UUID)
+    db --> be : OK
+    be --> fe : 201 { message, reserva }
+    fe --> v : Reserva listada
+  end
+end
+
+v -> fe : Cancelar o convertir en venta
+fe -> be : POST /api/reservas/{id}/cancelar | /convertir
+be -> db : UpdateItem estado (historial)\n+ vehiculo disponible | vendido
+db --> be : OK
+be --> fe : 200 { message, reserva }
+fe --> v : Estado actualizado (vehículo liberado o vendido)
 @enduml
 ```
 
