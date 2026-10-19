@@ -27,6 +27,7 @@ function createApp() {
   app.use('/api/vehiculos', vehiculoRoutes);
   app.use('/api/repuestos', repuestoRoutes);
   app.use('/api/movimientos', movimientoRoutes);
+  app.use('/api/clientes-comerciales', require('./routes/clienteComercialRoutes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

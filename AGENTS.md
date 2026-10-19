@@ -48,8 +48,12 @@ cd infra; npx tsc --noEmit
   por defecto `mecanico`). Los **clientes** se autorregistran desde el login
   (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
-  HU05 catálogo web público de vehículos y HU06 gestión de fotografías y documentos
-  (implementadas; HU01–HU06 verificadas end-to-end).
+  HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos y
+  HU07 seguimiento comercial de clientes (HU01–HU06 verificadas end-to-end; HU07 con
+  backend verificado e2e).
+- Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
+  `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
+  con anti-duplicados (409) e historial de consultas.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

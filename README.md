@@ -2,7 +2,8 @@
 
 Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
 usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
-vehículos y repuestos con fotografías y documentos, y catálogo web público.
+vehículos y repuestos con fotografías y documentos, catálogo web público y seguimiento
+comercial de clientes potenciales.
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -30,6 +31,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada y verificada |
 | **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada y verificada |
 | **HU06** | Gestión de fotografías y documentos de los vehículos (S3, roles y mensajes de error). | Implementada y verificada |
+| **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas y estados. | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -126,6 +128,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `VEHICULOS_TABLE_NAME` | Tabla DynamoDB de vehículos |
 | `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
 | `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
+| `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -162,6 +165,9 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | PATCH | `/api/repuestos/:repuestoId` | `admin`, `vendedor`, `jefe_taller` |
 | GET | `/api/movimientos` | Autenticado |
 | POST | `/api/movimientos` | `admin`, `vendedor`, `jefe_taller` |
+| GET/POST | `/api/clientes-comerciales` | `admin`, `vendedor` |
+| GET/PATCH | `/api/clientes-comerciales/:clienteId` | `admin`, `vendedor` |
+| POST | `/api/clientes-comerciales/:clienteId/consultas` | `admin`, `vendedor` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

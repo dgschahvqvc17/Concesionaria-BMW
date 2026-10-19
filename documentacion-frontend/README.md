@@ -7,8 +7,8 @@ Este documento explica, punto por punto, cómo construí el frontend de la
 mantuvo dentro de la **capa gratuita de AWS**.
 
 La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), el inventario
-de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05) y la
-gestión de fotografías y documentos (HU06).
+de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
+gestión de fotografías y documentos (HU06) y el seguimiento comercial de clientes (HU07).
 
 ## Índice
 
@@ -25,6 +25,7 @@ gestión de fotografías y documentos (HU06).
 11. [Integración frontend-backend](#11-integración-frontend-backend)
 12. [Manejo de errores](#12-manejo-de-errores)
 13. [Pruebas funcionales](#13-pruebas-funcionales)
+14. [Seguimiento comercial (HU07)](#14-seguimiento-comercial-hu07)
 
 ---
 
@@ -111,6 +112,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # CatalogoCard, CatalogoFiltros, CatalogoLayout, CatalogoShell, VehiculoGaleria
+│   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
@@ -119,12 +121,13 @@ frontend/src/
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales
 ├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, ...
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
-│                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts
+│                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
+│                           # clientesComerciales/ (listado y detalle, HU07)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -144,6 +147,7 @@ conservar la accesibilidad.
 | `PhotoUploader` / `DocumentosUploader` | `components/inventory` | Subida de archivos a S3 con URL prefirmada. |
 | `RepuestoFormDialog` | `components/inventory` | Alta/edición de repuestos. |
 | `UserFormDialog` | `components/users` | Alta/edición de personal (no clientes). |
+| `ClienteComercialFormDialog` | `components/clientesComerciales` | Alta de clientes comerciales con validación Zod (HU07). |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -256,6 +260,8 @@ comparte entre páginas sin repetir código.
 | `/dashboard` | `DashboardPage` | Autenticado (cualquier rol). |
 | `/inventario` | `InventoryPage` | Staff (`admin`, `vendedor`, `jefe_taller`, `mecanico`). |
 | `/repuestos` | `RepuestosPage` | Staff. |
+| `/clientes-comerciales` | `ClientesComercialesPage` | `admin`, `vendedor` (HU07). |
+| `/clientes-comerciales/:clienteId` | `ClienteComercialDetallePage` | `admin`, `vendedor`. |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -673,6 +679,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `repuestos.ts` | `list/create/get/update` | `/api/repuestos` | Sí (STAFF) | CRUD repuestos (HU04). |
 | `movimientos.ts` | `list/create` | `/api/movimientos` | Sí (STAFF) | Entradas/salidas (HU04). |
 | `usuarios.ts` | `list/create/update` | `/api/usuarios` | Sí (`admin`) | Gestión de personal (HU02). |
+| `clientesComerciales.ts` | `list/get/create/update/addConsulta` | `/api/clientes-comerciales` | Sí (`admin`/`vendedor`) | Seguimiento comercial (HU07). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -707,7 +714,7 @@ se muestran en el detalle público del catálogo
 ### 11.6 Tipado compartido y validación cruzada
 
 Los tipos del frontend reflejan los DTOs del backend (`types/vehiculo.ts`,
-`types/repuesto.ts`, `types/usuario.ts`, `types/catalogo.ts`). La validación ocurre en
+`types/repuesto.ts`, `types/usuario.ts`, `types/catalogo.ts`, `types/clienteComercial.ts`). La validación ocurre en
 **ambos bordes**: Zod en frontend (react-hook-form) para feedback inmediato y Zod en
 backend para garantizar integridad. Cuando el backend devuelve `ValidationError` con
 `details` por campo, el frontend los mapea con `getFieldErrors` y los pinta junto a cada
@@ -822,7 +829,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU06:
+Recorrí los flujos principales alineados a HU01–HU07:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -836,6 +843,7 @@ Recorrí los flujos principales alineados a HU01–HU06:
 | HU05 | Catálogo público | `/catalogo` sin sesión → solo vehículos `publicado !== false`, sin VIN/documentos internos. | **OK** | [`capturas/03-catalogo.png`](capturas/03-catalogo.png), [`capturas/04-catalogo-detalle.png`](capturas/04-catalogo-detalle.png) |
 | HU05 | Catálogo autenticado | Sesión activa → `/catalogo` usa `AppLayout` (mismo contenido público). | **OK** (regla `CatalogoShell`). | [`capturas/06-catalogo-autenticado.png`](capturas/06-catalogo.png) (véase sección 1–5) |
 | HU06 | Subida fotos/documentos | Presign → `PUT` directo a S3 → guardar `keys` → previsualización y listado. | **OK** | Integrado en `VehiculoFormDialog` + `PhotoUploader`/`DocumentosUploader` |
+| HU07 | Seguimiento comercial | `/clientes-comerciales` (solo `admin`/`vendedor`) → listado + alta con Zod; detalle → registrar consulta e historial. | **OK** (backend e2e: `201`/`409`/`400`/`200`; UI con build limpio). | Código: `pages/clientesComerciales/`, `services/clientesComerciales.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -925,6 +933,9 @@ Se comprobó que:
 
 - **Compilación TypeScript:** 0 errores (`tsc --noEmit` / `tsc -b`).
 - **Flujos funcionales HU01–HU06:** 100% cubiertos y verificados manualmente.
+- **HU07:** backend verificado end-to-end (crear, anti-duplicados `409`, consultas e
+  historial); la UI compila sin errores y sigue los patrones del proyecto (pendiente de
+  captura E2E).
 - **Capturas E2E Playwright:** 16 capturas generadas correctamente en
   `documentacion-frontend/capturas/`.
 - **Manejo de errores:** validado (login fallido, validación por campo, toasts, estados
@@ -935,6 +946,87 @@ Se comprobó que:
 el backend/Cognito/S3/DynamoDB, maneja errores de forma consistente y es responsive.
 Tanto las verificaciones estáticas como las pruebas funcionales/E2E dan **resultado
 exitoso**.
+
+---
+
+## 14. Seguimiento comercial (HU07)
+
+La HU07 permite a `admin` y `vendedor` registrar clientes potenciales, historiar cada
+consulta (vehículo de interés, motivo y observación) y avanzar un estado de seguimiento
+(`nuevo` → `contactado` → `cotizando` → `reservado` → `vendido` → `cerrado`). La construí
+con el mismo flujo que el resto de features: tipos → service → hook → componentes →
+páginas → rutas → ítem de navegación.
+
+**Archivos nuevos**
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `types/clienteComercial.ts` | Contratos compartidos: `ClienteComercial`, `ConsultaCliente`, `EstadoSeguimiento` y DTOs de entrada/salida. |
+| `services/clientesComerciales.ts` | `list`, `get`, `create`, `update` y `addConsulta` (todas con `apiRequest`). |
+| `hooks/useClientesComerciales.ts` | Estado del listado (`loading`/`error`), `recargar` y acciones que refrescan tras cada mutación. |
+| `components/clientesComerciales/ClienteComercialFormDialog.tsx` | Diálogo de alta con `useForm` + `zodResolver` (primitivos `ui/dialog`, `ui/input`, `ui/label`, `ui/textarea`). |
+| `pages/clientesComerciales/ClientesComercialesPage.tsx` | Listado con buscador, estados de carga/error con reintento y alta rápida. |
+| `pages/clientesComerciales/ClienteComercialDetallePage.tsx` | Ficha del cliente, formulario de consulta e historial cronológico. |
+
+**Validación en el cliente (espejo del backend)**
+
+```ts
+// ClienteComercialFormDialog.tsx (extracto)
+const schema = z.object({
+  nombres: z.string().trim().min(2).max(60),
+  apellidos: z.string().trim().min(2).max(60),
+  documento: z.string().trim().min(5).max(20).regex(/^[A-Za-z0-9-]+$/),
+  telefono: z.string().trim().regex(/^[0-9+\s()-]{7,15}$/),
+  email: z.string().trim().email().max(120),
+  notas: z.string().trim().max(1000).optional(),
+});
+```
+
+**Servicio y hook**
+
+```ts
+// services/clientesComerciales.ts (extracto)
+export const clientesComercialesService = {
+  list: () => apiRequest<ClientesComercialesResponse>('/api/clientes-comerciales'),
+  create: (input: CreateClienteComercialInput) =>
+    apiRequest<ClienteComercialResponse>('/api/clientes-comerciales', {
+      method: 'POST',
+      body: input,
+    }),
+  addConsulta: (clienteId: string, consulta: { vehiculo?: string; interes: string; observacion?: string }) =>
+    apiRequest<ClienteComercialResponse>(`/api/clientes-comerciales/${clienteId}/consultas`, {
+      method: 'POST',
+      body: consulta,
+    }),
+  // get y update siguen el mismo patrón
+};
+```
+
+El hook `useClientesComerciales` centraliza el listado y las mutaciones; después de cada
+`crear`, `actualizar` o `agregarConsulta` vuelve a pedir el listado al servidor, de modo que
+la tabla siempre refleja el estado real de DynamoDB.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, las rutas `/clientes-comerciales` y `/clientes-comerciales/:clienteId`
+  quedan bajo `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Clientes» (icono `Contact`) usa los mismos roles: un
+  `mecanico` o `jefe_taller` no ve el enlace y, si alguien llamara la URL a mano, el
+  backend responde `403` con `requireRole('admin', 'vendedor')`.
+
+**Errores del servidor**
+
+Los `409` de anti-duplicados (email o documento ya registrados) y los `400` de validación
+llegan como `ApiError` y se muestran con `toast.error(getErrorMessage(err))` (mismo patrón
+de `sonner` usado en el resto del proyecto). El diálogo permanece abierto porque el
+handler vuelve a lanzar el error (`throw submitError`), tal como hacen `RepuestosPage` y
+`UsersPage`.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end: crear (`201`), duplicado (`409`), registrar consulta
+  (`201` con fecha asignada por el backend), consulta inválida (`400`) y detalle (`200`).
 
 ---
 ## Galería de capturas

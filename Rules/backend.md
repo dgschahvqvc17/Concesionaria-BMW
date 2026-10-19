@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -204,6 +204,25 @@ La salida se registra con un `UpdateItem` condicional (atómico): si el stock
 resultante sería negativo, DynamoDB lanza `ConditionalCheckFailedException` y el
 servicio responde `409 Conflict`.
 
+### Tabla `ClientesComerciales` (RepuestosStack, HU07)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `clienteId` (PK) | string | UUID |
+| `nombres`,`apellidos` | string | |
+| `documento` | string | índice secundario `documento-index`; único |
+| `telefono` | string | |
+| `email` | string | índice secundario `email-index`; único, en minúsculas |
+| `consultas` | object[] | historial: `{ fecha, vehiculo?, interes, observacion? }` |
+| `notas` | string | notas internas del seguimiento (opcional) |
+| `estadoSeguimiento` | string | `nuevo` \| `contactado` \| `cotizando` \| `reservado` \| `vendido` \| `cerrado` |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Regla de negocio (HU07): no se admiten dos clientes con el mismo `documento` ni con
+el mismo `email`; el servicio verifica con `Query` sobre los GSIs y responde
+`409 Conflict` si existe (anti-duplicados en creación y actualización). Cada
+interacción se registra como consulta en el historial (`POST .../consultas`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -230,6 +249,11 @@ servicio responde `409 Conflict`.
 | PATCH | `/api/repuestos/:repuestoId` | admin/vendedor/jefe_taller | Actualizar datos (no `cantidad`) |
 | GET | `/api/movimientos` | token | Historial (`?repuestoId=&tipo=`) |
 | POST | `/api/movimientos` | admin/vendedor/jefe_taller | Registrar entrada o salida |
+| GET | `/api/clientes-comerciales` | admin/vendedor | Listar clientes comerciales |
+| POST | `/api/clientes-comerciales` | admin/vendedor | Registrar cliente (anti-duplicados, 409) |
+| GET | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Obtener cliente con historial |
+| PATCH | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Actualizar datos o `estadoSeguimiento` |
+| POST | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | Registrar una consulta en el historial |
 
 ## Variables de entorno
 
@@ -243,6 +267,9 @@ Ver `backend/.env.example`:
 | `USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
 | `USUARIOS_TABLE_NAME` | Tabla DynamoDB de usuarios |
 | `VEHICULOS_TABLE_NAME` | Tabla DynamoDB de vehículos |
+| `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
+| `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
+| `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

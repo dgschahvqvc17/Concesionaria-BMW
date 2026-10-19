@@ -11,6 +11,7 @@ import { Construct } from 'constructs';
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
   public readonly movimientosTable: dynamodb.Table;
+  public readonly clientesComercialesTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -42,6 +43,25 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU07: Clientes comerciales
+    this.clientesComercialesTable = new dynamodb.Table(this, 'ClientesComercialesTable', {
+      partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.clientesComercialesTable.addGlobalSecondaryIndex({
+      indexName: 'email-index',
+      partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.clientesComercialesTable.addGlobalSecondaryIndex({
+      indexName: 'documento-index',
+      partitionKey: { name: 'documento', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -52,6 +72,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MovimientosTableName', {
       value: this.movimientosTable.tableName,
       description: 'Nombre de la tabla DynamoDB de movimientos de inventario (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'ClientesComercialesTableName', {
+      value: this.clientesComercialesTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de clientes comerciales (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,

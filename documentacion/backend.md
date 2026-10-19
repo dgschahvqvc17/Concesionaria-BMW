@@ -65,14 +65,16 @@ backend/
     │   ├── catalogoRoutes.js
     │   ├── vehiculoRoutes.js
     │   ├── repuestoRoutes.js
-    │   └── movimientoRoutes.js
+    │   ├── movimientoRoutes.js
+    │   └── clienteComercialRoutes.js
     ├── controllers/          # Reciben HTTP, validan y delegan en services
     │   ├── usuarioController.js
     │   ├── clienteController.js
     │   ├── catalogoController.js
     │   ├── vehiculoController.js
     │   ├── repuestoController.js
-    │   └── movimientoController.js
+    │   ├── movimientoController.js
+    │   └── clienteComercialController.js
     ├── services/             # REGLAS DE NEGOCIO (aquí vive la lógica)
     │   ├── usuarioService.js
     │   ├── cognitoService.js
@@ -80,18 +82,21 @@ backend/
     │   ├── vehiculoService.js
     │   ├── storageService.js         # S3: presign, validación, borrado, URLs
     │   ├── repuestoService.js
-    │   └── movimientoService.js
+    │   ├── movimientoService.js
+    │   └── clienteComercialService.js
     ├── repositories/         # ÚNICO lugar que habla con DynamoDB
     │   ├── usuarioRepository.js
     │   ├── vehiculoRepository.js
     │   ├── repuestoRepository.js
-    │   └── movimientoRepository.js
+    │   ├── movimientoRepository.js
+    │   └── clienteComercialRepository.js
     ├── validation/           # Esquemas Zod + helper `validate`
     │   ├── usuarioSchemas.js
     │   ├── clienteSchemas.js
     │   ├── vehiculoSchemas.js
     │   ├── repuestoSchemas.js
-    │   └── movimientoSchemas.js
+    │   ├── movimientoSchemas.js
+    │   └── clienteComercialSchemas.js
     ├── errors/               # Jerarquía de errores y manejador central
     │   ├── AppError.js
     │   └── errorHandler.js
@@ -313,10 +318,13 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí cuatro tablas: `Usuarios`, `Vehiculos`, `Repuestos` y
-`MovimientosInventario`. Cada una tiene su propia clave primaria y, cuando necesitaba
+Con DynamoDB definí cinco tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+`MovimientosInventario` y `ClientesComerciales`. Cada una tiene su propia clave primaria y,
+cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
-`vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial.
+`vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
+en `ClientesComerciales` usé `email-index` y `documento-index` para buscar y evitar
+duplicados.
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -393,6 +401,26 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 | `createdAt` | string (ISO) | Fecha del movimiento |
 | `createdBy` | string | `sub` del actor |
 
+### Tabla `ClientesComerciales` (HU07)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `clienteId` | string (UUID) | **PK** |
+| `nombres`, `apellidos` | string | Datos del cliente |
+| `documento` | string | GSI `documento-index` (único) |
+| `telefono` | string | Teléfono de contacto |
+| `email` | string | GSI `email-index` (único, guardado en minúsculas) |
+| `consultas` | list&lt;objeto&gt; | Historial: `{ fecha, vehiculo?, interes, observacion? }` |
+| `notas` | string | Notas internas del seguimiento |
+| `estadoSeguimiento` | string | `nuevo` \| `contactado` \| `cotizando` \| `reservado` \| `vendido` \| `cerrado` |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Anti-duplicados:** antes de crear o de modificar el correo/documento, el servicio
+> consulta los GSIs `documento-index` y `email-index`; si el dato ya pertenece a otro
+> cliente, responde `409 Conflict`. El historial de consultas vive como lista anidada en
+> el propio ítem (no hace falta una tabla extra) y crece con cada interacción que
+> registra el vendedor desde el frontend.
+
 ### Relación entre tablas (sin claves foráneas)
 
 DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convención:
@@ -400,6 +428,8 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
 - `Vehiculos.createdBy` → `Usuarios.userId`
 - `MovimientosInventario.repuestoId` → `Repuestos.repuestoId`
 - `Usuarios.userId` ← `sub` del usuario en **Cognito**
+- `ClientesComerciales` es autónoma: no referencia a otras tablas (su historial de
+  consultas vive como lista anidada en el ítem).
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
 `movimientoService` verifica que el repuesto exista antes de registrar el movimiento),
@@ -534,7 +564,10 @@ los permisos los declaro con infraestructura como código usando AWS CDK en Type
 CloudFormation crea o actualiza exactamente lo que declaré. Esto me dio una ventaja
 concreta cuando en HU06 agregué el atributo `documentos` a los vehículos: no tuve que
 migrar nada, solo ajusté el esquema de Zod y la lógica del servicio, y los vehículos que ya
-existían siguieron funcionando sin ese atributo.
+existían siguieron funcionando sin ese atributo. Algo parecido pasó en la HU07: declarar la
+tabla `ClientesComerciales` con sus dos índices dentro de `repuestos-stack.ts` y volver a
+ejecutar `cdk deploy` bastó para que CloudFormation creara la tabla nueva sin mover las que
+ya existían.
 
 > El enunciado pedía "Migraciones". En bases **NoSQL no hay migraciones**: la base es
 > *schemaless* y no existe un esquema que versionar. La creación y evolución de tablas,
@@ -570,14 +603,36 @@ table.addGlobalSecondaryIndex({
 });
 ```
 
+En la HU07 sumé una tabla nueva al stack de repuestos, con los índices que después usa el
+servicio para evitar duplicados:
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU07: nueva tabla + índices)
+this.clientesComercialesTable = new dynamodb.Table(this, 'ClientesComercialesTable', {
+  partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.clientesComercialesTable.addGlobalSecondaryIndex({
+  indexName: 'email-index',
+  partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
+});
+
+this.clientesComercialesTable.addGlobalSecondaryIndex({
+  indexName: 'documento-index',
+  partitionKey: { name: 'documento', type: dynamodb.AttributeType.STRING },
+});
+```
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (`VehiculosStack`) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable`, HU07) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
-| `DROP/DELETE` | Recurso marcado para retención (`RemovalPolicy.RETAIN`) o borrado con `cdk destroy` |
+| `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
 | Versionado del esquema | El propio código CDK en Git |
 
 ### 7.4 Despliegue
@@ -794,11 +849,39 @@ const vinSchema = z.string().trim().toUpperCase()
   .regex(/^[A-HJ-NPR-Z0-9]{17}$/, 'El VIN debe tener 17 caracteres válidos (sin I, O ni Q).');
 ```
 
+```javascript
+// Cliente comercial (HU07): esquema con nombre, reutilizable en el array de
+// historial y en el endpoint de consultas
+const consultaClienteSchema = z.object({
+  fecha: z.string().trim().optional(),          // la asigna el backend al registrar
+  vehiculo: z.string().trim().min(1).max(80).optional(),
+  interes: z.string().trim().min(1).max(500),
+  observacion: z.string().trim().max(500).optional(),
+});
+
+const createClienteComercialSchema = z.object({
+  nombres: z.string().trim().min(2).max(60),
+  apellidos: z.string().trim().min(2).max(60),
+  documento: docSchema,                          // GSI documento-index (único)
+  telefono: telefonoSchema,
+  email: emailSchema,                            // GSI email-index (único)
+  consultas: z.array(consultaClienteSchema).optional(),
+  estadoSeguimiento: z.enum(['nuevo', 'contactado', 'cotizando', 'reservado', 'vendido', 'cerrado']).optional(),
+});
+
+// Actualización parcial que exige al menos un campo
+const updateClienteComercialSchema = z.object({ /* mismos campos, todos opcionales */ })
+  .refine((d) => Object.keys(d).length > 0, {
+    message: 'No se enviaron cambios para actualizar.',
+  });
+```
+
 ### 9.3 Reglas y buenas prácticas aplicadas
 
 - **Coerción de tipos:** `z.coerce.number()` convierte strings de formularios a números.
 - **Normalización:** `trim()` y `toUpperCase()` limpian los datos antes de guardarlos.
-- **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol` solo aceptan valores permitidos.
+- **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol` y `estadoSeguimiento` (HU07)
+  solo aceptan valores permitidos.
 - **Límites:** longitudes máximas, rangos (`anio` entre 1950 y año actual+1, precio > 0).
 - **El esquema de actualización es parcial:** `updateVehiculoSchema`/`updateUsuarioSchema`
   usan `.partial()` (y `updateUsuarioSchema` exige al menos un campo con `.refine`).
@@ -899,7 +982,7 @@ verbos HTTP según la acción y respuestas JSON. El prefijo general es `/api`.
 
 ### Referencia completa de endpoints
 
-Tabla consolidada con **todos** los endpoints de la API (22 en total). La columna
+Tabla consolidada con **todos** los endpoints de la API (27 en total). La columna
 *Autenticación* indica lo que exige cada ruta y *Cuerpo / Query* los datos que recibe.
 
 | Método | Ruta | Autenticación | Cuerpo / Query | Descripción |
@@ -926,6 +1009,11 @@ Tabla consolidada con **todos** los endpoints de la API (22 en total). La column
 | `PATCH` | `/api/repuestos/:repuestoId` | admin/vendedor/jefe_taller | `{ codigo?, nombre?, precio?, cantidadMinima? }` | Actualizar datos (no `cantidad`) |
 | `GET` | `/api/movimientos` | token | query `?repuestoId=<uuid>&tipo=entrada\|salida` | Historial de movimientos |
 | `POST` | `/api/movimientos` | admin/vendedor/jefe_taller | `{ repuestoId, tipo: "entrada" \| "salida", cantidad, motivo? }` | Registrar entrada/salida |
+| `GET` | `/api/clientes-comerciales` | admin/vendedor | — | Listar clientes comerciales |
+| `POST` | `/api/clientes-comerciales` | admin/vendedor | `{ nombres, apellidos, documento, telefono, email, notas?, estadoSeguimiento? }` | Registrar cliente (409 si duplica email/documento) |
+| `GET` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | — | Obtener cliente con historial de consultas |
+| `PATCH` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | campos parciales del cliente | Actualizar datos o `estadoSeguimiento` |
+| `POST` | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | `{ vehiculo?, interes, observacion? }` | Agregar una consulta al historial |
 
 > **Autorización en dos niveles.** Todas las rutas protegidas pasan primero por
 > `requireAuth` (token JWT obligatorio) y, cuando aplica, por `requireRole(...)`. En el
@@ -976,9 +1064,20 @@ Tabla consolidada con **todos** los endpoints de la API (22 en total). La column
 | `GET` | `/api/movimientos` | token |
 | `POST` | `/api/movimientos` | admin/vendedor/jefe_taller |
 
+**Clientes comerciales (HU07)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `GET` | `/api/clientes-comerciales` | admin/vendedor | Listar clientes |
+| `POST` | `/api/clientes-comerciales` | admin/vendedor | Registrar cliente (anti-duplicados) |
+| `GET` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Obtener cliente + historial |
+| `PATCH` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Actualizar datos/estado |
+| `POST` | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | Registrar consulta |
+
 ### Parámetros (path, query y cuerpos)
 
-- **Path params:** `:vehiculoId`, `:userId` y `:repuestoId` identifican el recurso a
+- **Path params:** `:vehiculoId`, `:userId`, `:repuestoId` y `:clienteId` identifican el
+  recurso a
   consultar o modificar.
 - **Query strings:** solo `GET /api/movimientos` acepta filtros opcionales
   (`?repuestoId=<uuid>` y `?tipo=entrada|salida`). Los demás listados no reciben filtros y
@@ -989,6 +1088,9 @@ Tabla consolidada con **todos** los endpoints de la API (22 en total). La column
   - `POST /api/vehiculos/archivos/presign` →
     `{ categoria: "foto" | "documento", contentType, nombre, size }`.
   - `POST /api/movimientos` → `{ repuestoId, tipo: "entrada" | "salida", cantidad, motivo? }`.
+  - `POST /api/clientes-comerciales` → datos del cliente (los duplicados se detectan en el
+    servidor y responden `409`); `POST .../consultas` → `{ vehiculo?, interes, observacion? }`
+    (la `fecha` la asigna el backend).
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1001,7 +1103,7 @@ Tabla consolidada con **todos** los endpoints de la API (22 en total). La column
   borrado es de archivos en S3 cuando se quitan del recurso.
 - **Filtros por query string**: `GET /api/movimientos?repuestoId=...&tipo=...`.
 - **Respuestas de listado** siempre incluyen `total` junto a la colección (`vehiculos`,
-  `repuestos`, `usuarios`, `movimientos`).
+  `repuestos`, `usuarios`, `movimientos`, `clientes`).
 
 ---
 
@@ -1013,7 +1115,8 @@ errores usan siempre la misma forma `{ error, code, details? }`, donde `code` es
 identificador fijo que el frontend puede interpretar. Los códigos HTTP reflejan lo que
 ocurrió: `200` en consultas y actualizaciones, `201` al crear, `400` si los datos no son
 válidos, `401` si falta el token o expiró, `403` si no hay permisos, `404` si el recurso no
-existe, `409` ante un conflicto (código o VIN repetido, o stock insuficiente) y `500` para
+existe, `409` ante un conflicto (código o VIN repetido, stock insuficiente, o email o
+documento de cliente repetido) y `500` para
 errores inesperados, que además registro en el log sin mostrar detalles internos.
 
 ### 12.1 Formato de petición y respuesta
@@ -1085,7 +1188,7 @@ Content-Type: application/json
 | `401 Unauthorized` | Falta token o es inválido/expirado | `requireAuth` |
 | `403 Forbidden` | Token válido pero sin permiso | `requireRole` / cuenta inactiva |
 | `404 Not Found` | Recurso o ruta inexistente | `NotFoundError` / `notFoundHandler` |
-| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente |
+| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente, email/documento de cliente duplicado |
 | `500 Internal Server Error` | Error inesperado | fallo no controlado (se registra en log) |
 
 ### 12.3 Contrato de error uniforme
@@ -1135,7 +1238,7 @@ curl http://localhost:3000/info
 | Rol | Descripción |
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
-| `vendedor` | Gestiona vehículos, repuestos y movimientos. |
+| `vendedor` | Gestiona vehículos, repuestos, movimientos y clientes comerciales (HU07). |
 | `jefe_taller` | Gestiona repuestos y movimientos. |
 | `mecanico` | Consulta inventario (rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
@@ -1168,6 +1271,7 @@ USUARIOS_TABLE_NAME=Usuarios
 VEHICULOS_TABLE_NAME=Vehiculos
 REPUESTOS_TABLE_NAME=Repuestos
 MOVIMIENTOS_TABLE_NAME=MovimientosInventario
+CLIENTES_COMERCIALES_TABLE_NAME=ClientesComerciales
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1190,8 +1294,8 @@ cd infra; npx tsc --noEmit
 Resumen para consulta veloz (el detalle completo de cada endpoint, con su cuerpo y
 permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable con
 `PORT`). Todas las respuestas son JSON y las rutas protegidas requieren el encabezado
-`Authorization: Bearer <ID token>`. `{id}` representa `:userId`, `:vehiculoId` o
-`:repuestoId` según el recurso.
+`Authorization: Bearer <ID token>`. `{id}` representa `:userId`, `:vehiculoId`,
+`:repuestoId` o `:clienteId` según el recurso.
 
 | Acción | Método y ruta | Requiere |
 | --- | --- | --- |
@@ -1210,6 +1314,9 @@ permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable
 | Crear / editar repuesto | `POST /api/repuestos` · `PATCH /api/repuestos/{id}` | admin/vendedor/jefe_taller |
 | Historial de movimientos | `GET /api/movimientos` (`?repuestoId=&tipo=`) | token |
 | Registrar movimiento | `POST /api/movimientos` | admin/vendedor/jefe_taller |
+| Listar / ver clientes comerciales | `GET /api/clientes-comerciales` · `/{id}` | admin/vendedor |
+| Registrar / editar cliente | `POST /api/clientes-comerciales` · `PATCH /{id}` | admin/vendedor |
+| Registrar consulta (historial) | `POST /api/clientes-comerciales/{id}/consultas` | admin/vendedor |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1245,6 +1352,21 @@ curl -X POST http://localhost:3000/api/vehiculos/archivos/presign \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"categoria":"foto","contentType":"image/jpeg","nombre":"front.jpg","size":204800}'
+
+# 8) Listar clientes comerciales (admin/vendedor)
+curl http://localhost:3000/api/clientes-comerciales -H "Authorization: Bearer $TOKEN"
+
+# 9) Registrar un cliente comercial (responde 409 si email/documento duplicado)
+curl -X POST http://localhost:3000/api/clientes-comerciales \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"nombres":"Juan","apellidos":"Pérez","documento":"1234567","telefono":"71234567","email":"juan@example.com"}'
+
+# 10) Agregar una consulta al historial del cliente
+curl -X POST http://localhost:3000/api/clientes-comerciales/<uuid>/consultas \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"vehiculo":"BMW Serie 3 2024","interes":"Quiere cotizar financiamiento","observacion":"Llamar el lunes"}'
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1263,6 +1385,7 @@ curl -X POST http://localhost:3000/api/vehiculos/archivos/presign \
 | HU04 | Inventario de repuestos | Implementada |
 | HU05 | Catálogo web público de vehículos | Implementada |
 | HU06 | Gestión de fotografías y documentos | Implementada |
+| HU07 | Seguimiento comercial de clientes | Implementada (backend verificado end-to-end) |
 
 ---
 
