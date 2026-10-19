@@ -20,7 +20,7 @@ Infraestructura declarada como código con **AWS CDK (TypeScript)** en `infra/`.
 | Servicio | Para qué | Recurso |
 | --- | --- | --- |
 | **Amazon Cognito** | Autenticación (email + contraseña) y roles vía Groups. | User Pool + App Client + 4 grupos |
-| **Amazon DynamoDB** | Persistencia de usuarios y vehículos. | 2 tablas (modo on-demand) |
+| **Amazon DynamoDB** | Persistencia de usuarios, vehículos, repuestos, movimientos y clientes comerciales. | 5 tablas (modo on-demand) |
 | **Amazon S3** | Almacenamiento de fotografías de vehículos. | 1 bucket privado |
 | **AWS CloudFormation** | Despliegue de la infraestructura (lo usa CDK). | 3 stacks |
 | **AWS Lambda** | Helper de CDK para vaciar el bucket al destruir el stack (`autoDeleteObjects`). | 1 función auxiliar |
@@ -55,7 +55,7 @@ infra/
 ├── lib/
 │   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
 │   ├── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
-│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario)
+│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales)
 └── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
 ```
 
@@ -77,12 +77,15 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
   `repuesto-index` (`repuestoId` + `createdAt`).
-- Salidas: `RepuestosTableName`, `MovimientosTableName`, `Region`.
+- **Tabla `ClientesComerciales`** (HU07, DynamoDB): PK `clienteId`, GSIs
+  `email-index` y `documento-index` (búsqueda y anti-duplicados).
+- Salidas: `RepuestosTableName`, `MovimientosTableName`,
+  `ClientesComercialesTableName`, `Region`.
 
 Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
 de `backend` y `frontend`.

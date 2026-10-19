@@ -5,5 +5,11 @@
     "UserPoolId": "us-east-2_lXmTlesoj",
     "Region": "us-east-2",
     "UserPoolArn": "arn:aws:cognito-idp:us-east-2:591015654164:userpool/us-east-2_lXmTlesoj"
+  },
+  "ConcesionariaBmwRepuestosStack": {
+    "RepuestosTableName": "ConcesionariaBmwRepuestosStack-RepuestosTable03F7C7F8-1LE5CSFD1GTNJ",
+    "MovimientosTableName": "ConcesionariaBmwRepuestosStack-MovimientosTableDDEDD203-EQN7AVQE50ZO",
+    "ClientesComercialesTableName": "ConcesionariaBmwRepuestosStack-ClientesComercialesTableCF55FE95-1J1UGMBT2PFYG",
+    "Region": "us-east-2"
   }
 }

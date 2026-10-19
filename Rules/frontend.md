@@ -22,6 +22,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, AuthBrandPanel, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
+│   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
@@ -30,11 +31,11 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales
 ├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cognito-errors, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial
 ```
 
 ### Flujo de datos

@@ -24,6 +24,7 @@ cualquier editor compatible.
 | 7 | Autenticación (login + JWT) | Secuencia |
 | 8 | Crear vehículo con archivos (S3) | Secuencia |
 | 9 | Movimiento de inventario (stock condicional) | Secuencia |
+| 10 | Seguimiento comercial de clientes (HU07) | Secuencia |
 
 ---
 
@@ -48,7 +49,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(4 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(5 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -88,6 +89,7 @@ cloud "AWS us-east-2" {
     database "Vehiculos" as t2
     database "Repuestos" as t3
     database "MovimientosInventario" as t4
+    database "ClientesComerciales" as t5
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -137,6 +139,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Gestionar fotos y documentos (HU06)" as UC_archivos
   usecase "Gestionar repuestos (HU04)" as UC_repuestos
   usecase "Registrar movimientos" as UC_movimientos
+  usecase "Gestionar clientes comerciales (HU07)" as UC_clientes
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -158,12 +161,14 @@ vendedor --> UC_vehiculos
 vendedor --> UC_archivos
 vendedor --> UC_repuestos
 vendedor --> UC_movimientos
+vendedor --> UC_clientes
 
 admin --> UC_login
 admin --> UC_vehiculos
 admin --> UC_archivos
 admin --> UC_repuestos
 admin --> UC_movimientos
+admin --> UC_clientes
 admin --> UC_usuarios
 @enduml
 ```
@@ -177,7 +182,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (4 tablas)
+title Modelo de datos — DynamoDB (5 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -245,10 +250,26 @@ entity "MovimientosInventario" as movimientos {
   createdBy : string
 }
 
+entity "ClientesComerciales" as clientes {
+  * clienteId <<PK>> : string
+  --
+  nombres : string
+  apellidos : string
+  documento <<GSI documento-index>> : string
+  telefono : string
+  email <<GSI email-index>> : string
+  consultas : list<object>
+  notas : string
+  estadoSeguimiento : string
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
 usuarios ||..o{ repuestos : "gestiona"
+usuarios ||..o{ clientes : "da seguimiento"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -444,6 +465,46 @@ else Repuesto existe
     api --> user : 409 Conflict (stock insuficiente)
   end
 end
+@enduml
+```
+
+---
+
+## Diagrama 10 — Seguimiento comercial de clientes (HU07)
+
+```plantuml
+@startuml
+title Secuencia — Registrar cliente comercial y consulta (HU07)
+skinparam shadowing false
+
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nClientesComerciales" as db
+
+v -> fe : Completa el formulario del cliente
+fe -> be : POST /api/clientes-comerciales\n(Bearer token admin/vendedor)
+be -> be : validate(createClienteComercialSchema)
+be -> db : Query email-index y documento-index\n(¿el correo o documento ya existen?)
+alt Dato ya registrado
+  db --> be : ítem encontrado
+  be --> fe : 409 CONFLICT\n"Ya existe un cliente con ese correo/documento"
+  fe --> v : Toast de error (no se duplica nada)
+else Sin duplicados
+  db --> be : vacío
+  be -> db : PutCommand (clienteId = UUID)
+  db --> be : OK
+  be --> fe : 201 { message, cliente }
+  fe --> v : Listado actualizado
+end
+
+v -> fe : Registra una consulta (interés / vehículo)
+fe -> be : POST /api/clientes-comerciales/{id}/consultas
+be -> be : validate(consultaClienteSchema)
+be -> db : UpdateCommand (push en lista consultas + fecha)
+db --> be : ítem actualizado
+be --> fe : 201 { message, cliente }
+fe --> v : Historial con la nueva consulta
 @enduml
 ```
 
