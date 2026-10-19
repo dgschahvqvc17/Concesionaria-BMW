@@ -24,6 +24,7 @@ frontend/src/
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
+│   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
@@ -31,11 +32,11 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cognito-errors, utils
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion
 ```
 
 ### Flujo de datos
@@ -147,6 +148,29 @@ degradado BMW).
   directamente a S3 con URLs prefirmadas y muestran los errores con `toast`.
 - El **catálogo público** nunca expone documentos: solo la proyección pública (HU05).
 - Los documentos ya guardados incluyen `url` prefirmada de lectura (botón «Ver»).
+
+## Seguimiento comercial (HU07)
+
+- `pages/clientesComerciales/` (listado + detalle) + `ClienteComercialFormDialog`.
+- Datos: `services/clientesComerciales.ts` + `hooks/useClientesComerciales.ts`.
+- **Correo**: al registrar una consulta en la ficha del cliente, `lib/consultaEmail.ts` arma
+  un enlace `mailto:` con la confirmación redactada y abre el gestor de correo (la notificación
+  se puede desactivar con la casilla del formulario). Igual que HU08, evita AWS SES.
+
+## Cotizaciones (HU08)
+
+- `pages/cotizaciones/CotizacionesPage` + `components/cotizaciones/` (`CotizacionFormDialog`,
+  `CotizacionesTable`, `CotizacionDetalleDialog`).
+- Datos: `services/cotizaciones.ts` + `hooks/useCotizaciones.ts`; se alimenta del inventario
+  (`useVehiculos`) y de los clientes (`useClientesComerciales`). Solo se ofrecen vehículos
+  `disponible`/`reservado`.
+- **PDF**: `lib/cotizacionPdf.ts` genera el documento con **jsPDF** (dependencia del
+  frontend, sin costo en AWS) y lo descarga como `Cotizacion-<numero>.pdf`.
+- **Correo**: `lib/cotizacionEmail.ts` arma un enlace `mailto:` con destinatario, asunto y
+  cuerpo redactados (el usuario adjunta el PDF). Evita AWS SES para no salir de la capa
+  gratuita.
+- `lib/cotizaciones.ts`: estados, etiquetas/estilos y `calcularImportes`
+  (descuento máximo 20%, espejo del backend).
 
 ## Acceso a la API
 

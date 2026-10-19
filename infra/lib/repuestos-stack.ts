@@ -7,11 +7,18 @@ import { Construct } from 'constructs';
  * Tabla DynamoDB `Repuestos` (con índice por código para evitar duplicados y
  * permitir búsquedas) y tabla `MovimientosInventario` que registra cada entrada
  * o salida de existencias (con índice por repuesto para consultar su historial).
+ *
+ * HU07 - Seguimiento comercial: tabla `ClientesComerciales` (índices por email y
+ * documento para búsqueda y anti-duplicados).
+ *
+ * HU08 - Cotizaciones: tabla `Cotizaciones` (índices por cliente para el historial
+ * y por número de cotización).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
   public readonly movimientosTable: dynamodb.Table;
   public readonly clientesComercialesTable: dynamodb.Table;
+  public readonly cotizacionesTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -62,6 +69,27 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU08: Cotizaciones. PK = cotizacionId (UUID). GSI por cliente + createdAt
+    // (historial de cotizaciones del cliente) y GSI por número (número único).
+    this.cotizacionesTable = new dynamodb.Table(this, 'CotizacionesTable', {
+      partitionKey: { name: 'cotizacionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.cotizacionesTable.addGlobalSecondaryIndex({
+      indexName: 'cliente-index',
+      partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.cotizacionesTable.addGlobalSecondaryIndex({
+      indexName: 'numero-index',
+      partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -76,6 +104,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ClientesComercialesTableName', {
       value: this.clientesComercialesTable.tableName,
       description: 'Nombre de la tabla DynamoDB de clientes comerciales (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'CotizacionesTableName', {
+      value: this.cotizacionesTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de cotizaciones (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,

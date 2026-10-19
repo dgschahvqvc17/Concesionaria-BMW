@@ -2,8 +2,8 @@
 
 Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
 usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
-vehículos y repuestos con fotografías y documentos, catálogo web público y seguimiento
-comercial de clientes potenciales.
+vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
+comercial de clientes potenciales y generación de cotizaciones.
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -31,7 +31,8 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada y verificada |
 | **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada y verificada |
 | **HU06** | Gestión de fotografías y documentos de los vehículos (S3, roles y mensajes de error). | Implementada y verificada |
-| **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas y estados. | Implementada (backend verificado e2e) |
+| **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas, estados y notificación por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU08** | Cotizaciones: generación con precios vigentes, descuentos ≤ 20%, estados, PDF (jsPDF) y envío por correo (`mailto:`). | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -44,7 +45,7 @@ celular); el administrador gestiona solo al personal y no crea clientes.
 | Área | Tecnologías |
 | --- | --- |
 | Backend | Node.js, Express 5, Zod, AWS SDK v3 (`lib-dynamodb`, `s3-request-presigner`), `aws-jwt-verify`, `cors`, `dotenv` |
-| Frontend | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, React Router, React Hook Form, AWS Amplify |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, React Router, React Hook Form, AWS Amplify, jsPDF |
 | Infraestructura | AWS CDK (TypeScript) |
 | Servicios AWS | Cognito, DynamoDB, S3, CloudFormation, Lambda (helper), IAM, Budgets |
 
@@ -129,6 +130,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
 | `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
+| `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -168,6 +170,8 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | GET/POST | `/api/clientes-comerciales` | `admin`, `vendedor` |
 | GET/PATCH | `/api/clientes-comerciales/:clienteId` | `admin`, `vendedor` |
 | POST | `/api/clientes-comerciales/:clienteId/consultas` | `admin`, `vendedor` |
+| GET/POST | `/api/cotizaciones` | `admin`, `vendedor` |
+| GET/PATCH | `/api/cotizaciones/:cotizacionId` | `admin`, `vendedor` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

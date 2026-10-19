@@ -3,14 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
+import { useCotizaciones } from '@/hooks/useCotizaciones';
 import { getErrorMessage } from '@/lib/api';
-import { formatFecha } from '@/lib/repuestos';
+import { abrirCorreoConsulta } from '@/lib/consultaEmail';
+import { descargarCotizacionPdf } from '@/lib/cotizacionPdf';
+import { ESTADO_COTIZACION_LABELS, ESTADO_COTIZACION_STYLES } from '@/lib/cotizaciones';
+import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import { clientesComercialesService } from '@/services/clientesComerciales';
 import type { ClienteComercial } from '@/types/clienteComercial';
 
@@ -18,12 +23,14 @@ export function ClienteComercialDetallePage() {
   const { clienteId } = useParams();
   const navigate = useNavigate();
   const { agregarConsulta, recargar } = useClientesComerciales();
+  const { cotizaciones, loading: cargandoCotizaciones } = useCotizaciones({ clienteId });
   const [cliente, setCliente] = useState<ClienteComercial | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [vehiculo, setVehiculo] = useState('');
   const [interes, setInteres] = useState('');
   const [observacion, setObservacion] = useState('');
+  const [notificar, setNotificar] = useState(true);
 
   useEffect(() => {
     if (!clienteId) return;
@@ -35,11 +42,16 @@ export function ClienteComercialDetallePage() {
   }, [clienteId]);
 
   const guardarConsulta = async () => {
-    if (!clienteId || !interes.trim()) return;
+    if (!clienteId || !cliente || !interes.trim()) return;
     setGuardando(true);
     try {
       await agregarConsulta(clienteId, { vehiculo, interes, observacion });
-      toast.success('Consulta registrada correctamente.');
+      if (notificar) abrirCorreoConsulta(cliente, { vehiculo, interes, observacion });
+      toast.success(
+        notificar
+          ? 'Consulta registrada. Se abrió tu correo para enviar la confirmación.'
+          : 'Consulta registrada correctamente.'
+      );
       const r = await clientesComercialesService.get(clienteId);
       setCliente(r.cliente);
       setVehiculo(''); setInteres(''); setObservacion('');
@@ -56,7 +68,7 @@ export function ClienteComercialDetallePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`${cliente.nombres} ${cliente.apellidos}`} description={`Documento: ${cliente.documento} | Email: ${cliente.email}`} actions={<Button variant="outline" onClick={() => navigate(-1)}>Volver</Button>} />
+      <PageHeader title={`${cliente.nombres} ${cliente.apellidos}`} description={`Documento: ${cliente.documento} | Email: ${cliente.email}`} actions={<div className="flex gap-2"><Button variant="outline" onClick={() => navigate('/cotizaciones')}>Nueva cotización</Button><Button variant="outline" onClick={() => navigate(-1)}>Volver</Button></div>} />
       <Card>
         <CardHeader><CardTitle>Datos</CardTitle></CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
@@ -73,6 +85,15 @@ export function ClienteComercialDetallePage() {
             <div><Label>Interés</Label><Input value={interes} onChange={(e) => setInteres(e.target.value)} /></div>
           </div>
           <div><Label>Observación</Label><Textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} /></div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-input"
+              checked={notificar}
+              onChange={(e) => setNotificar(e.target.checked)}
+            />
+            Notificar al cliente por correo (abre tu gestor de correo)
+          </label>
           <Button onClick={guardarConsulta} disabled={guardando || !interes.trim()}>Guardar consulta</Button>
         </CardContent>
       </Card>
@@ -90,6 +111,35 @@ export function ClienteComercialDetallePage() {
             ))}
             {(cliente.consultas||[]).length === 0 && <div>Sin consultas registradas</div>}
           </ul>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Cotizaciones</CardTitle></CardHeader>
+        <CardContent>
+          {cargandoCotizaciones ? (
+            <p className="text-sm text-muted-foreground">Cargando cotizaciones…</p>
+          ) : cotizaciones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin cotizaciones registradas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {cotizaciones.map((cotizacion) => (
+                <li key={cotizacion.cotizacionId} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">{cotizacion.numero} · {formatPrecio(cotizacion.total)}</div>
+                    <div className="text-xs text-muted-foreground">Vence {formatFecha(cotizacion.fechaVencimiento)}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={ESTADO_COTIZACION_STYLES[cotizacion.estado]}>
+                      {ESTADO_COTIZACION_LABELS[cotizacion.estado]}
+                    </Badge>
+                    <Button size="sm" variant="outline" onClick={() => descargarCotizacionPdf(cotizacion)}>
+                      PDF
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

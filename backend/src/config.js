@@ -10,6 +10,7 @@ const config = {
   repuestosTableName: process.env.REPUESTOS_TABLE_NAME || 'Repuestos',
   movimientosTableName: process.env.MOVIMIENTOS_TABLE_NAME || 'MovimientosInventario',
   clientesComercialesTableName: process.env.CLIENTES_COMERCIALES_TABLE_NAME || 'ClientesComerciales',
+  cotizacionesTableName: process.env.COTIZACIONES_TABLE_NAME || 'Cotizaciones',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };
