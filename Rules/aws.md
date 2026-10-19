@@ -20,7 +20,7 @@ Infraestructura declarada como código con **AWS CDK (TypeScript)** en `infra/`.
 | Servicio | Para qué | Recurso |
 | --- | --- | --- |
 | **Amazon Cognito** | Autenticación (email + contraseña) y roles vía Groups. | User Pool + App Client + 4 grupos |
-| **Amazon DynamoDB** | Persistencia de usuarios, vehículos, repuestos, movimientos, clientes comerciales y cotizaciones. | 6 tablas (modo on-demand) |
+| **Amazon DynamoDB** | Persistencia de usuarios, vehículos, repuestos, movimientos, clientes comerciales, cotizaciones y reservas. | 7 tablas (modo on-demand) |
 | **Amazon S3** | Almacenamiento de fotografías de vehículos. | 1 bucket privado |
 | **AWS CloudFormation** | Despliegue de la infraestructura (lo usa CDK). | 3 stacks |
 | **AWS Lambda** | Helper de CDK para vaciar el bucket al destruir el stack (`autoDeleteObjects`). | 1 función auxiliar |
@@ -55,7 +55,7 @@ infra/
 ├── lib/
 │   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
 │   ├── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
-│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales + Cotizaciones)
+│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales + Cotizaciones + Reservas)
 └── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
 ```
 
@@ -77,7 +77,7 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
@@ -87,8 +87,12 @@ infra/
 - **Tabla `Cotizaciones`** (HU08, DynamoDB): PK `cotizacionId`, GSIs `cliente-index`
   (`clienteId` + `createdAt`, historial por cliente) y `numero-index` (número único).
   Guarda una partición auxiliar `secuencia#<año>` para la numeración atómica.
+- **Tabla `Reservas`** (HU09, DynamoDB): PK `reservaId`, GSIs `vehiculo-index`
+  (`vehiculoId` + `createdAt`, detección de reservas activas), `cliente-index`
+  (`clienteId` + `createdAt`, historial por cliente) y `numero-index` (número único).
+  Guarda una partición auxiliar `secuencia#<año>` para la numeración atómica.
 - Salidas: `RepuestosTableName`, `MovimientosTableName`,
-  `ClientesComercialesTableName`, `CotizacionesTableName`, `Region`.
+  `ClientesComercialesTableName`, `CotizacionesTableName`, `ReservasTableName`, `Region`.
 
 Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
 de `backend` y `frontend`.

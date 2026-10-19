@@ -28,15 +28,16 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
+│   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, utils
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva
 ```
 
 ### Flujo de datos
@@ -171,6 +172,20 @@ degradado BMW).
   gratuita.
 - `lib/cotizaciones.ts`: estados, etiquetas/estilos y `calcularImportes`
   (descuento máximo 20%, espejo del backend).
+
+## Reservas de vehículos (HU09)
+
+- `pages/reservas/ReservasPage` + `components/reservas/` (`ReservaFormDialog`,
+  `ReservasTable`, `ReservaDetalleDialog`).
+- Datos: `services/reservas.ts` + `hooks/useReservas.ts`; se alimenta del inventario
+  (`useVehiculos`) y de los clientes (`useClientesComerciales`). Solo se ofrecen vehículos
+  `disponible`.
+- `ReservaDetalleDialog`: muestra el snapshot del cliente/vehículo, condiciones, historial de
+  estados y permite **cancelar** (libera la unidad) o **convertir en venta** (deja el vehículo
+  como `vendido`).
+- `lib/reservas.ts`: estados (`activa`/`cancelada`/`vencida`/`convertida`), etiquetas/estilos,
+  `puedeGestionarse` y la vigencia por defecto/máxima (espejo del backend).
+- La ficha del cliente (`ClienteComercialDetallePage`) incluye además una tarjeta con sus reservas.
 
 ## Acceso a la API
 

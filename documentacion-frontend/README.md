@@ -8,8 +8,8 @@ mantuvo dentro de la **capa gratuita de AWS**.
 
 La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), el inventario
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
-gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07) y
-la generación de cotizaciones (HU08).
+gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
+la generación de cotizaciones (HU08) y las reservas de vehículos (HU09).
 
 ## Índice
 
@@ -28,6 +28,7 @@ la generación de cotizaciones (HU08).
 13. [Pruebas funcionales](#13-pruebas-funcionales)
 14. [Seguimiento comercial (HU07)](#14-seguimiento-comercial-hu07)
 15. [Cotizaciones (HU08)](#15-cotizaciones-hu08)
+16. [Reservas de vehículos (HU09)](#16-reservas-de-vehículos-hu09)
 
 ---
 
@@ -120,17 +121,18 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
 │   ├── layout/             # AppLayout, PageHeader
+│   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ui/                 # Primitivos shadcn/ui
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -152,6 +154,7 @@ conservar la accesibilidad.
 | `UserFormDialog` | `components/users` | Alta/edición de personal (no clientes). |
 | `ClienteComercialFormDialog` | `components/clientesComerciales` | Alta de clientes comerciales con validación Zod (HU07). |
 | `CotizacionFormDialog` / `CotizacionDetalleDialog` | `components/cotizaciones` | Generación y gestión de cotizaciones (HU08): snapshot de precios, descuento ≤ 20% y PDF/correo. |
+| `ReservaFormDialog` / `ReservaDetalleDialog` | `components/reservas` | Registro y gestión de reservas (HU09): apartado del vehículo, historial, cancelación y conversión en venta. |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -267,6 +270,7 @@ comparte entre páginas sin repetir código.
 | `/clientes-comerciales` | `ClientesComercialesPage` | `admin`, `vendedor` (HU07). |
 | `/clientes-comerciales/:clienteId` | `ClienteComercialDetallePage` | `admin`, `vendedor`. |
 | `/cotizaciones` | `CotizacionesPage` | `admin`, `vendedor` (HU08). |
+| `/reservas` | `ReservasPage` | `admin`, `vendedor` (HU09). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -686,6 +690,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `usuarios.ts` | `list/create/update` | `/api/usuarios` | Sí (`admin`) | Gestión de personal (HU02). |
 | `clientesComerciales.ts` | `list/get/create/update/addConsulta` | `/api/clientes-comerciales` | Sí (`admin`/`vendedor`) | Seguimiento comercial (HU07). |
 | `cotizaciones.ts` | `list/get/create/update` | `/api/cotizaciones` | Sí (`admin`/`vendedor`) | Cotizaciones (HU08). |
+| `reservas.ts` | `list/get/create/cancelar/convertir` | `/api/reservas` | Sí (`admin`/`vendedor`) | Reservas de vehículos (HU09). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -836,7 +841,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU08:
+Recorrí los flujos principales alineados a HU01–HU09:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -852,6 +857,7 @@ Recorrí los flujos principales alineados a HU01–HU08:
 | HU06 | Subida fotos/documentos | Presign → `PUT` directo a S3 → guardar `keys` → previsualización y listado. | **OK** | Integrado en `VehiculoFormDialog` + `PhotoUploader`/`DocumentosUploader` |
 | HU07 | Seguimiento comercial | `/clientes-comerciales` (solo `admin`/`vendedor`) → listado + alta con Zod; detalle → registrar consulta e historial. | **OK** (backend e2e: `201`/`409`/`400`/`200`; UI con build limpio). | Código: `pages/clientesComerciales/`, `services/clientesComerciales.ts` |
 | HU08 | Cotizaciones | `/cotizaciones` (solo `admin`/`vendedor`) → nueva cotización (cliente + vehículos + descuento); detalle → aceptar/rechazar, descargar PDF y enviar por correo. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/cotizaciones/`, `services/cotizaciones.ts`, `lib/cotizacionPdf.ts` |
+| HU09 | Reservas de vehículos | `/reservas` (solo `admin`/`vendedor`) → nueva reserva (cliente + vehículo disponible); detalle → cancelar (libera unidad) o convertir en venta. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/reservas/`, `services/reservas.ts`, `lib/reservas.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1144,6 +1150,87 @@ handler vuelve a lanzar el error para que el diálogo permanezca abierto.
 - Backend verificado end-to-end: crear (`201`, `COT-AAAA-######`), número secuencial, snapshot
   de precios, descuento > 20% (`400`), vehículo vendido (`409`), cliente inexistente (`404`),
   cambio de estado (`200`) y bloqueo de edición fuera de `pendiente` (`409`).
+
+---
+
+## 16. Reservas de vehículos (HU09)
+
+La HU09 permite a `admin` y `vendedor` **apartar** un vehículo disponible para un cliente
+comercial, con vigencia e historial, y luego **cancelar** la reserva (libera la unidad) o
+**convertirla en venta** (deja el vehículo como `vendido`).
+
+**Archivos**
+
+```text
+frontend/src/
+├── pages/reservas/ReservasPage.tsx
+├── components/reservas/
+│   ├── ReservaFormDialog.tsx          # alta (cliente + vehículo disponible + vigencia)
+│   ├── ReservasTable.tsx              # listado con badge de estado
+│   └── ReservaDetalleDialog.tsx       # detalle, historial y acciones
+├── services/reservas.ts
+├── hooks/useReservas.ts
+└── lib/reservas.ts                    # estados, etiquetas/estilos y `puedeGestionarse`
+```
+
+**Service y hook**
+
+```ts
+// services/reservas.ts (extracto)
+export const reservasService = {
+  list: (filtro?: ReservasFiltro) => apiRequest<ReservasResponse>(`/api/reservas${queryString(filtro)}`),
+  get: (reservaId: string) => apiRequest<ReservaResponse>(`/api/reservas/${reservaId}`),
+  create: (input: CreateReservaInput) =>
+    apiRequest<ReservaResponse>('/api/reservas', { method: 'POST', body: input }),
+  cancelar: (reservaId: string, input: CancelarReservaInput) =>
+    apiRequest<ReservaResponse>(`/api/reservas/${reservaId}/cancelar`, { method: 'POST', body: input }),
+  convertir: (reservaId: string, input: ConvertirReservaInput) =>
+    apiRequest<ReservaResponse>(`/api/reservas/${reservaId}/convertir`, { method: 'POST', body: input }),
+};
+```
+
+`useReservas` acepta un filtro `{ clienteId?, vehiculoId?, estado? }`, expone
+`reservas/loading/error` y las acciones `crear`, `cancelar` y `convertir` (que recargan la
+lista tras cada operación).
+
+**Formulario**
+
+`ReservaFormDialog` usa React Hook Form + Zod. Solo ofrece clientes comerciales y vehículos en
+estado `disponible` (el backend vuelve a validarlo). El vehículo elegido se muestra con su
+precio vigente; la `vigenciaDias` por defecto es 30 (máximo 365) y `monto`/`condiciones` son
+opcionales.
+
+**Detalle y acciones**
+
+- `ReservaDetalleDialog` muestra el snapshot del cliente y del vehículo, el monto, la vigencia,
+  las condiciones y el **historial de estados**.
+- Si la reserva sigue `activa` permite **convertir en venta** (con observaciones) y
+  **cancelar** (con motivo). Los estados `cancelada`/`vencida`/`convertida` quedan solo de
+  lectura.
+
+**Historial por cliente (HU07 → HU09)**
+
+`ClienteComercialDetallePage` añade una tarjeta «Reservas» alimentada por
+`useReservas({ clienteId })`, con número, vehículo, vencimiento y estado.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/reservas` queda bajo `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Reservas» (icono `CalendarCheck`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (vehículo no disponible, reserva ya no gestionable), `400` (validación / fecha pasada)
+y `404` (cliente/vehículo/reserva inexistente) llegan como `ApiError` y se muestran con
+`toast.error`.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end: crear (`201`, `RES-AAAA-######`), doble reserva (`409`),
+  cancelar (`200`, vehículo liberado), convertir (`200`, vehículo `vendido`), reserva ya
+  gestionada (`409`), cliente/vehículo inexistente (`404`), fecha pasada (`400`) y vencimiento
+  derivado que libera la unidad.
 
 ---
 
