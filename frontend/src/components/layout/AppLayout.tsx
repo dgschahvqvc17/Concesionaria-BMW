@@ -4,6 +4,7 @@ import {
   Car,
   CarFront,
   Contact,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/inventario', label: 'Inventario', icon: Car, roles: STAFF_NAV_ROLES },
   { to: '/repuestos', label: 'Repuestos', icon: Package, roles: STAFF_NAV_ROLES },
   { to: '/clientes-comerciales', label: 'Clientes', icon: Contact, roles: ['admin', 'vendedor'] },
+  { to: '/cotizaciones', label: 'Cotizaciones', icon: FileText, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
 

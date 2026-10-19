@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -223,6 +223,37 @@ el mismo `email`; el servicio verifica con `Query` sobre los GSIs y responde
 `409 Conflict` si existe (anti-duplicados en creación y actualización). Cada
 interacción se registra como consulta en el historial (`POST .../consultas`).
 
+### Tabla `Cotizaciones` (RepuestosStack, HU08)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `cotizacionId` (PK) | string | UUID (o `secuencia#<año>` para el contador interno) |
+| `numero` | string | `COT-AAAA-######`; índice secundario `numero-index`; único |
+| `clienteId` | string | índice secundario `cliente-index` (+ `createdAt`) |
+| `cliente` | object | snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `items` | object[] | snapshot de vehículos: `{ vehiculoId, marca, modelo, version, anio, vin, precioUnitario, subtotal }` |
+| `subtotal`,`descuentoMonto`,`total` | number | importes calculados en el servicio |
+| `descuentoPorcentaje` | number | 0–20 (política comercial) |
+| `observaciones` | string | opcional |
+| `estado` | string | `pendiente` \| `aceptada` \| `rechazada` \| `vencida` |
+| `vigenciaDias` | number | días de validez (1–90; por defecto 15) |
+| `fechaVencimiento` | string | ISO-8601 (`createdAt` + `vigenciaDias`) |
+| `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU08):
+- Se guarda un **snapshot** del vehículo con su precio vigente: las cotizaciones
+  históricas no cambian si el precio del vehículo se actualiza después.
+- Solo se pueden cotizar vehículos en estado `disponible` o `reservado`; si está
+  `vendido`/`no_disponible` el servicio responde `409 Conflict`.
+- El **número** se reserva de forma atómica (`UpdateItem` con `ADD` sobre la partición
+  `secuencia#<año>`), garantizando que no se repita.
+- `subtotal = Σ precioUnitario`, `descuentoMonto = subtotal × % / 100`,
+  `total = subtotal − descuentoMonto` (redondeado a 2 decimales).
+- Solo las cotizaciones `pendiente` pueden modificarse (`PATCH`); cualquier otro estado
+  responde `409 Conflict`. Una cotización `pendiente` cuya `fechaVencimiento` ya pasó se
+  presenta como `vencida` (estado derivado, sin escritura en lectura).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -254,6 +285,10 @@ interacción se registra como consulta en el historial (`POST .../consultas`).
 | GET | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Obtener cliente con historial |
 | PATCH | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Actualizar datos o `estadoSeguimiento` |
 | POST | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | Registrar una consulta en el historial |
+| GET | `/api/cotizaciones` | admin/vendedor | Listar cotizaciones (`?clienteId=&estado=`) |
+| POST | `/api/cotizaciones` | admin/vendedor | Generar cotización (número único, 201) |
+| GET | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Obtener cotización |
+| PATCH | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Actualizar descuento, observaciones o estado |
 
 ## Variables de entorno
 
@@ -270,6 +305,7 @@ Ver `backend/.env.example`:
 | `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
 | `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
+| `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

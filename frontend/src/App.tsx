@@ -16,6 +16,7 @@ import { UsersPage } from '@/pages/UsersPage';
 import { VehiculoDetallePage } from '@/pages/VehiculoDetallePage';
 import { ClienteComercialDetallePage } from '@/pages/clientesComerciales/ClienteComercialDetallePage';
 import { ClientesComercialesPage } from '@/pages/clientesComerciales/ClientesComercialesPage';
+import { CotizacionesPage } from '@/pages/cotizaciones/CotizacionesPage';
 
 export function App() {
   return (
@@ -42,10 +43,11 @@ export function App() {
                 <Route path="/repuestos" element={<RepuestosPage />} />
               </Route>
 
-              {/* Seguimiento comercial (HU07): solo administradores y vendedores. */}
+              {/* Seguimiento comercial (HU07) y cotizaciones (HU08): admin y vendedores. */}
               <Route element={<ProtectedRoute roles={['admin', 'vendedor']} />}>
                 <Route path="/clientes-comerciales" element={<ClientesComercialesPage />} />
                 <Route path="/clientes-comerciales/:clienteId" element={<ClienteComercialDetallePage />} />
+                <Route path="/cotizaciones" element={<CotizacionesPage />} />
               </Route>
 
               {/* Gestión de usuarios: solo administradores. */}

@@ -8,7 +8,8 @@ mantuvo dentro de la **capa gratuita de AWS**.
 
 La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), el inventario
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
-gestión de fotografías y documentos (HU06) y el seguimiento comercial de clientes (HU07).
+gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07) y
+la generación de cotizaciones (HU08).
 
 ## Índice
 
@@ -26,6 +27,7 @@ gestión de fotografías y documentos (HU06) y el seguimiento comercial de clien
 12. [Manejo de errores](#12-manejo-de-errores)
 13. [Pruebas funcionales](#13-pruebas-funcionales)
 14. [Seguimiento comercial (HU07)](#14-seguimiento-comercial-hu07)
+15. [Cotizaciones (HU08)](#15-cotizaciones-hu08)
 
 ---
 
@@ -114,6 +116,7 @@ frontend/src/
 │   ├── catalog/            # CatalogoCard, CatalogoFiltros, CatalogoLayout, CatalogoShell, VehiculoGaleria
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
+│   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
 │   ├── layout/             # AppLayout, PageHeader
@@ -121,13 +124,13 @@ frontend/src/
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, ...
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -148,6 +151,7 @@ conservar la accesibilidad.
 | `RepuestoFormDialog` | `components/inventory` | Alta/edición de repuestos. |
 | `UserFormDialog` | `components/users` | Alta/edición de personal (no clientes). |
 | `ClienteComercialFormDialog` | `components/clientesComerciales` | Alta de clientes comerciales con validación Zod (HU07). |
+| `CotizacionFormDialog` / `CotizacionDetalleDialog` | `components/cotizaciones` | Generación y gestión de cotizaciones (HU08): snapshot de precios, descuento ≤ 20% y PDF/correo. |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -262,6 +266,7 @@ comparte entre páginas sin repetir código.
 | `/repuestos` | `RepuestosPage` | Staff. |
 | `/clientes-comerciales` | `ClientesComercialesPage` | `admin`, `vendedor` (HU07). |
 | `/clientes-comerciales/:clienteId` | `ClienteComercialDetallePage` | `admin`, `vendedor`. |
+| `/cotizaciones` | `CotizacionesPage` | `admin`, `vendedor` (HU08). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -680,6 +685,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `movimientos.ts` | `list/create` | `/api/movimientos` | Sí (STAFF) | Entradas/salidas (HU04). |
 | `usuarios.ts` | `list/create/update` | `/api/usuarios` | Sí (`admin`) | Gestión de personal (HU02). |
 | `clientesComerciales.ts` | `list/get/create/update/addConsulta` | `/api/clientes-comerciales` | Sí (`admin`/`vendedor`) | Seguimiento comercial (HU07). |
+| `cotizaciones.ts` | `list/get/create/update` | `/api/cotizaciones` | Sí (`admin`/`vendedor`) | Cotizaciones (HU08). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -714,7 +720,8 @@ se muestran en el detalle público del catálogo
 ### 11.6 Tipado compartido y validación cruzada
 
 Los tipos del frontend reflejan los DTOs del backend (`types/vehiculo.ts`,
-`types/repuesto.ts`, `types/usuario.ts`, `types/catalogo.ts`, `types/clienteComercial.ts`). La validación ocurre en
+`types/repuesto.ts`, `types/usuario.ts`, `types/catalogo.ts`, `types/clienteComercial.ts`,
+`types/cotizacion.ts`). La validación ocurre en
 **ambos bordes**: Zod en frontend (react-hook-form) para feedback inmediato y Zod en
 backend para garantizar integridad. Cuando el backend devuelve `ValidationError` con
 `details` por campo, el frontend los mapea con `getFieldErrors` y los pinta junto a cada
@@ -829,7 +836,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU07:
+Recorrí los flujos principales alineados a HU01–HU08:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -844,6 +851,7 @@ Recorrí los flujos principales alineados a HU01–HU07:
 | HU05 | Catálogo autenticado | Sesión activa → `/catalogo` usa `AppLayout` (mismo contenido público). | **OK** (regla `CatalogoShell`). | [`capturas/06-catalogo-autenticado.png`](capturas/06-catalogo.png) (véase sección 1–5) |
 | HU06 | Subida fotos/documentos | Presign → `PUT` directo a S3 → guardar `keys` → previsualización y listado. | **OK** | Integrado en `VehiculoFormDialog` + `PhotoUploader`/`DocumentosUploader` |
 | HU07 | Seguimiento comercial | `/clientes-comerciales` (solo `admin`/`vendedor`) → listado + alta con Zod; detalle → registrar consulta e historial. | **OK** (backend e2e: `201`/`409`/`400`/`200`; UI con build limpio). | Código: `pages/clientesComerciales/`, `services/clientesComerciales.ts` |
+| HU08 | Cotizaciones | `/cotizaciones` (solo `admin`/`vendedor`) → nueva cotización (cliente + vehículos + descuento); detalle → aceptar/rechazar, descargar PDF y enviar por correo. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/cotizaciones/`, `services/cotizaciones.ts`, `lib/cotizacionPdf.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -936,6 +944,9 @@ Se comprobó que:
 - **HU07:** backend verificado end-to-end (crear, anti-duplicados `409`, consultas e
   historial); la UI compila sin errores y sigue los patrones del proyecto (pendiente de
   captura E2E).
+- **HU08:** backend verificado end-to-end (crear con número único, snapshot de precios,
+  descuento ≤ 20%, validación `409`/`400`/`404`, cambios de estado); la UI compila sin errores e
+  incluye generación de PDF con jsPDF y envío por `mailto:`.
 - **Capturas E2E Playwright:** 16 capturas generadas correctamente en
   `documentacion-frontend/capturas/`.
 - **Manejo de errores:** validado (login fallido, validación por campo, toasts, estados
@@ -1006,6 +1017,13 @@ El hook `useClientesComerciales` centraliza el listado y las mutaciones; despué
 `crear`, `actualizar` o `agregarConsulta` vuelve a pedir el listado al servidor, de modo que
 la tabla siempre refleja el estado real de DynamoDB.
 
+**Notificación por correo**
+
+Al registrar una consulta, `lib/consultaEmail.ts` arma un enlace `mailto:` con la
+confirmación redactada (destinatario, asunto y cuerpo con el detalle de la consulta) y abre
+el gestor de correo del usuario; una casilla permite desactivar la notificación. Se usa
+`mailto:` —igual que en HU08— para no depender de AWS SES y mantenerse en la capa gratuita.
+
 **Acceso por rol (doble barrera)**
 
 - En `App.tsx`, las rutas `/clientes-comerciales` y `/clientes-comerciales/:clienteId`
@@ -1027,8 +1045,108 @@ handler vuelve a lanzar el error (`throw submitError`), tal como hacen `Repuesto
 - `npm run build` (`tsc -b && vite build`): **0 errores**.
 - Backend verificado end-to-end: crear (`201`), duplicado (`409`), registrar consulta
   (`201` con fecha asignada por el backend), consulta inválida (`400`) y detalle (`200`).
+---
+
+## 15. Cotizaciones (HU08)
+
+La HU08 permite a `admin` y `vendedor` generar cotizaciones para un cliente comercial,
+eligiendo uno o varios vehículos cotizables, aplicando un descuento autorizado (≤ 20%) y una
+vigencia; luego da seguimiento al estado (`pendiente`/`aceptada`/`rechazada`/`vencida`),
+descarga el **PDF** y prepara el **envío por correo**.
+
+**Archivos implicados**
+
+```text
+frontend/src/
+├── pages/cotizaciones/CotizacionesPage.tsx
+├── components/cotizaciones/
+│   ├── CotizacionFormDialog.tsx     # cliente + vehículos + descuento/vigencia
+│   ├── CotizacionesTable.tsx        # listado con badge de estado
+│   └── CotizacionDetalleDialog.tsx  # detalle, cambio de estado, PDF y correo
+├── services/cotizaciones.ts
+├── hooks/useCotizaciones.ts
+├── lib/cotizaciones.ts              # estados, etiquetas/estilos y cálculo de importes
+├── lib/cotizacionPdf.ts             # generación de PDF con jsPDF
+└── lib/cotizacionEmail.ts           # enlace mailto: (asunto + cuerpo)
+```
+
+**Formulario (Zod + react-hook-form)**
+
+```ts
+// CotizacionFormDialog.tsx (extracto)
+const schema = z.object({
+  clienteId: z.string().min(1, 'Selecciona un cliente.'),
+  vehiculoIds: z.array(z.string()).min(1, 'Selecciona al menos un vehículo.'),
+  descuentoPorcentaje: z.coerce.number().min(0).max(20),
+  observaciones: z.string().trim().max(1000).optional(),
+  vigenciaDias: z.coerce.number().int().min(1).max(90),
+});
+```
+
+Solo se ofrecen vehículos en estado `disponible`/`reservado` (la página filtra con
+`useVehiculos`) y clientes de `useClientesComerciales`. El resumen (subtotal, descuento y
+total) se calcula en vivo con `calcularImportes` de `lib/cotizaciones.ts`, espejo de la regla
+del backend.
+
+**Servicio y hook**
+
+```ts
+// services/cotizaciones.ts (extracto)
+export const cotizacionesService = {
+  list: (filtros?: { clienteId?: string; estado?: string }) => {
+    const query = new URLSearchParams();
+    if (filtros?.clienteId) query.set('clienteId', filtros.clienteId);
+    if (filtros?.estado) query.set('estado', filtros.estado);
+    const qs = query.toString();
+    return apiRequest<CotizacionesResponse>(`/api/cotizaciones${qs ? `?${qs}` : ''}`);
+  },
+  create: (input: CreateCotizacionInput) =>
+    apiRequest<CotizacionResponse>('/api/cotizaciones', { method: 'POST', body: input }),
+  update: (cotizacionId: string, input: UpdateCotizacionInput) =>
+    apiRequest<CotizacionResponse>(`/api/cotizaciones/${cotizacionId}`, {
+      method: 'PATCH',
+      body: input,
+    }),
+};
+```
+
+`useCotizaciones` acepta un filtro `{ clienteId? }`, expone `cotizaciones/loading/error` y
+ofrece `recargar`, `crear` y `actualizar` (tras cada mutación vuelve a pedir el listado).
+
+**PDF y correo (sin salir de la capa gratuita)**
+
+- `lib/cotizacionPdf.ts` genera el documento con **jsPDF** (dependencia del frontend) y lo
+  descarga como `Cotizacion-<numero>.pdf`.
+- `lib/cotizacionEmail.ts` compone un enlace **`mailto:`** con destinatario, asunto y cuerpo;
+  al pulsar "Enviar por correo" se descarga el PDF y se abre el cliente de correo para
+  adjuntarlo. Se evita AWS SES a propósito.
+
+**Historial por cliente (HU07 → HU08)**
+
+`ClienteComercialDetallePage` muestra una tarjeta «Cotizaciones» alimentada por
+`useCotizaciones({ clienteId })`, con número, total, estado y botón de descarga del PDF.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/cotizaciones` queda bajo
+  `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Cotizaciones» (icono `FileText`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (vehículo no cotizable o cotización ya no modificable), `400` (validación) y `404`
+(cliente/vehículo inexistente) llegan como `ApiError` y se muestran con `toast.error`. El
+handler vuelve a lanzar el error para que el diálogo permanezca abierto.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end: crear (`201`, `COT-AAAA-######`), número secuencial, snapshot
+  de precios, descuento > 20% (`400`), vehículo vendido (`409`), cliente inexistente (`404`),
+  cambio de estado (`200`) y bloqueo de edición fuera de `pendiente` (`409`).
 
 ---
+
 ## Galería de capturas
 
 | Archivo | Pantalla |

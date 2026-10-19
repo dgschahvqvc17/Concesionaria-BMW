@@ -318,13 +318,14 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí cinco tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
-`MovimientosInventario` y `ClientesComerciales`. Cada una tiene su propia clave primaria y,
-cuando necesitaba
+Con DynamoDB definí seis tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+`MovimientosInventario`, `ClientesComerciales` y `Cotizaciones`. Cada una tiene su propia
+clave primaria y, cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
 `vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
 en `ClientesComerciales` usé `email-index` y `documento-index` para buscar y evitar
-duplicados.
+duplicados, y en `Cotizaciones` usé `cliente-index` (historial por cliente) y `numero-index`
+(unicidad del número).
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -421,6 +422,31 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > el propio ítem (no hace falta una tabla extra) y crece con cada interacción que
 > registra el vendedor desde el frontend.
 
+### Tabla `Cotizaciones` (HU08)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `cotizacionId` | string (UUID) | **PK** (también guarda la partición `secuencia#<año>`) |
+| `numero` | string | GSI `numero-index`; formato `COT-AAAA-######` (único) |
+| `clienteId` | string | GSI `cliente-index` (+ `createdAt`); historial por cliente |
+| `cliente` | objeto | Snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `items` | list&lt;objeto&gt; | Snapshot de vehículos: `{ vehiculoId, marca, modelo, version, anio, vin, precioUnitario, subtotal }` |
+| `subtotal`, `descuentoMonto`, `total` | number | Importes calculados en el servicio |
+| `descuentoPorcentaje` | number | 0–20 (política comercial) |
+| `observaciones` | string | Opcional |
+| `estado` | string | `pendiente` \| `aceptada` \| `rechazada` \| `vencida` |
+| `vigenciaDias` | number | Validez en días (1–90; por defecto 15) |
+| `fechaVencimiento` | string (ISO) | `createdAt` + `vigenciaDias` |
+| `createdBy` / `createdByName` | string | Autor (sub / nombre del token) |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Snapshot de precios:** cada ítem guarda el precio vigente del vehículo al momento de
+> cotizar, así una cotización histórica no cambia aunque luego se actualice el vehículo.
+> **Numeración atómica:** el contador se reserva con un `UpdateItem` (`ADD`) sobre la
+> partición `secuencia#<año>` (identificada por el prefijo `secuencia#`), lo que evita
+> números repetidos sin necesidad de bloqueos. **Estado derivado:** una cotización
+> `pendiente` cuya `fechaVencimiento` ya pasó se responde como `vencida` sin escribir nada.
+
 ### Relación entre tablas (sin claves foráneas)
 
 DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convención:
@@ -430,6 +456,8 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
 - `Usuarios.userId` ← `sub` del usuario en **Cognito**
 - `ClientesComerciales` es autónoma: no referencia a otras tablas (su historial de
   consultas vive como lista anidada en el ítem).
+- `Cotizaciones.clienteId` → `ClientesComerciales.clienteId` y
+  `Cotizaciones.items[].vehiculoId` → `Vehiculos.vehiculoId` (guardando además un snapshot).
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
 `movimientoService` verifica que el repuesto exista antes de registrar el movimiento),
@@ -567,7 +595,7 @@ migrar nada, solo ajusté el esquema de Zod y la lógica del servicio, y los veh
 existían siguieron funcionando sin ese atributo. Algo parecido pasó en la HU07: declarar la
 tabla `ClientesComerciales` con sus dos índices dentro de `repuestos-stack.ts` y volver a
 ejecutar `cdk deploy` bastó para que CloudFormation creara la tabla nueva sin mover las que
-ya existían.
+ya existían. Lo mismo repetí en la HU08 con la tabla `Cotizaciones` y sus dos índices.
 
 > El enunciado pedía "Migraciones". En bases **NoSQL no hay migraciones**: la base es
 > *schemaless* y no existe un esquema que versionar. La creación y evolución de tablas,
@@ -625,11 +653,34 @@ this.clientesComercialesTable.addGlobalSecondaryIndex({
 });
 ```
 
+En la HU08 agregué la tabla `Cotizaciones`, con un índice por cliente (historial) y otro por
+número (unicidad):
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU08: nueva tabla + índices)
+this.cotizacionesTable = new dynamodb.Table(this, 'CotizacionesTable', {
+  partitionKey: { name: 'cotizacionId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.cotizacionesTable.addGlobalSecondaryIndex({
+  indexName: 'cliente-index',
+  partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+
+this.cotizacionesTable.addGlobalSecondaryIndex({
+  indexName: 'numero-index',
+  partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+});
+```
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable`, HU07) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
 | `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
@@ -663,10 +714,10 @@ endpoints del proyecto se aplican.
 
 | Operación | Significado | HTTP | Comando DynamoDB | Endpoints del proyecto |
 | --- | --- | --- | --- | --- |
-| **C — Create** | Crear un recurso | `POST` | `PutCommand` | `POST /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/clientes/registro` |
-| **R — Read (uno)** | Leer un recurso por su clave | `GET` | `GetCommand` (o `QueryCommand` por GSI) | `GET /api/usuarios/:userId`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/catalogo/:vehiculoId` |
-| **R — Read (lista)** | Listar todos los recursos | `GET` | `ScanCommand` (`QueryCommand` si hay filtro) | `GET /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/catalogo` |
-| **U — Update** | Actualizar parcialmente | `PATCH` | `PutCommand` / `UpdateCommand` | `PATCH /api/usuarios/:userId`, `/api/usuarios/:userId/estado`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId` |
+| **C — Create** | Crear un recurso | `POST` | `PutCommand` | `POST /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/clientes/registro`, `/api/clientes-comerciales`, `/api/cotizaciones` |
+| **R — Read (uno)** | Leer un recurso por su clave | `GET` | `GetCommand` (o `QueryCommand` por GSI) | `GET /api/usuarios/:userId`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/catalogo/:vehiculoId`, `/api/cotizaciones/:cotizacionId` |
+| **R — Read (lista)** | Listar todos los recursos | `GET` | `ScanCommand` (`QueryCommand` si hay filtro) | `GET /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/catalogo`, `/api/cotizaciones` |
+| **U — Update** | Actualizar parcialmente | `PATCH` | `PutCommand` / `UpdateCommand` | `PATCH /api/usuarios/:userId`, `/api/usuarios/:userId/estado`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/clientes-comerciales/:clienteId`, `/api/cotizaciones/:cotizacionId` |
 | **D — Delete** | Borrar | — (sin endpoint) | `DeleteObjectCommand` (S3) | Al quitar fotos/documentos de un vehículo; desactivación lógica de usuarios en Cognito |
 
 > **Nota sobre el borrado.** No hay `DELETE` de usuarios, vehículos ni repuestos para no
@@ -876,12 +927,32 @@ const updateClienteComercialSchema = z.object({ /* mismos campos, todos opcional
   });
 ```
 
+```javascript
+// Cotización (HU08): descuento acotado a la política comercial y vigencia acotada
+const DESCUENTO_MAXIMO = 20;
+
+const createCotizacionSchema = z.object({
+  clienteId: z.string().trim().min(1),
+  vehiculoIds: z.array(z.string().trim().min(1)).min(1).max(20),
+  descuentoPorcentaje: z.coerce.number().min(0).max(DESCUENTO_MAXIMO).optional(),
+  observaciones: z.string().trim().max(1000).optional(),
+  vigenciaDias: z.coerce.number().int().min(1).max(90).optional(),
+});
+
+// PATCH: acepta cambios de descuento, observaciones o estado (pendiente → …), exigiendo
+// al menos un campo
+const updateCotizacionSchema = z.object({ /* campos opcionales */ })
+  .refine((d) => Object.keys(d).length > 0, {
+    message: 'No se enviaron cambios para actualizar.',
+  });
+```
+
 ### 9.3 Reglas y buenas prácticas aplicadas
 
 - **Coerción de tipos:** `z.coerce.number()` convierte strings de formularios a números.
 - **Normalización:** `trim()` y `toUpperCase()` limpian los datos antes de guardarlos.
-- **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol` y `estadoSeguimiento` (HU07)
-  solo aceptan valores permitidos.
+- **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol`, `estadoSeguimiento` (HU07) y
+  `estado`/descuento/vigencia de cotización (HU08) solo aceptan valores permitidos.
 - **Límites:** longitudes máximas, rangos (`anio` entre 1950 y año actual+1, precio > 0).
 - **El esquema de actualización es parcial:** `updateVehiculoSchema`/`updateUsuarioSchema`
   usan `.partial()` (y `updateUsuarioSchema` exige al menos un campo con `.refine`).
@@ -1074,14 +1145,25 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 | `PATCH` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | Actualizar datos/estado |
 | `POST` | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | Registrar consulta |
 
+**Cotizaciones (HU08)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `GET` | `/api/cotizaciones` | admin/vendedor | Listar cotizaciones (`?clienteId=&estado=`) |
+| `POST` | `/api/cotizaciones` | admin/vendedor | Generar cotización (número único, `201`) |
+| `GET` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Obtener una cotización |
+| `PATCH` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Actualizar descuento, observaciones o estado |
+
 ### Parámetros (path, query y cuerpos)
 
-- **Path params:** `:vehiculoId`, `:userId`, `:repuestoId` y `:clienteId` identifican el
+- **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId` y
+  `:cotizacionId` identifican el
   recurso a
   consultar o modificar.
-- **Query strings:** solo `GET /api/movimientos` acepta filtros opcionales
-  (`?repuestoId=<uuid>` y `?tipo=entrada|salida`). Los demás listados no reciben filtros y
-  devuelven la colección completa junto con `total`.
+- **Query strings:** `GET /api/movimientos` acepta filtros opcionales
+  (`?repuestoId=<uuid>` y `?tipo=entrada|salida`) y `GET /api/cotizaciones` acepta
+  `?clienteId=<uuid>` y `?estado=<pendiente|aceptada|rechazada|vencida>`. Los demás listados
+  no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
   - `POST /api/vehiculos` → datos del vehículo más `fotos: string[]` y
     `documentos: { key, nombre }[]` (claves devueltas por el presign).
@@ -1091,6 +1173,8 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
   - `POST /api/clientes-comerciales` → datos del cliente (los duplicados se detectan en el
     servidor y responden `409`); `POST .../consultas` → `{ vehiculo?, interes, observacion? }`
     (la `fecha` la asigna el backend).
+  - `POST /api/cotizaciones` → `{ clienteId, vehiculoIds[], descuentoPorcentaje?, observaciones?, vigenciaDias? }`
+    (snapshot de precios y `total` los calcula el backend); `PATCH` → `{ descuentoPorcentaje?, observaciones?, estado? }`.
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1103,7 +1187,7 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
   borrado es de archivos en S3 cuando se quitan del recurso.
 - **Filtros por query string**: `GET /api/movimientos?repuestoId=...&tipo=...`.
 - **Respuestas de listado** siempre incluyen `total` junto a la colección (`vehiculos`,
-  `repuestos`, `usuarios`, `movimientos`, `clientes`).
+  `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`).
 
 ---
 
@@ -1115,8 +1199,8 @@ errores usan siempre la misma forma `{ error, code, details? }`, donde `code` es
 identificador fijo que el frontend puede interpretar. Los códigos HTTP reflejan lo que
 ocurrió: `200` en consultas y actualizaciones, `201` al crear, `400` si los datos no son
 válidos, `401` si falta el token o expiró, `403` si no hay permisos, `404` si el recurso no
-existe, `409` ante un conflicto (código o VIN repetido, stock insuficiente, o email o
-documento de cliente repetido) y `500` para
+existe, `409` ante un conflicto (código o VIN repetido, stock insuficiente, email o
+documento de cliente repetido, vehículo no cotizable o cotización ya no modificable) y `500` para
 errores inesperados, que además registro en el log sin mostrar detalles internos.
 
 ### 12.1 Formato de petición y respuesta
@@ -1238,7 +1322,7 @@ curl http://localhost:3000/info
 | Rol | Descripción |
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
-| `vendedor` | Gestiona vehículos, repuestos, movimientos y clientes comerciales (HU07). |
+| `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07) y cotizaciones (HU08). |
 | `jefe_taller` | Gestiona repuestos y movimientos. |
 | `mecanico` | Consulta inventario (rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
@@ -1272,6 +1356,7 @@ VEHICULOS_TABLE_NAME=Vehiculos
 REPUESTOS_TABLE_NAME=Repuestos
 MOVIMIENTOS_TABLE_NAME=MovimientosInventario
 CLIENTES_COMERCIALES_TABLE_NAME=ClientesComerciales
+COTIZACIONES_TABLE_NAME=Cotizaciones
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1295,7 +1380,7 @@ Resumen para consulta veloz (el detalle completo de cada endpoint, con su cuerpo
 permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable con
 `PORT`). Todas las respuestas son JSON y las rutas protegidas requieren el encabezado
 `Authorization: Bearer <ID token>`. `{id}` representa `:userId`, `:vehiculoId`,
-`:repuestoId` o `:clienteId` según el recurso.
+`:repuestoId`, `:clienteId` o `:cotizacionId` según el recurso.
 
 | Acción | Método y ruta | Requiere |
 | --- | --- | --- |
@@ -1317,6 +1402,9 @@ permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable
 | Listar / ver clientes comerciales | `GET /api/clientes-comerciales` · `/{id}` | admin/vendedor |
 | Registrar / editar cliente | `POST /api/clientes-comerciales` · `PATCH /{id}` | admin/vendedor |
 | Registrar consulta (historial) | `POST /api/clientes-comerciales/{id}/consultas` | admin/vendedor |
+| Listar / ver cotizaciones | `GET /api/cotizaciones` · `/api/cotizaciones/{id}` | admin/vendedor |
+| Generar cotización | `POST /api/cotizaciones` | admin/vendedor |
+| Actualizar cotización | `PATCH /api/cotizaciones/{id}` | admin/vendedor |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1367,6 +1455,18 @@ curl -X POST http://localhost:3000/api/clientes-comerciales/<uuid>/consultas \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"vehiculo":"BMW Serie 3 2024","interes":"Quiere cotizar financiamiento","observacion":"Llamar el lunes"}'
+
+# 11) Generar una cotización (admin/vendedor) — guarda snapshot de precios
+curl -X POST http://localhost:3000/api/cotizaciones \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"clienteId":"<uuid>","vehiculoIds":["<uuid-vehiculo>"],"descuentoPorcentaje":5,"vigenciaDias":15}'
+
+# 12) Aceptar una cotización (solo si sigue pendiente)
+curl -X PATCH http://localhost:3000/api/cotizaciones/<uuid> \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"estado":"aceptada"}'
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1386,6 +1486,7 @@ curl -X POST http://localhost:3000/api/clientes-comerciales/<uuid>/consultas \
 | HU05 | Catálogo web público de vehículos | Implementada |
 | HU06 | Gestión de fotografías y documentos | Implementada |
 | HU07 | Seguimiento comercial de clientes | Implementada (backend verificado end-to-end) |
+| HU08 | Cotizaciones | Implementada (backend verificado end-to-end) |
 
 ---
 

@@ -25,6 +25,7 @@ cualquier editor compatible.
 | 8 | Crear vehículo con archivos (S3) | Secuencia |
 | 9 | Movimiento de inventario (stock condicional) | Secuencia |
 | 10 | Seguimiento comercial de clientes (HU07) | Secuencia |
+| 11 | Generación de cotización (HU08) | Secuencia |
 
 ---
 
@@ -49,7 +50,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(5 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(6 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -90,6 +91,7 @@ cloud "AWS us-east-2" {
     database "Repuestos" as t3
     database "MovimientosInventario" as t4
     database "ClientesComerciales" as t5
+    database "Cotizaciones" as t6
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -140,6 +142,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Gestionar repuestos (HU04)" as UC_repuestos
   usecase "Registrar movimientos" as UC_movimientos
   usecase "Gestionar clientes comerciales (HU07)" as UC_clientes
+  usecase "Generar cotizaciones (HU08)" as UC_cotizaciones
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -162,6 +165,7 @@ vendedor --> UC_archivos
 vendedor --> UC_repuestos
 vendedor --> UC_movimientos
 vendedor --> UC_clientes
+vendedor --> UC_cotizaciones
 
 admin --> UC_login
 admin --> UC_vehiculos
@@ -169,6 +173,7 @@ admin --> UC_archivos
 admin --> UC_repuestos
 admin --> UC_movimientos
 admin --> UC_clientes
+admin --> UC_cotizaciones
 admin --> UC_usuarios
 @enduml
 ```
@@ -182,7 +187,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (5 tablas)
+title Modelo de datos — DynamoDB (6 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -265,11 +270,32 @@ entity "ClientesComerciales" as clientes {
   updatedAt : string
 }
 
+entity "Cotizaciones" as cotizaciones {
+  * cotizacionId <<PK>> : string
+  --
+  numero <<GSI numero-index>> : string
+  clienteId <<GSI cliente-index>> : string
+  cliente : object
+  items : list<object>
+  subtotal : number
+  descuentoMonto : number
+  total : number
+  descuentoPorcentaje : number
+  observaciones : string
+  estado : string
+  vigenciaDias : number
+  fechaVencimiento : string
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
 usuarios ||..o{ repuestos : "gestiona"
 usuarios ||..o{ clientes : "da seguimiento"
+clientes ||..o{ cotizaciones : "recibe"
+vehiculos ||..o{ cotizaciones : "se cotiza"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -505,6 +531,46 @@ be -> db : UpdateCommand (push en lista consultas + fecha)
 db --> be : ítem actualizado
 be --> fe : 201 { message, cliente }
 fe --> v : Historial con la nueva consulta
+@enduml
+```
+
+---
+
+## Diagrama 11 — Generación de cotización (HU08)
+
+```plantuml
+@startuml
+title Secuencia — Generar cotización (HU08)
+skinparam shadowing false
+
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nCotizaciones" as db
+database "DynamoDB\nVehiculos/Clientes" as db2
+
+v -> fe : Selecciona cliente y vehículos,\naplica descuento
+fe -> be : POST /api/cotizaciones\n(Bearer token admin/vendedor)
+be -> be : validate(createCotizacionSchema)\n(descuento <= 20%, vigencia 1-90)
+be -> db2 : GetCommand cliente + vehiculos
+alt Vehículo no cotizable / cliente inexistente
+  db2 --> be : vendido / no existe
+  be --> fe : 409 CONFLICT / 404 NOT FOUND
+  fe --> v : Toast de error
+else Datos válidos
+  db2 --> be : cliente + vehiculos (precios vigentes)
+  be -> db : UpdateItem ADD secuencia#<año> (número único)
+  db --> be : secuencia
+  be -> be : snapshot items + calcular subtotal/descuento/total\nnumero = COT-AAAA-######
+  be -> db : PutCommand (cotizacionId = UUID)
+  db --> be : OK
+  be --> fe : 201 { message, cotizacion }
+  fe --> v : Cotización listada (PDF on-demand)
+end
+
+v -> fe : Descargar PDF / Enviar por correo
+fe -> fe : jsPDF genera el PDF / buildMailto abre el cliente
+fe --> v : PDF descargado / correo redactado (mailto:)
 @enduml
 ```
 
