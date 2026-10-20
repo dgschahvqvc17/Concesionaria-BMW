@@ -2,7 +2,7 @@ const { z } = require('zod');
 
 const { ValidationError } = require('../errors/AppError');
 
-const TIPOS_NOTIFICACION = ['reserva', 'cotizacion', 'prueba_manejo', 'venta'];
+const TIPOS_NOTIFICACION = ['reserva', 'cotizacion', 'prueba_manejo', 'venta', 'cita_taller'];
 const ESTADOS_NOTIFICACION = ['pendiente', 'intentado', 'fallido', 'omitido'];
 
 /** Intentos máximos por notificación antes de bloquear nuevos reenvíos. */

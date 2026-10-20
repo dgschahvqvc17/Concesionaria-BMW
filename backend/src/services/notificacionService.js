@@ -178,6 +178,18 @@ function notificarPrueba(prueba, evento) {
   });
 }
 
+function notificarCita(cita, evento) {
+  return registrarEvento({
+    tipo: 'cita_taller',
+    recursoId: cita.citaId,
+    evento,
+    numero: cita.numero,
+    destinatario: cita.cliente?.email,
+    destinatarioNombre: nombreCompleto(cita.cliente),
+    plantilla: plantillasCorreo.citaEvento(cita, evento),
+  });
+}
+
 function notificarVenta(venta, evento, extras = {}) {
   if (evento === 'venta_confirmada_vendedor') {
     return registrarEvento({
@@ -212,5 +224,6 @@ module.exports = {
   notificarReserva,
   notificarCotizacion,
   notificarPrueba,
+  notificarCita,
   notificarVenta,
 };

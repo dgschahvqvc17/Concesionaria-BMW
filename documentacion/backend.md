@@ -71,7 +71,8 @@ backend/
     │   ├── reservaRoutes.js
     │   ├── ventaRoutes.js
     │   ├── pruebaManejoRoutes.js     (HU11: POST público con token opcional)
-    │   └── notificacionRoutes.js     (HU12)
+    │   ├── notificacionRoutes.js     (HU12)
+    │   └── citaTallerRoutes.js       (HU13: admin/jefe_taller)
     ├── controllers/          # Reciben HTTP, validan y delegan en services
     │   ├── usuarioController.js
     │   ├── clienteController.js
@@ -84,7 +85,8 @@ backend/
     │   ├── reservaController.js
     │   ├── ventaController.js
     │   ├── pruebaManejoController.js
-    │   └── notificacionController.js
+    │   ├── notificacionController.js
+    │   └── citaTallerController.js   (HU13)
     ├── services/             # REGLAS DE NEGOCIO (aquí vive la lógica)
     │   ├── usuarioService.js
     │   ├── cognitoService.js
@@ -99,7 +101,8 @@ backend/
     │   ├── ventaService.js
     │   ├── pruebaManejoService.js    # agenda, conflictos de horario y estados
     │   ├── notificacionService.js     # HU12: registro, dedup e intentos de correo
-    │   └── plantillasCorreo.js        # HU12: textos de los correos (texto plano)
+    │   ├── plantillasCorreo.js        # HU12: textos de los correos (texto plano)
+    │   └── citaTallerService.js       # HU13: agenda del taller, solapes y estados
     ├── repositories/         # ÚNICO lugar que habla con DynamoDB
     │   ├── usuarioRepository.js
     │   ├── vehiculoRepository.js
@@ -110,7 +113,8 @@ backend/
     │   ├── reservaRepository.js
     │   ├── ventaRepository.js
     │   ├── pruebaManejoRepository.js
-    │   └── notificacionRepository.js
+    │   ├── notificacionRepository.js
+    │   └── citaTallerRepository.js
     ├── validation/           # Esquemas Zod + helper `validate`
     │   ├── usuarioSchemas.js
     │   ├── clienteSchemas.js
@@ -122,7 +126,8 @@ backend/
     │   ├── reservaSchemas.js
     │   ├── ventaSchemas.js
     │   ├── pruebaManejoSchemas.js    # horario 08:00–18:00 en pasos de 15 min
-    │   └── notificacionSchemas.js    # HU12: tipos, estados y MAX_INTENTOS
+    │   ├── notificacionSchemas.js    # HU12: tipos, estados y MAX_INTENTOS
+    │   └── citaTallerSchemas.js      # HU13: tipo de servicio, horario y duración
     ├── errors/               # Jerarquía de errores y manejador central
     │   ├── AppError.js
     │   └── errorHandler.js
@@ -331,6 +336,7 @@ Variables relacionadas con la base de datos y archivos:
 | `VENTAS_TABLE_NAME` | Tabla de ventas (HU10). |
 | `PRUEBAS_MANEJO_TABLE_NAME` | Tabla de pruebas de manejo (HU11). |
 | `NOTIFICACIONES_TABLE_NAME` | Tabla de notificaciones por correo (HU12). |
+| `CITAS_TALLER_TABLE_NAME` | Tabla de citas del taller (HU13). |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías y documentos. |
 
 ### Modo de capacidad y región
@@ -350,9 +356,9 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí diez tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+Con DynamoDB definí once tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
 `MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas`, `Ventas`,
-`PruebasManejo` y `Notificaciones`. Cada una tiene
+`PruebasManejo`, `Notificaciones` y `CitasTaller`. Cada una tiene
 su propia clave primaria y, cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
 `vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
@@ -365,7 +371,9 @@ y `numero-index` (unicidad del número), en `PruebasManejo` usé `vehiculo-index
 (consulta la agenda por vehículo para detectar solapes), `cliente-index` (historial por
 cliente) y `numero-index` (unicidad del número), y en `Notificaciones` (HU12) usé
 `recurso-index` (historial de correos de una operación), con la clave primaria compuesta
-por evento + destinatario como anti-duplicados.
+por evento + destinatario como anti-duplicados, y en `CitasTaller` (HU13) usé
+`vehiculo-index` (agenda por vehículo y detección de solapes), `cliente-index`
+(historial por cliente) y `numero-index` (unicidad del número).
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -580,10 +588,10 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 | Atributo | Tipo | Rol |
 | --- | --- | --- |
 | `eventoId` (PK) | string | Clave única `tipo:recursoId:evento:destinatario`; el `Put` condicional (`attribute_not_exists`) garantiza un solo registro por evento + destinatario |
-| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` |
-| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, … |
+| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` \| `cita_taller` |
+| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, `cita_solicitada`, `cita_confirmada`, … |
 | `recursoId` | string | GSI `recurso-index` (+ `createdAt`); historial de correos de una operación |
-| `numero` | string | Número del documento (RES/COT/PRB/VTA) |
+| `numero` | string | Número del documento (RES/COT/PRB/VTA/CIT) |
 | `destinatario` | string \| null | Correo del cliente/contacto; `null` si la operación no tenía correo |
 | `destinatarioNombre` | string \| null | Nombre para el saludo |
 | `asunto` / `cuerpo` | string | Mensaje redactado por `plantillasCorreo` (texto plano, sin VIN ni contraseñas) |
@@ -596,7 +604,8 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > **Transporte `mailto:` (decisión de diseño).** La HU12 original planteaba Amazon SES,
 > pero SES cobra por mensaje y el proyecto está limitado a la **capa gratuita** (ver
 > [`../Rules/aws.md`](../Rules/aws.md)). Por eso los servicios de negocio (reserva,
-> cotización, prueba y venta) registran la notificación con el mensaje ya redactado y el
+> cotización, prueba, venta y cita de taller) registran la notificación con el mensaje ya
+> redactado y el
 > endpoint de envío devuelve el enlace `mailto:`, que el frontend abre en el cliente de
 > correo del usuario. **Anti-duplicados:** la PK única + `Put` condicional impiden que el
 > mismo evento al mismo destinatario se registre dos veces; los reenvíos reutilizan el
@@ -604,6 +613,39 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > registro se hace con `registrarSinFallo`, de modo que un fallo al guardar la
 > notificación nunca revierte la operación comercial. Si la operación no tenía correo
 > válido, la notificación se crea en estado `omitido` y `enviar` responde `400`.
+
+### Tabla `CitasTaller` (HU13)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `citaId` | string (UUID) | **PK** (también guarda la partición `secuencia#<año>`) |
+| `numero` | string | GSI `numero-index`; formato `CIT-AAAA-######` (único) |
+| `vehiculoId` | string | GSI `vehiculo-index` (+ `fechaHora`); agenda por vehículo y detección de solapes |
+| `vehiculo` | objeto | Snapshot: `{ vehiculoId, marca, modelo, version, anio, precio, color }` |
+| `clienteId` | string | GSI `cliente-index` (+ `createdAt`); historial por cliente |
+| `cliente` | objeto | Snapshot: `{ clienteId, nombres, apellidos, email, telefono }` (obligatorio; `404` si no existe) |
+| `tipoServicio` | string | `mantenimiento` \| `reparacion` \| `diagnostico` \| `revision` \| `otro` |
+| `fechaHora` | string (ISO) | Inicio de la cita (futuro, 08:00–18:00, pasos de 15 min) |
+| `duracionMinutos` | number | 15–480 (por defecto 60) |
+| `estado` | string | `solicitada` \| `confirmada` \| `en_atencion` \| `finalizada` \| `cancelada` |
+| `observaciones` | string | Opcional (≤ 1000 caracteres) |
+| `historial` | list&lt;objeto&gt; | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
+| `createdBy` / `createdByName` | string \| null | Autor (sub / nombre del token) |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Conflictos de agenda:** al crear (y al reprogramar) el servicio consulta el GSI
+> `vehiculo-index` y descarta las citas `cancelada`/`finalizada`; si la ventana
+> `[fechaHora, fechaHora + duración)` se solapa con otra del mismo vehículo en estado
+> `solicitada`, `confirmada` o `en_atencion`, responde `409` con la cita en conflicto.
+> **Numeración atómica:** igual que en las demás operaciones, el contador se reserva con
+> `ADD` sobre la partición `secuencia#<año>` (`CIT-AAAA-######`). **Transiciones de
+> estado:** `solicitada → confirmada | cancelada`, `confirmada → en_atencion | cancelada`,
+> `en_atencion → finalizada`; cualquier otra combinación responde `409` (`assertEstado`)
+> y toda transición (incluida la reprogramación, que conserva el estado) agrega una
+> entrada al `historial`. **Vehículo sin restricción de estado:** a diferencia de reservas
+> y ventas, la cita solo exige que el vehículo exista (los autos vendidos también vuelven
+> al taller) y **no modifica** su estado. **11.ª tabla del proyecto**, junto con
+> `Notificaciones` (HU12).
 
 ### Relación entre tablas (sin claves foráneas)
 
@@ -623,8 +665,10 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
 - `PruebasManejo.vehiculoId` → `Vehiculos.vehiculoId` (con snapshot) y
   `PruebasManejo.clienteId` → `ClientesComerciales.clienteId`; en las solicitudes anónimas
   el `clienteId` queda como `'anonimo'` y `cliente` como `null`.
+- `CitasTaller.vehiculoId` → `Vehiculos.vehiculoId` (con snapshot) y
+  `CitasTaller.clienteId` → `ClientesComerciales.clienteId` (con snapshot, obligatorio).
 - `Notificaciones.recursoId` → identificador de la operación que originó el correo
-  (`reservaId`, `cotizacionId`, `pruebaId` o `ventaId`); no guarda snapshot porque el
+  (`reservaId`, `cotizacionId`, `pruebaId`, `ventaId` o `citaId`); no guarda snapshot porque el
   mensaje se redacta al momento del evento.
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
@@ -957,11 +1001,44 @@ this.notificacionesTable.addGlobalSecondaryIndex({
 > condicional (`attribute_not_exists`) con esa clave es lo que evita el envío duplicado
 > de un mismo evento, sin necesidad de transacciones.
 
+En la HU13 agregué la tabla `CitasTaller` (11.ª tabla del proyecto), con un índice por
+vehículo (agenda y detección de solapes), otro por cliente (historial) y otro por número
+(unicidad), replicando el patrón de `PruebasManejo`:
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU13: nueva tabla + índices)
+this.citasTallerTable = new dynamodb.Table(this, 'CitasTallerTable', {
+  partitionKey: { name: 'citaId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.citasTallerTable.addGlobalSecondaryIndex({
+  indexName: 'vehiculo-index',
+  partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+});
+
+this.citasTallerTable.addGlobalSecondaryIndex({
+  indexName: 'cliente-index',
+  partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+
+this.citasTallerTable.addGlobalSecondaryIndex({
+  indexName: 'numero-index',
+  partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+});
+```
+
+> El nombre de la tabla se publica como output de CDK (`CitasTallerTableName`) y el
+> backend la lee con la variable de entorno `CITAS_TALLER_TABLE_NAME`.
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10, `PruebasManejoTable` HU11, `NotificacionesTable` HU12) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10, `PruebasManejoTable` HU11, `NotificacionesTable` HU12, `CitasTallerTable` HU13) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
 | `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
@@ -1261,10 +1338,13 @@ const createPruebaManejoSchema = z.object({
 - **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol`, `estadoSeguimiento` (HU07) y
   `estado`/descuento/vigencia de cotización (HU08) solo aceptan valores permitidos. En la
   HU11, `estado` de la prueba (`pendiente`/`confirmada`/`realizada`/`cancelada`) y `estado`
-  del listado usan enums igual de cerrados.
+  del listado usan enums igual de cerrados; en la HU13, `tipoServicio`
+  (`mantenimiento`/`reparacion`/`diagnostico`/`revision`/`otro`) y el `estado` de la cita
+  (`solicitada`/`confirmada`/`en_atencion`/`finalizada`/`cancelada`) también.
 - **Límites:** longitudes máximas, rangos (`anio` entre 1950 y año actual+1, precio > 0) y,
   en la HU11, duración de 15 a 180 minutos más la restricción de horario (08:00–18:00 en
-  pasos de 15 minutos) resuelta con `refine`.
+  pasos de 15 minutos) resuelta con `refine`; la HU13 reutiliza el mismo horario con
+  duración de 15 a 480 minutos y `observaciones` de hasta 1000 caracteres.
 - **El esquema de actualización es parcial:** `updateVehiculoSchema`/`updateUsuarioSchema`
   usan `.partial()` (y `updateUsuarioSchema` exige al menos un campo con `.refine`).
 
@@ -1366,7 +1446,7 @@ verbos HTTP según la acción y respuestas JSON. El prefijo general es `/api`.
 
 ### Referencia completa de endpoints
 
-Tabla consolidada con **todos** los endpoints de la API (50 en total). La columna
+Tabla consolidada con **todos** los endpoints de la API (58 en total). La columna
 *Autenticación* indica lo que exige cada ruta y *Cuerpo / Query* los datos que recibe.
 
 | Método | Ruta | Autenticación | Cuerpo / Query | Descripción |
@@ -1421,6 +1501,14 @@ Tabla consolidada con **todos** los endpoints de la API (50 en total). La column
 | `GET` | `/api/notificaciones` | admin/vendedor | query `?tipo=&estado=&recursoId=` | Listar notificaciones (HU12) |
 | `GET` | `/api/notificaciones/:eventoId` | admin/vendedor | — | Obtener una notificación con su historial |
 | `POST` | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | — | Registrar el intento (máx. 5) y devolver el enlace `mailto:` |
+| `GET` | `/api/citas-taller` | admin/jefe_taller | query `?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=` | Listar citas del taller (HU13) |
+| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller | — | Obtener una cita con historial |
+| `POST` | `/api/citas-taller` | admin/jefe_taller | `{ vehiculoId, clienteId, tipoServicio, fechaHora, duracionMinutos?, observaciones? }` | Registrar cita (`201`, `CIT-AAAA-######`, conflicto de horario `409`) |
+| `POST` | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | `{ observaciones? }` | `solicitada` → `confirmada` |
+| `POST` | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | `{ fechaHora, duracionMinutos?, observaciones? }` | Cambia horario conservando el estado |
+| `POST` | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | `{ observaciones? }` | `confirmada` → `en_atencion` |
+| `POST` | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | `{ observaciones? }` | `en_atencion` → `finalizada` |
+| `POST` | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | `{ motivo? }` | `solicitada`/`confirmada` → `cancelada` |
 
 > **Autorización en dos niveles.** Todas las rutas protegidas pasan primero por
 > `requireAuth` (token JWT obligatorio) y, cuando aplica, por `requireRole(...)`. En el
@@ -1543,10 +1631,28 @@ Tabla consolidada con **todos** los endpoints de la API (50 en total). La column
 > se guarda con `clienteId: 'anonimo'` y `origen: 'catalogo'`. Todas las demás rutas de la
 > HU11 exigen `requireAuth` + `requireRole('admin', 'vendedor')`.
 
+**Citas del taller (HU13)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `GET` | `/api/citas-taller` | admin/jefe_taller | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=`) |
+| `POST` | `/api/citas-taller` | admin/jefe_taller | Registrar cita (`201`, número único, conflicto de horario `409`) |
+| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller | Obtener una cita + historial |
+| `POST` | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar (`solicitada` → `confirmada`) |
+| `POST` | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | Reprogramar (conserva estado, revalida horario) |
+| `POST` | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | Iniciar atención (`confirmada` → `en_atencion`) |
+| `POST` | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | Finalizar (`en_atencion` → `finalizada`) |
+| `POST` | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | Cancelar con motivo (`solicitada`/`confirmada` → `cancelada`) |
+
+> **Roles de la HU13.** Las ocho rutas de `/api/citas-taller` exigen `requireAuth` +
+> `requireRole('admin', 'jefe_taller')`; ninguna es pública (a diferencia de
+> `POST /api/pruebas-man`). Los eventos relevantes registran además la notificación
+> HU12 con tipo `cita_taller` usando `registrarSinFallo`.
+
 ### Parámetros (path, query y cuerpos)
 
 - **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId`, `:cotizacionId`,
-  `:reservaId`, `:ventaId`, `:pruebaId` y `:eventoId` identifican el
+  `:reservaId`, `:ventaId`, `:pruebaId`, `:eventoId` y `:citaId` identifican el
  recurso a
   consultar o modificar.
 - **Query strings:** `GET /api/movimientos` acepta filtros opcionales
@@ -1555,7 +1661,10 @@ Tabla consolidada con **todos** los endpoints de la API (50 en total). La column
   acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`,
   `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`, `GET /api/pruebas-man` acepta
   `?clienteId=`, `?vehiculoId=` y `?estado=<pendiente|confirmada|realizada|cancelada>`, y
-  `GET /api/notificaciones` acepta `?tipo=`, `?estado=` y `?recursoId=`. Los
+  `GET /api/notificaciones` acepta `?tipo=`, `?estado=` y `?recursoId=`, y
+  `GET /api/citas-taller` acepta `?clienteId=`, `?vehiculoId=`,
+  `?estado=<solicitada|confirmada|en_atencion|finalizada|cancelada>` y el rango de fechas
+  `?fechaDesde=&fechaHasta=` (un rango invertido responde `400`). Los
   demás listados
   no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
@@ -1579,6 +1688,12 @@ Tabla consolidada con **todos** los endpoints de la API (50 en total). La column
     mismo vehículo con `409` y genera el número); `POST .../reprogramar` →
     `{ fechaHora, duracionMinutos?, observaciones? }`; `POST .../confirmar` y
     `POST .../realizar` → `{ observaciones? }`; `POST .../cancelar` → `{ motivo? }`.
+  - `POST /api/citas-taller` → `{ vehiculoId, clienteId, tipoServicio, fechaHora, duracionMinutos?, observaciones? }`
+    (cliente obligatorio, horario futuro 08:00–18:00 en pasos de 15 min, solapes del mismo
+    vehículo con `409` y número `CIT-AAAA-######`); `POST .../reprogramar` →
+    `{ fechaHora, duracionMinutos?, observaciones? }`; `POST .../confirmar`,
+    `POST .../iniciar` y `POST .../finalizar` → `{ observaciones? }`;
+    `POST .../cancelar` → `{ motivo? }`.
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1587,14 +1702,16 @@ Tabla consolidada con **todos** los endpoints de la API (50 en total). La column
 - **`PATCH`** para actualizaciones parciales (no `PUT`), porque se envía solo lo que cambia.
 - **Recursos anidados por acción**: `POST /api/vehiculos/archivos/presign` es una acción
   sobre el sub-recurso `archivos`, igual que `confirmar`, `reprogramar`, `cancelar` y
-  `realizar` sobre una prueba de manejo (`POST /api/pruebas-man/:pruebaId/<accion>`), en lugar
+  `realizar` sobre una prueba de manejo (`POST /api/pruebas-man/:pruebaId/<accion>`) o
+  `confirmar`, `reprogramar`, `iniciar`, `finalizar` y `cancelar` sobre una cita del
+  taller (`POST /api/citas-taller/:citaId/<accion>`), en lugar
   de un `PATCH` de estado.
 - **Sin `DELETE`** de vehículos/repuestos: se preserva el histórico (auditoría). El único
   borrado es de archivos en S3 cuando se quitan del recurso.
 - **Filtros por query string**: `GET /api/movimientos?repuestoId=...&tipo=...`.
 - **Respuestas de listado** siempre incluyen `total` junto a la colección (`vehiculos`,
   `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`, `reservas`, `ventas`,
-  `pruebas`).
+  `pruebas` y `citas`).
 
 ---
 
@@ -1609,7 +1726,8 @@ válidos, `401` si falta el token o expiró, `403` si no hay permisos, `404` si 
 existe, `409` ante un conflicto (código o VIN repetido, stock insuficiente, email o
 documento de cliente repetido, vehículo no cotizable, cotización ya no modificable, vehículo
 no disponible para reservar o reserva ya no gestionable, horario de prueba ocupado o
-transición de estado inválida en una prueba de manejo) y `500` para
+transición de estado inválida en una prueba de manejo, horario de cita ocupado o
+transición de estado inválida en una cita del taller) y `500` para
 errores inesperados, que además registro en el log sin mostrar detalles internos.
 
 ### 12.1 Formato de petición y respuesta
@@ -1681,7 +1799,7 @@ Content-Type: application/json
 | `401 Unauthorized` | Falta token o es inválido/expirado | `requireAuth` |
 | `403 Forbidden` | Token válido pero sin permiso | `requireRole` / cuenta inactiva |
 | `404 Not Found` | Recurso o ruta inexistente | `NotFoundError` / `notFoundHandler` |
-| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente, email/documento de cliente duplicado, prueba con horario solapado, transición de estado inválida |
+| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente, email/documento de cliente duplicado, prueba o cita con horario solapado, transición de estado inválida |
 | `500 Internal Server Error` | Error inesperado | fallo no controlado (se registra en log) |
 
 ### 12.3 Contrato de error uniforme
@@ -1732,7 +1850,7 @@ curl http://localhost:3000/info
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
 | `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08), reservas (HU09), ventas (HU10) y pruebas de manejo (HU11). |
-| `jefe_taller` | Gestiona repuestos y movimientos. |
+| `jefe_taller` | Gestiona repuestos, movimientos y las citas del taller (HU13, junto con `admin`). |
 | `mecanico` | Consulta inventario (rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
 
@@ -1770,6 +1888,7 @@ RESERVAS_TABLE_NAME=Reservas
 VENTAS_TABLE_NAME=Ventas
 PRUEBAS_MANEJO_TABLE_NAME=PruebasManejo
 NOTIFICACIONES_TABLE_NAME=Notificaciones
+CITAS_TALLER_TABLE_NAME=CitasTaller
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1793,8 +1912,8 @@ Resumen para consulta veloz (el detalle completo de cada endpoint, con su cuerpo
 permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable con
 `PORT`). Todas las respuestas son JSON y las rutas protegidas requieren el encabezado
 `Authorization: Bearer <ID token>`. `{id}` representa `:userId`, `:vehiculoId`,
-`:repuestoId`, `:clienteId`, `:cotizacionId`, `:reservaId`, `:ventaId` o `:pruebaId` según
-el recurso.
+`:repuestoId`, `:clienteId`, `:cotizacionId`, `:reservaId`, `:ventaId`, `:pruebaId` o
+`:citaId` según el recurso.
 
 | Acción | Método y ruta | Requiere |
 | --- | --- | --- |
@@ -1831,6 +1950,11 @@ el recurso.
 | Solicitar envío de correo de cotización | `POST /api/cotizaciones/{id}/enviar-correo` | admin/vendedor |
 | Listar / ver notificaciones | `GET /api/notificaciones` · `/api/notificaciones/{eventoId}` (`?tipo=&estado=&recursoId=`) | admin/vendedor |
 | Reintentar envío de notificación | `POST /api/notificaciones/{eventoId}/enviar` | admin/vendedor |
+| Listar / ver citas del taller | `GET /api/citas-taller` · `/api/citas-taller/{id}` (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=`) | admin/jefe_taller |
+| Registrar cita del taller | `POST /api/citas-taller` | admin/jefe_taller |
+| Confirmar / reprogramar cita | `POST /api/citas-taller/{id}/confirmar` · `/reprogramar` | admin/jefe_taller |
+| Iniciar / finalizar cita | `POST /api/citas-taller/{id}/iniciar` · `/finalizar` | admin/jefe_taller |
+| Cancelar cita | `POST /api/citas-taller/{id}/cancelar` | admin/jefe_taller |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1939,6 +2063,41 @@ curl "http://localhost:3000/api/notificaciones?tipo=cotizacion&estado=pendiente"
 # 21) Reintentar el envío de una notificación (máximo 5 intentos; el 6.º responde 409)
 curl -X POST http://localhost:3000/api/notificaciones/<eventoId>/enviar \
   -H "Authorization: Bearer $TOKEN"
+
+# 22) Registrar una cita del taller (HU13, admin/jefe_taller) — responde 201 con
+#     número CIT-AAAA-###### y 409 si el vehículo ya tiene una cita solapada
+curl -X POST http://localhost:3000/api/citas-taller \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"vehiculoId":"<uuid-vehiculo>","clienteId":"<uuid>","tipoServicio":"mantenimiento","fechaHora":"2026-11-10T09:00:00","duracionMinutos":90}'
+
+# 23) Listar citas con filtros (cliente, vehículo, estado y rango de fechas;
+#     un rango invertido responde 400)
+curl "http://localhost:3000/api/citas-taller?vehiculoId=<uuid-vehiculo>&estado=solicitada&fechaDesde=2026-11-01&fechaHasta=2026-11-30" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 24) Confirmar una cita (solicitada → confirmada; 409 si no corresponde)
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/confirmar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+
+# 25) Iniciar la atención de una cita (confirmada → en_atencion)
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/iniciar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+
+# 26) Finalizar la atención de una cita (en_atencion → finalizada)
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/finalizar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"observaciones":"Cambio de aceite y filtros realizados."}'
+
+# 27) Cancelar una cita (solicitada/confirmada → cancelada, con motivo opcional)
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/cancelar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"motivo":"El cliente no podrá asistir."}'
+
+# 28) Reprogramar una cita (conserva el estado y revalida horario y solapes)
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/reprogramar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"fechaHora":"2026-11-12T15:30:00","duracionMinutos":60}'
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1963,6 +2122,7 @@ curl -X POST http://localhost:3000/api/notificaciones/<eventoId>/enviar \
 | HU10 | Ventas de vehículos | Implementada (backend verificado end-to-end) |
 | HU11 | Pruebas de manejo | Implementada (backend verificado end-to-end: 46/46 aserciones) |
 | HU12 | Notificaciones por correo | Implementada (backend verificado end-to-end: 34/34 aserciones; transporte `mailto:`, sin SES) |
+| HU13 | Citas del taller | Implementada (backend verificado end-to-end: 42/42 aserciones; roles admin/jefe_taller) |
 
 ---
 

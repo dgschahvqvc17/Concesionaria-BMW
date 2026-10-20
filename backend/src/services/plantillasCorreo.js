@@ -202,6 +202,45 @@ function ventaInterna(venta, actorNombre) {
   };
 }
 
+const TITULOS_CITA = {
+  cita_solicitada: 'Solicitud de cita en el taller recibida',
+  cita_confirmada: 'Cita en el taller confirmada',
+  cita_reprogramada: 'Cita en el taller reprogramada',
+  cita_cancelada: 'Cita en el taller cancelada',
+  cita_finalizada: 'Cita en el taller finalizada',
+};
+
+const MENSAJES_CITA = {
+  cita_solicitada: 'Registramos su solicitud de cita. El taller la confirmará a la brevedad.',
+  cita_confirmada: 'Su cita en el taller fue confirmada. Le esperamos en el horario indicado.',
+  cita_reprogramada: 'Su cita en el taller fue reprogramada al nuevo horario indicado.',
+  cita_cancelada: 'Su cita en el taller fue cancelada. Si desea agendar otra, contáctenos.',
+  cita_finalizada: 'Su vehículo ya está listo. Coordinamos la entrega con usted.',
+};
+
+function citaEvento(cita, evento) {
+  const titulo = TITULOS_CITA[evento] ?? 'Actualización de cita en el taller';
+  const mensaje = MENSAJES_CITA[evento] ?? 'Tiene una actualización sobre su cita en el taller.';
+  return {
+    asunto: asunto(`${titulo} (${cita.numero})`),
+    cuerpo: cuerpo([
+      `Estimado/a ${nombreCliente(cita.cliente)}:`,
+      '',
+      mensaje,
+      '',
+      `Vehículo: ${descripcionVehiculo(cita.vehiculo)}`,
+      `Tipo de servicio: ${cita.tipoServicio}`,
+      `Fecha y hora: ${formatoFecha(cita.fechaHora)}`,
+      `Duración: ${cita.duracionMinutos} minutos`,
+      `Número de cita: ${cita.numero}`,
+      ...(cita.observaciones ? ['', `Observaciones: ${cita.observaciones}`] : []),
+      '',
+      'Saludos cordiales,',
+      REMITENTE,
+    ]),
+  };
+}
+
 module.exports = {
   reservaAlta,
   reservaCancelada,
@@ -209,6 +248,7 @@ module.exports = {
   cotizacionEnvio,
   cotizacionEstado,
   pruebaEvento,
+  citaEvento,
   ventaConfirmada,
   ventaInterna,
 };

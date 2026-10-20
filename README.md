@@ -4,8 +4,8 @@ Aplicación web **full-stack** para la gestión de una concesionaria BMW: autent
 usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
 vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
 comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
-gestión de pruebas de manejo y notificaciones por correo (HU12, con transporte `mailto:`
-para mantenerse en la capa gratuita).
+gestión de pruebas de manejo, citas del taller (HU13) y notificaciones por correo (HU12,
+con transporte `mailto:` para mantenerse en la capa gratuita).
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -39,6 +39,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU10** | Ventas de vehículos: registro con cliente/vehículo, descuentos autorizados, número único, historial, detalle y comprobante (jsPDF). | Implementada (backend verificado e2e) |
 | **HU11** | Pruebas de manejo: solicitud pública desde el catálogo o interna, agenda sin conflictos por vehículo (08:00–18:00), confirmación, reprogramación, cancelación y registro de realizadas. | Implementada (backend verificado e2e) |
 | **HU12** | Notificaciones por correo: registro anti-duplicados de los correos de reservas, cotizaciones, pruebas y ventas, historial de intentos con reintento y envío vía `mailto:` (sin SES, capa gratuita). | Implementada (backend verificado e2e) |
+| **HU13** | Citas del taller: agenda interna (admin/jefe_taller) con horario 08:00–18:00, sin solapes por vehículo, transiciones de estado, numeración única y notificaciones por correo (`mailto:`). | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -141,6 +142,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
 | `PRUEBAS_MANEJO_TABLE_NAME` | Tabla DynamoDB de pruebas de manejo (HU11) |
 | `NOTIFICACIONES_TABLE_NAME` | Tabla DynamoDB de notificaciones por correo (HU12) |
+| `CITAS_TALLER_TABLE_NAME` | Tabla DynamoDB de citas del taller (HU13) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -194,6 +196,8 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | POST | `/api/cotizaciones/:cotizacionId/enviar-correo` | `admin`, `vendedor` |
 | GET | `/api/notificaciones` , `/api/notificaciones/:eventoId` | `admin`, `vendedor` |
 | POST | `/api/notificaciones/:eventoId/enviar` | `admin`, `vendedor` |
+| GET | `/api/citas-taller` , `/api/citas-taller/:citaId` | `admin`, `jefe_taller` |
+| POST | `/api/citas-taller` , `/:citaId/confirmar` , `/:citaId/reprogramar` , `/:citaId/iniciar` , `/:citaId/finalizar` , `/:citaId/cancelar` | `admin`, `jefe_taller` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

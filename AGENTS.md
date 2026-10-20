@@ -50,8 +50,9 @@ cd infra; npx tsc --noEmit
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
-  HU10 ventas de vehículos, HU11 pruebas de manejo y HU12 notificaciones por correo
-  (HU01–HU06 verificadas end-to-end; HU07–HU12 con backend verificado e2e y
+  HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo y
+  HU13 citas del taller (Sprint 3 = "Taller y administración")
+  (HU01–HU06 verificadas end-to-end; HU07–HU13 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -102,6 +103,14 @@ cd infra; npx tsc --noEmit
   `pendiente`/`intentado`/`fallido`/`omitido`. Frontend: página `/notificaciones`
   (admin/vendedor), `NotificacionesRecurso` en los detalles de cotización/reserva/prueba/venta
   y envío de cotización con descarga de PDF + `mailto:`.
+- Citas del taller (HU13): tabla `CitasTaller` (GSIs `vehiculo-index`,
+  `cliente-index` y `numero-index`; número único `CIT-AAAA-######` reservado de forma
+  atómica); rutas `/api/citas-taller` (solo `admin`/`jefe_taller`, 8 endpoints: listado,
+  detalle y transiciones). Estados `solicitada`/`confirmada`/`en_atencion`/`finalizada`/
+  `cancelada`; conflicto 409 si el mismo vehículo tiene otra cita solapada; horario de
+  atención 08:00–18:00 en pasos de 15 min (duración 15–480, defecto 60). Notificaciones
+  tipo `cita_taller` (eventos `cita_*`) con `registrarSinFallo`. Frontend: ruta `/citas`
+  (admin/jefe_taller, ítem «Taller»).
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13)
     └── utils/asyncHandler.js
 ```
 
@@ -368,8 +368,8 @@ Reglas de negocio (HU11):
 | Atributo | Tipo | Notas |
 | --- | --- | --- |
 | `eventoId` (PK) | string | clave única `tipo:recursoId:evento:destinatario`; el `Put` condicional (`attribute_not_exists`) garantiza un registro por evento + destinatario |
-| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` |
-| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, etc. |
+| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` \| `cita_taller` |
+| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, `cita_solicitada`, etc. |
 | `recursoId` | string | índice secundario `recurso-index` (+ `createdAt`) |
 | `numero` | string | número del documento (RES/COT/PRB/VTA) |
 | `destinatario` | string \| null | correo del cliente/contacto; `null` si la operación no tenía correo |
@@ -395,6 +395,51 @@ Reglas de negocio (HU12):
 - Si la operación no tenía correo de contacto válido, la notificación se crea en
   estado `omitido` y `enviar` responde `400`.
 - Los correos nunca incluyen contraseñas ni datos internos (VIN, `createdBy`, etc.).
+
+### Tabla `CitasTaller` (RepuestosStack, HU13)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `citaId` (PK) | string | UUID (o `secuencia#<año>` para el contador interno) |
+| `numero` | string | `CIT-AAAA-######`; índice secundario `numero-index`; único |
+| `vehiculoId` | string | índice secundario `vehiculo-index` (+ `fechaHora`), agenda y conflictos |
+| `vehiculo` | object | snapshot: `{ vehiculoId, marca, modelo, version, anio, vin, precio }` |
+| `clienteId` | string | índice secundario `cliente-index` (+ `createdAt`); obligatorio |
+| `cliente` | object | snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `tipoServicio` | string | `mantenimiento` \| `reparacion` \| `diagnostico` \| `revision` \| `otro` |
+| `fechaHora` | string | ISO-8601 de inicio (hora local, futura, 08:00–18:00, pasos de 15 min) |
+| `duracionMinutos` | number | 15–480 (por defecto 60) |
+| `estado` | string | `solicitada` \| `confirmada` \| `en_atencion` \| `finalizada` \| `cancelada` |
+| `observaciones` | string | opcional (≤ 1000 caracteres) |
+| `motivo` | string | motivo de cancelación (≤ 500 caracteres) |
+| `historial` | object[] | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
+| `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU13):
+- Gestión **interna** de `admin`/`jefe_taller` en los 8 endpoints (todos con
+  `requireAuth` + `requireRole('admin', 'jefe_taller')`; no hay solicitud pública).
+- El vehículo debe existir en `Vehiculos` (404 si no), **sin restricción de estado**:
+  también los autos ya vendidos van al taller. El cliente es obligatorio y debe existir
+  en `ClientesComerciales` (404 si no).
+- **Conflicto de agenda**: mismo vehículo con ventanas solapadas en estados
+  `solicitada`/`confirmada`/`en_atencion` → `409 Conflict` (query al GSI
+  `vehiculo-index` + solape en memoria, `assertSinConflicto`).
+- Validaciones de tiempo en Zod: fecha **futura**, inicio entre **08:00 y 18:00** y
+  alineado a **pasos de 15 minutos**; duración 15–480 min (defecto 60).
+- El **número** se reserva de forma atómica (`UpdateItem` con `ADD` sobre la partición
+  `secuencia#<año>`).
+- Transiciones: alta → `solicitada`; `confirmar` (`solicitada → confirmada`);
+  `reprogramar` (sobre `solicitada`/`confirmada`, conserva el estado y registra en el
+  historial); `iniciar` (`confirmada → en_atencion`); `finalizar`
+  (`en_atencion → finalizada`); `cancelar` (sobre `solicitada`/`confirmada`, con motivo).
+  Cualquier otra transición responde `409 Conflict` (`assertEstado`).
+- Snapshots de vehículo y cliente; `historial` de estados y autor de la operación
+  (`createdBy`/`createdByName`).
+- **Notificaciones (HU12)**: se registra con `registrarSinFallo` en alta, confirmar,
+  reprogramar, cancelar y finalizar (**no** en iniciar); tipo `cita_taller` con eventos
+  `cita_solicitada`, `cita_confirmada`, `cita_reprogramada`, `cita_cancelada` y
+  `cita_finalizada`, destinatario = email del cliente (snapshot), transporte `mailto:`.
 
 ## Endpoints actuales
 
@@ -450,6 +495,14 @@ Reglas de negocio (HU12):
 | GET | `/api/notificaciones` | admin/vendedor | Listar notificaciones (`?tipo=&estado=&recursoId=`) |
 | GET | `/api/notificaciones/:eventoId` | admin/vendedor | Obtener una notificación con su historial |
 | POST | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | Registrar el intento de envío y devolver el enlace `mailto:` |
+| GET | `/api/citas-taller` | admin/jefe_taller | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=`) |
+| GET | `/api/citas-taller/:citaId` | admin/jefe_taller | Obtener cita con historial (404 si no existe) |
+| POST | `/api/citas-taller` | admin/jefe_taller | Registrar cita (número único, 201) |
+| POST | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar una cita solicitada |
+| POST | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | Cambiar fecha/hora (revalida conflicto) |
+| POST | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | Marcar como en atención |
+| POST | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | Finalizar una cita en atención |
+| POST | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | Cancelar una cita (motivo opcional) |
 
 ## Variables de entorno
 
@@ -471,6 +524,7 @@ Ver `backend/.env.example`:
 | `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
 | `PRUEBAS_MANEJO_TABLE_NAME` | Tabla DynamoDB de pruebas de manejo (HU11) |
 | `NOTIFICACIONES_TABLE_NAME` | Tabla DynamoDB de notificaciones (HU12) |
+| `CITAS_TALLER_TABLE_NAME` | Tabla DynamoDB de citas del taller (HU13) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

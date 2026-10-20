@@ -14,6 +14,7 @@ import {
   Package,
   ReceiptText,
   Users,
+  Wrench,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/reservas', label: 'Reservas', icon: CalendarCheck, roles: ['admin', 'vendedor'] },
   { to: '/ventas', label: 'Ventas', icon: ReceiptText, roles: ['admin', 'vendedor'] },
   { to: '/pruebas-man', label: 'Pruebas', icon: Gauge, roles: ['admin', 'vendedor'] },
+  { to: '/citas', label: 'Taller', icon: Wrench, roles: ['admin', 'jefe_taller'] },
   { to: '/notificaciones', label: 'Correos', icon: Mail, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];

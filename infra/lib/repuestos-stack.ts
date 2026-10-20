@@ -27,6 +27,10 @@ import { Construct } from 'constructs';
  * HU12 - Notificaciones: tabla `Notificaciones` (PK = eventoId, clave única por
  * evento + destinatario para evitar envíos duplicados; índice por recurso para
  * consultar el historial de correos de una operación).
+ *
+ * HU13 - Citas del taller: tabla `CitasTaller` (índice por vehículo + fechaHora
+ * para detectar solapes de agenda, por cliente para el historial y por número
+ * de cita).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -37,6 +41,7 @@ export class RepuestosStack extends cdk.Stack {
   public readonly ventasTable: dynamodb.Table;
   public readonly pruebasManejoTable: dynamodb.Table;
   public readonly notificacionesTable: dynamodb.Table;
+  public readonly citasTallerTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -210,6 +215,35 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU13: Citas del taller. PK = citaId (UUID). GSI por vehículo + fechaHora
+    // para detectar solapes de agenda de una unidad, GSI por cliente (historial)
+    // y GSI por número (número único).
+    this.citasTallerTable = new dynamodb.Table(this, 'CitasTallerTable', {
+      partitionKey: { name: 'citaId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.citasTallerTable.addGlobalSecondaryIndex({
+      indexName: 'vehiculo-index',
+      partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.citasTallerTable.addGlobalSecondaryIndex({
+      indexName: 'cliente-index',
+      partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.citasTallerTable.addGlobalSecondaryIndex({
+      indexName: 'numero-index',
+      partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -244,6 +278,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'NotificacionesTableName', {
       value: this.notificacionesTable.tableName,
       description: 'Nombre de la tabla DynamoDB de notificaciones (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'CitasTallerTableName', {
+      value: this.citasTallerTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de citas del taller (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,
