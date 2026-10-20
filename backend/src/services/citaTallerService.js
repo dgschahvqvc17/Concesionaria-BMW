@@ -2,12 +2,16 @@ const { NotFoundError, ConflictError } = require('../errors/AppError');
 const citaTallerRepository = require('../repositories/citaTallerRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
+const usuarioRepository = require('../repositories/usuarioRepository');
 const notificacionService = require('./notificacionService');
 const { registrarSinFallo } = notificacionService;
 const { DURACION_DEFECTO, TIPOS_SERVICIO } = require('../validation/citaTallerSchemas');
 
 /** Citas que ocupan un horario del taller (aún no finalizadas ni canceladas). */
 const ESTADOS_CITA_OCUPADOS = ['solicitada', 'confirmada', 'en_atencion'];
+
+/** Estados en los que la cita admite asignación o reasignación de mecánico (HU14). */
+const ESTADOS_CITA_ASIGNABLES = ['confirmada', 'en_atencion'];
 
 const ES_ESTADO_OCUPADO = new Set(ESTADOS_CITA_OCUPADOS);
 
@@ -83,6 +87,30 @@ function tipoServicioEtiqueta(tipo) {
   return TIPOS_SERVICIO.includes(tipo) ? tipo.replace('_', ' ') : tipo;
 }
 
+/**
+ * El mecánico debe existir en Usuarios, tener el rol `mecanico` y estar activo:
+ * las asignaciones a usuarios inactivos quedan bloqueadas (HU14).
+ */
+async function resolverMecanico(mecanicoId) {
+  const mecanico = await usuarioRepository.findById(mecanicoId);
+  if (!mecanico) throw new NotFoundError('El mecánico no existe.');
+  if (mecanico.rol !== 'mecanico') {
+    throw new ConflictError('El usuario seleccionado no tiene el rol de mecánico.');
+  }
+  if (mecanico.estado !== 'activo') {
+    throw new ConflictError('No se puede asignar trabajo a un mecánico inactivo.');
+  }
+  return mecanico;
+}
+
+function resumenMecanico(usuario) {
+  return {
+    userId: usuario.userId,
+    nombre: usuario.nombre,
+    email: usuario.email,
+  };
+}
+
 async function createCita(datos, actor) {
   const vehiculo = await resolverVehiculo(datos.vehiculoId);
   const duracion = datos.duracionMinutos ?? DURACION_DEFECTO;
@@ -119,9 +147,10 @@ async function createCita(datos, actor) {
   return creada;
 }
 
-async function listCitas({ clienteId, vehiculoId, estado, fechaDesde, fechaHasta } = {}) {
+async function listCitas({ clienteId, vehiculoId, mecanicoId, estado, fechaDesde, fechaHasta } = {}) {
   let citas;
-  if (clienteId) citas = await citaTallerRepository.findByCliente(clienteId);
+  if (mecanicoId) citas = await citaTallerRepository.findByMecanico(mecanicoId);
+  else if (clienteId) citas = await citaTallerRepository.findByCliente(clienteId);
   else if (vehiculoId) citas = await citaTallerRepository.findByVehiculo(vehiculoId);
   else citas = await citaTallerRepository.listAll();
 
@@ -236,8 +265,48 @@ async function cancelarCita(citaId, datos = {}, actor = {}) {
   return actualizada;
 }
 
+/**
+ * Asigna (o reasigna) un mecánico responsable a la cita (HU14).
+ * Solo procede sobre citas `confirmada`/`en_atencion`; registra la fecha de
+ * asignación y el historial de cambios, y notifica al mecánico por correo.
+ */
+async function asignarMecanico(citaId, datos, actor = {}) {
+  const cita = await getCita(citaId);
+  assertEstado(cita, ESTADOS_CITA_ASIGNABLES, 'asignar un mecánico a');
+
+  const mecanico = await resolverMecanico(datos.mecanicoId);
+
+  if (cita.mecanicoId === mecanico.userId) {
+    throw new ConflictError('La cita ya está asignada a ese mecánico.');
+  }
+
+  const reasignada = Boolean(cita.mecanicoId);
+  const fecha = new Date().toISOString();
+  const entrada = {
+    mecanicoId: mecanico.userId,
+    mecanicoNombre: mecanico.nombre,
+    tipo: reasignada ? 'reasignada' : 'asignada',
+    fecha,
+    usuario: autorNombre(actor),
+    ...(datos.observaciones ? { observaciones: datos.observaciones } : {}),
+  };
+
+  const actualizada = await citaTallerRepository.update(citaId, {
+    mecanicoId: mecanico.userId,
+    mecanico: resumenMecanico(mecanico),
+    asignadoAt: fecha,
+    asignaciones: [...(cita.asignaciones ?? []), entrada],
+  });
+
+  await registrarSinFallo(() =>
+    notificacionService.notificarMecanico(actualizada, reasignada ? 'cita_reasignada' : 'cita_asignada')
+  );
+  return actualizada;
+}
+
 module.exports = {
   ESTADOS_CITA_OCUPADOS,
+  ESTADOS_CITA_ASIGNABLES,
   tipoServicioEtiqueta,
   createCita,
   listCitas,
@@ -247,4 +316,5 @@ module.exports = {
   iniciarCita,
   finalizarCita,
   cancelarCita,
+  asignarMecanico,
 };

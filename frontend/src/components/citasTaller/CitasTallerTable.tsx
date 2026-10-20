@@ -5,6 +5,7 @@ import {
   ESTADO_CITA_LABELS,
   ESTADO_CITA_STYLES,
   TIPO_SERVICIO_LABELS,
+  etiquetaAsignacion,
   formatFechaHora,
   rangoHorario,
 } from '@/lib/citasTaller';
@@ -15,7 +16,7 @@ interface CitasTallerTableProps {
   onVer: (cita: CitaTaller) => void;
 }
 
-/** Tabla del listado de citas del taller (HU13). */
+/** Tabla del listado de citas del taller (HU13 + HU14). */
 export function CitasTallerTable({ citas, onVer }: CitasTallerTableProps) {
   return (
     <Table>
@@ -25,6 +26,7 @@ export function CitasTallerTable({ citas, onVer }: CitasTallerTableProps) {
           <TableHead>Cliente</TableHead>
           <TableHead>Vehículo</TableHead>
           <TableHead>Servicio</TableHead>
+          <TableHead>Mecánico</TableHead>
           <TableHead>Fecha</TableHead>
           <TableHead>Horario</TableHead>
           <TableHead>Estado</TableHead>
@@ -42,6 +44,7 @@ export function CitasTallerTable({ citas, onVer }: CitasTallerTableProps) {
               {cita.vehiculo.marca} {cita.vehiculo.modelo}
             </TableCell>
             <TableCell>{TIPO_SERVICIO_LABELS[cita.tipoServicio]}</TableCell>
+            <TableCell>{etiquetaAsignacion(cita)}</TableCell>
             <TableCell>{formatFechaHora(cita.fechaHora)}</TableCell>
             <TableCell>{rangoHorario(cita)}</TableCell>
             <TableCell>

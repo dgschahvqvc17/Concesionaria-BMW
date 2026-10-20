@@ -13,10 +13,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCitasTaller } from '@/hooks/useCitasTaller';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
+import { useMecanicos } from '@/hooks/useMecanicos';
 import { useVehiculos } from '@/hooks/useVehiculos';
 import { getErrorMessage } from '@/lib/api';
 import { ESTADOS_CITA, ESTADO_CITA_LABELS } from '@/lib/citasTaller';
 import type {
+  AsignarCitaInput,
   CancelarCitaInput,
   CitaTaller,
   CreateCitaTallerInput,
@@ -27,15 +29,17 @@ import type {
 
 type FiltroEstado = 'todos' | EstadoCita;
 
-/** Página de gestión de citas del taller (HU13). */
+/** Página de gestión de citas del taller (HU13 + HU14). */
 export function CitasTallerPage() {
-  const { citas, loading, error, recargar, crear, confirmar, reprogramar, iniciar, finalizar, cancelar } =
+  const { citas, loading, error, recargar, crear, confirmar, reprogramar, iniciar, finalizar, cancelar, asignar } =
     useCitasTaller();
   const { clientes, loading: cargandoClientes } = useClientesComerciales();
   const { vehiculos, loading: cargandoVehiculos } = useVehiculos();
+  const { mecanicos } = useMecanicos();
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
+  const [filtroMecanico, setFiltroMecanico] = useState('todos');
 
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -48,11 +52,12 @@ export function CitasTallerPage() {
     const q = busqueda.trim().toLowerCase();
     return citas.filter((cita) => {
       if (filtroEstado !== 'todos' && cita.estado !== filtroEstado) return false;
+      if (filtroMecanico !== 'todos' && cita.mecanicoId !== filtroMecanico) return false;
       if (!q) return true;
       const texto = `${cita.numero} ${cita.cliente?.nombres ?? ''} ${cita.cliente?.apellidos ?? ''} ${cita.vehiculo.marca} ${cita.vehiculo.modelo}`;
       return texto.toLowerCase().includes(q);
     });
-  }, [citas, filtroEstado, busqueda]);
+  }, [citas, filtroEstado, filtroMecanico, busqueda]);
 
   const seleccionada: CitaTaller | null = citas.find((c) => c.citaId === seleccionId) ?? null;
 
@@ -85,6 +90,7 @@ export function CitasTallerPage() {
   const handleIniciar = (input: EstadoCitaInput) => conDetalle((id) => iniciar(id, input));
   const handleFinalizar = (input: EstadoCitaInput) => conDetalle((id) => finalizar(id, input));
   const handleCancelar = (input: CancelarCitaInput) => conDetalle((id) => cancelar(id, input));
+  const handleAsignar = (input: AsignarCitaInput) => conDetalle((id) => asignar(id, input));
 
   const abrirDetalle = (citaId: string) => {
     setSeleccionId(citaId);
@@ -132,6 +138,19 @@ export function CitasTallerPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={filtroMecanico} onValueChange={setFiltroMecanico}>
+              <SelectTrigger className="sm:w-56">
+                <SelectValue placeholder="Todos los mecánicos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los mecánicos</SelectItem>
+                {mecanicos.map((mecanico) => (
+                  <SelectItem key={mecanico.userId} value={mecanico.userId}>
+                    {mecanico.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {loading ? (
@@ -175,11 +194,13 @@ export function CitasTallerPage() {
         open={detalleOpen}
         onOpenChange={setDetalleOpen}
         cita={seleccionada}
+        mecanicos={mecanicos}
         onConfirmar={handleConfirmar}
         onReprogramar={handleReprogramar}
         onIniciar={handleIniciar}
         onFinalizar={handleFinalizar}
         onCancelar={handleCancelar}
+        onAsignar={handleAsignar}
         loading={detalleLoading}
       />
     </div>

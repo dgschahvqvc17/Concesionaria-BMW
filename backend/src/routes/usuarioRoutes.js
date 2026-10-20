@@ -5,6 +5,9 @@ const { requireAuth, requireRole } = require('../auth/middleware');
 
 const router = express.Router();
 
+// Mecánicos activos para asignar trabajos del taller (HU14): jefe de taller también consulta.
+router.get('/mecanicos', requireAuth, requireRole('admin', 'jefe_taller'), usuarioController.listMecanicos);
+
 // Toda la gestión de usuarios queda restringida a administradores.
 router.use(requireAuth, requireRole('admin'));
 

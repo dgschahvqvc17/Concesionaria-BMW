@@ -183,6 +183,14 @@ async function listUsuarios() {
   return usuarios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 
+/** Mecánicos activos disponibles para asignar trabajos (HU14). */
+async function listMecanicos() {
+  const usuarios = await usuarioRepository.listAll();
+  return usuarios
+    .filter((usuario) => usuario.rol === 'mecanico' && usuario.estado === 'activo')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
 /** Obtiene un usuario por id. */
 async function getUsuario(userId) {
   const profile = await usuarioRepository.findById(userId);
@@ -199,5 +207,6 @@ module.exports = {
   setEstado,
   syncSession,
   listUsuarios,
+  listMecanicos,
   getUsuario,
 };

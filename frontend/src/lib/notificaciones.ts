@@ -46,6 +46,8 @@ export const EVENTO_NOTIFICACION_LABELS: Record<string, string> = {
   cita_reprogramada: 'Cita reprogramada',
   cita_cancelada: 'Cita cancelada',
   cita_finalizada: 'Cita finalizada',
+  cita_asignada: 'Trabajo asignado al mecánico',
+  cita_reasignada: 'Trabajo reasignado al mecánico',
 };
 
 export function eventoLabel(evento: string): string {

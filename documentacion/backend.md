@@ -72,7 +72,7 @@ backend/
     │   ├── ventaRoutes.js
     │   ├── pruebaManejoRoutes.js     (HU11: POST público con token opcional)
     │   ├── notificacionRoutes.js     (HU12)
-    │   └── citaTallerRoutes.js       (HU13: admin/jefe_taller)
+    │   └── citaTallerRoutes.js       (HU13/HU14: admin/jefe_taller, mecánico consulta)
     ├── controllers/          # Reciben HTTP, validan y delegan en services
     │   ├── usuarioController.js
     │   ├── clienteController.js
@@ -86,7 +86,7 @@ backend/
     │   ├── ventaController.js
     │   ├── pruebaManejoController.js
     │   ├── notificacionController.js
-    │   └── citaTallerController.js   (HU13)
+    │   └── citaTallerController.js   (HU13/HU14)
     ├── services/             # REGLAS DE NEGOCIO (aquí vive la lógica)
     │   ├── usuarioService.js
     │   ├── cognitoService.js
@@ -102,7 +102,7 @@ backend/
     │   ├── pruebaManejoService.js    # agenda, conflictos de horario y estados
     │   ├── notificacionService.js     # HU12: registro, dedup e intentos de correo
     │   ├── plantillasCorreo.js        # HU12: textos de los correos (texto plano)
-    │   └── citaTallerService.js       # HU13: agenda del taller, solapes y estados
+    │   └── citaTallerService.js       # HU13/HU14: agenda, solapes, estados y asignación de mecánicos
     ├── repositories/         # ÚNICO lugar que habla con DynamoDB
     │   ├── usuarioRepository.js
     │   ├── vehiculoRepository.js
@@ -114,7 +114,7 @@ backend/
     │   ├── ventaRepository.js
     │   ├── pruebaManejoRepository.js
     │   ├── notificacionRepository.js
-    │   └── citaTallerRepository.js
+    │   └── citaTallerRepository.js   # HU13/HU14: findByVehiculo, findByMecanico (GSI mecanico-index)
     ├── validation/           # Esquemas Zod + helper `validate`
     │   ├── usuarioSchemas.js
     │   ├── clienteSchemas.js
@@ -127,7 +127,7 @@ backend/
     │   ├── ventaSchemas.js
     │   ├── pruebaManejoSchemas.js    # horario 08:00–18:00 en pasos de 15 min
     │   ├── notificacionSchemas.js    # HU12: tipos, estados y MAX_INTENTOS
-    │   └── citaTallerSchemas.js      # HU13: tipo de servicio, horario y duración
+    │   └── citaTallerSchemas.js      # HU13/HU14: tipo de servicio, horario, duración y asignación
     ├── errors/               # Jerarquía de errores y manejador central
     │   ├── AppError.js
     │   └── errorHandler.js
@@ -614,7 +614,7 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > notificación nunca revierte la operación comercial. Si la operación no tenía correo
 > válido, la notificación se crea en estado `omitido` y `enviar` responde `400`.
 
-### Tabla `CitasTaller` (HU13)
+### Tabla `CitasTaller` (HU13/HU14)
 
 | Atributo | Tipo | Rol |
 | --- | --- | --- |
@@ -628,6 +628,10 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 | `fechaHora` | string (ISO) | Inicio de la cita (futuro, 08:00–18:00, pasos de 15 min) |
 | `duracionMinutos` | number | 15–480 (por defecto 60) |
 | `estado` | string | `solicitada` \| `confirmada` \| `en_atencion` \| `finalizada` \| `cancelada` |
+| `mecanicoId` | string \| null | **GSI `mecanico-index`** (+ `fechaHora`); carga de trabajo por mecánico (HU14) |
+| `mecanico` | objeto \| null | Snapshot `{ userId, nombre, email }` del mecánico asignado (HU14) |
+| `asignadoAt` | string (ISO) | Momento de la asignación o reasignación (HU14) |
+| `asignaciones` | list&lt;objeto&gt; | Historial `{ mecanicoId, mecanicoNombre, tipo: 'asignada'\|'reasignada', fecha, usuario?, observaciones? }` (HU14) |
 | `observaciones` | string | Opcional (≤ 1000 caracteres) |
 | `historial` | list&lt;objeto&gt; | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
 | `createdBy` / `createdByName` | string \| null | Autor (sub / nombre del token) |
@@ -646,6 +650,20 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > y ventas, la cita solo exige que el vehículo exista (los autos vendidos también vuelven
 > al taller) y **no modifica** su estado. **11.ª tabla del proyecto**, junto con
 > `Notificaciones` (HU12).
+>
+> **Asignación de mecánicos (HU14):** la HU14 **reutiliza esta misma tabla** como
+> "órdenes de trabajo" y solo añade el GSI `mecanico-index` (PK `mecanicoId` + sortKey
+> `fechaHora`), consultado por `citaTallerRepository.findByMecanico`; no se crea una tabla
+> nueva. La asignación (`POST /:citaId/asignar`) solo está permitida en estados
+> `confirmada` o `en_atencion` (`ESTADOS_CITA_ASIGNABLES`, cualquier otro responde `409`);
+> `resolverMecanico` responde `404` si el usuario no existe, `409` si no tiene rol
+> `mecanico` y `409` si está `inactivo`; asignar al mismo mecánico que ya está a cargo
+> responde `409`. Cada operación guarda `mecanicoId`, `mecanico` (snapshot), `asignadoAt`
+> y agrega una entrada a `asignaciones` (`asignada` o `reasignada`), además de registrar
+> la notificación HU12 (tipo `cita_taller`, eventos `cita_asignada`/`cita_reasignada`,
+> destinatario el correo del mecánico) con `registrarSinFallo`. El listado admite el
+> filtro `?mecanicoId=` y el rol `mecanico` **solo consulta sus propias citas** (el
+> controller fuerza `mecanicoId = req.auth.sub` y responde `403` en el detalle ajeno).
 
 ### Relación entre tablas (sin claves foráneas)
 
@@ -666,7 +684,8 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
   `PruebasManejo.clienteId` → `ClientesComerciales.clienteId`; en las solicitudes anónimas
   el `clienteId` queda como `'anonimo'` y `cliente` como `null`.
 - `CitasTaller.vehiculoId` → `Vehiculos.vehiculoId` (con snapshot) y
-  `CitasTaller.clienteId` → `ClientesComerciales.clienteId` (con snapshot, obligatorio).
+  `CitasTaller.clienteId` → `ClientesComerciales.clienteId` (con snapshot, obligatorio);
+  `CitasTaller.mecanicoId` → `Usuarios.userId` (con snapshot, HU14).
 - `Notificaciones.recursoId` → identificador de la operación que originó el correo
   (`reservaId`, `cotizacionId`, `pruebaId`, `ventaId` o `citaId`); no guarda snapshot porque el
   mensaje se redacta al momento del evento.
@@ -1003,7 +1022,8 @@ this.notificacionesTable.addGlobalSecondaryIndex({
 
 En la HU13 agregué la tabla `CitasTaller` (11.ª tabla del proyecto), con un índice por
 vehículo (agenda y detección de solapes), otro por cliente (historial) y otro por número
-(unicidad), replicando el patrón de `PruebasManejo`:
+(unicidad), replicando el patrón de `PruebasManejo`; la HU14 añadió un cuarto índice,
+`mecanico-index`, para la carga de trabajo por mecánico (sin crear tabla nueva):
 
 ```typescript
 // infra/lib/repuestos-stack.ts (HU13: nueva tabla + índices)
@@ -1028,6 +1048,12 @@ this.citasTallerTable.addGlobalSecondaryIndex({
 this.citasTallerTable.addGlobalSecondaryIndex({
   indexName: 'numero-index',
   partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+});
+
+this.citasTallerTable.addGlobalSecondaryIndex({
+  indexName: 'mecanico-index', // HU14: carga de trabajo por mecánico
+  partitionKey: { name: 'mecanicoId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
 });
 ```
 
@@ -1446,7 +1472,7 @@ verbos HTTP según la acción y respuestas JSON. El prefijo general es `/api`.
 
 ### Referencia completa de endpoints
 
-Tabla consolidada con **todos** los endpoints de la API (58 en total). La columna
+Tabla consolidada con **todos** los endpoints de la API (60 en total). La columna
 *Autenticación* indica lo que exige cada ruta y *Cuerpo / Query* los datos que recibe.
 
 | Método | Ruta | Autenticación | Cuerpo / Query | Descripción |
@@ -1462,6 +1488,7 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
 | `POST` | `/api/usuarios` | admin | `{ nombre, email, rol, password }` | Crear usuario (Cognito + DynamoDB) |
 | `PATCH` | `/api/usuarios/:userId` | admin | `{ nombre?, rol?, estado? }` | Actualizar usuario |
 | `PATCH` | `/api/usuarios/:userId/estado` | admin | `{ estado: "activo" \| "inactivo" }` | Activar/desactivar |
+| `GET` | `/api/usuarios/mecanicos` | admin/jefe_taller | — | Mecánicos activos para asignar (HU14) |
 | `GET` | `/api/vehiculos` | token | — | Listar inventario |
 | `GET` | `/api/vehiculos/:vehiculoId` | token | — | Obtener vehículo |
 | `POST` | `/api/vehiculos` | admin/vendedor | `{ ...vehiculo, fotos: string[], documentos: { key, nombre }[] }` | Registrar vehículo |
@@ -1501,14 +1528,15 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
 | `GET` | `/api/notificaciones` | admin/vendedor | query `?tipo=&estado=&recursoId=` | Listar notificaciones (HU12) |
 | `GET` | `/api/notificaciones/:eventoId` | admin/vendedor | — | Obtener una notificación con su historial |
 | `POST` | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | — | Registrar el intento (máx. 5) y devolver el enlace `mailto:` |
-| `GET` | `/api/citas-taller` | admin/jefe_taller | query `?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=` | Listar citas del taller (HU13) |
-| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller | — | Obtener una cita con historial |
+| `GET` | `/api/citas-taller` | admin/jefe_taller/mecanico | query `?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=&mecanicoId=` | Listar citas del taller (HU13/HU14; `mecanico` solo las suyas) |
+| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller/mecanico | — | Obtener una cita con historial (`mecanico` solo la suya, `403` si es ajena) |
 | `POST` | `/api/citas-taller` | admin/jefe_taller | `{ vehiculoId, clienteId, tipoServicio, fechaHora, duracionMinutos?, observaciones? }` | Registrar cita (`201`, `CIT-AAAA-######`, conflicto de horario `409`) |
 | `POST` | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | `{ observaciones? }` | `solicitada` → `confirmada` |
 | `POST` | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | `{ fechaHora, duracionMinutos?, observaciones? }` | Cambia horario conservando el estado |
 | `POST` | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | `{ observaciones? }` | `confirmada` → `en_atencion` |
 | `POST` | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | `{ observaciones? }` | `en_atencion` → `finalizada` |
 | `POST` | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | `{ motivo? }` | `solicitada`/`confirmada` → `cancelada` |
+| `POST` | `/api/citas-taller/:citaId/asignar` | admin/jefe_taller | `{ mecanicoId, observaciones? }` | Asigna/reasigna mecánico responsable y notifica (HU14) |
 
 > **Autorización en dos niveles.** Todas las rutas protegidas pasan primero por
 > `requireAuth` (token JWT obligatorio) y, cuando aplica, por `requireRole(...)`. En el
@@ -1538,6 +1566,7 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
 | `POST` | `/api/usuarios` | admin | Crear usuario (Cognito + DynamoDB) |
 | `PATCH` | `/api/usuarios/:userId` | admin | Actualizar usuario |
 | `PATCH` | `/api/usuarios/:userId/estado` | admin | Activar/desactivar |
+| `GET` | `/api/usuarios/mecanicos` | admin/jefe_taller | Mecánicos activos para asignar (HU14) |
 
 **Vehículos**
 
@@ -1631,23 +1660,28 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
 > se guarda con `clienteId: 'anonimo'` y `origen: 'catalogo'`. Todas las demás rutas de la
 > HU11 exigen `requireAuth` + `requireRole('admin', 'vendedor')`.
 
-**Citas del taller (HU13)**
+**Citas del taller (HU13/HU14)**
 
 | Método | Endpoint | Acceso | Descripción |
 | --- | --- | --- | --- |
-| `GET` | `/api/citas-taller` | admin/jefe_taller | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=`) |
+| `GET` | `/api/citas-taller` | admin/jefe_taller/mecanico | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=&mecanicoId=`); el rol `mecanico` solo ve las suyas |
 | `POST` | `/api/citas-taller` | admin/jefe_taller | Registrar cita (`201`, número único, conflicto de horario `409`) |
-| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller | Obtener una cita + historial |
+| `GET` | `/api/citas-taller/:citaId` | admin/jefe_taller/mecanico | Obtener una cita + historial (`mecanico` solo la suya) |
 | `POST` | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar (`solicitada` → `confirmada`) |
 | `POST` | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | Reprogramar (conserva estado, revalida horario) |
+| `POST` | `/api/citas-taller/:citaId/asignar` | admin/jefe_taller | Asignar/reasignar mecánico (`{ mecanicoId, observaciones? }`) y notificar (HU14) |
 | `POST` | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | Iniciar atención (`confirmada` → `en_atencion`) |
 | `POST` | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | Finalizar (`en_atencion` → `finalizada`) |
 | `POST` | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | Cancelar con motivo (`solicitada`/`confirmada` → `cancelada`) |
 
-> **Roles de la HU13.** Las ocho rutas de `/api/citas-taller` exigen `requireAuth` +
-> `requireRole('admin', 'jefe_taller')`; ninguna es pública (a diferencia de
-> `POST /api/pruebas-man`). Los eventos relevantes registran además la notificación
-> HU12 con tipo `cita_taller` usando `registrarSinFallo`.
+> **Roles de la HU13/HU14.** Las rutas de escritura de `/api/citas-taller` (nueve
+> tras añadir `POST /:citaId/asignar`) exigen `requireAuth` +
+> `requireRole('admin', 'jefe_taller')`; `GET /` y `GET /:citaId` admiten además al rol
+> `mecanico`, que solo consulta sus propias citas (ninguna es pública, a diferencia de
+> `POST /api/pruebas-man`). `GET /api/usuarios/mecanicos` (HU14) es de
+> `admin`/`jefe_taller`. Los eventos relevantes registran además la notificación
+> HU12 con tipo `cita_taller` usando `registrarSinFallo` (HU14 añade los eventos
+> `cita_asignada` y `cita_reasignada`, enviados al correo del mecánico).
 
 ### Parámetros (path, query y cuerpos)
 
@@ -1663,8 +1697,9 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
   `?clienteId=`, `?vehiculoId=` y `?estado=<pendiente|confirmada|realizada|cancelada>`, y
   `GET /api/notificaciones` acepta `?tipo=`, `?estado=` y `?recursoId=`, y
   `GET /api/citas-taller` acepta `?clienteId=`, `?vehiculoId=`,
-  `?estado=<solicitada|confirmada|en_atencion|finalizada|cancelada>` y el rango de fechas
-  `?fechaDesde=&fechaHasta=` (un rango invertido responde `400`). Los
+  `?estado=<solicitada|confirmada|en_atencion|finalizada|cancelada>`, el rango de fechas
+  `?fechaDesde=&fechaHasta=` (un rango invertido responde `400`) y, desde la HU14,
+  `?mecanicoId=` para la carga de trabajo de un mecánico. Los
   demás listados
   no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
@@ -1693,7 +1728,8 @@ Tabla consolidada con **todos** los endpoints de la API (58 en total). La column
     vehículo con `409` y número `CIT-AAAA-######`); `POST .../reprogramar` →
     `{ fechaHora, duracionMinutos?, observaciones? }`; `POST .../confirmar`,
     `POST .../iniciar` y `POST .../finalizar` → `{ observaciones? }`;
-    `POST .../cancelar` → `{ motivo? }`.
+    `POST .../cancelar` → `{ motivo? }`; `POST .../asignar` (HU14) →
+    `{ mecanicoId, observaciones? }`.
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1850,8 +1886,8 @@ curl http://localhost:3000/info
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
 | `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08), reservas (HU09), ventas (HU10) y pruebas de manejo (HU11). |
-| `jefe_taller` | Gestiona repuestos, movimientos y las citas del taller (HU13, junto con `admin`). |
-| `mecanico` | Consulta inventario (rol por defecto). |
+| `jefe_taller` | Gestiona repuestos, movimientos y las citas del taller (HU13/HU14, junto con `admin`). |
+| `mecanico` | Consulta inventario y **sus** trabajos asignados en `/api/citas-taller` (HU14; rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
 
 ### 13.4 Ejemplo de flujo completo (subir una foto de vehículo)
@@ -2098,6 +2134,19 @@ curl -X POST http://localhost:3000/api/citas-taller/<uuid>/cancelar \
 curl -X POST http://localhost:3000/api/citas-taller/<uuid>/reprogramar \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"fechaHora":"2026-11-12T15:30:00","duracionMinutos":60}'
+
+# 29) Listar los mecánicos activos para asignar (HU14, admin/jefe_taller) —
+#     responde { total, mecanicos } ordenado por nombre
+curl http://localhost:3000/api/usuarios/mecanicos \
+  -H "Authorization: Bearer $TOKEN"
+
+# 30) Asignar un mecánico a una cita (HU14, admin/jefe_taller) — solo en
+#     confirmada/en_atencion; 404 si no existe, 409 si no es mecánico, si está
+#     inactivo o si ya está asignada al mismo; notifica al mecánico (cita_asignada/
+#     cita_reasignada) y guarda mecanicoId, asignadoAt y el historial asignaciones[]
+curl -X POST http://localhost:3000/api/citas-taller/<uuid>/asignar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"mecanicoId":"<uuid-mecanico>","observaciones":"Prioridad alta, repuesto en camino."}'
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -2123,6 +2172,7 @@ curl -X POST http://localhost:3000/api/citas-taller/<uuid>/reprogramar \
 | HU11 | Pruebas de manejo | Implementada (backend verificado end-to-end: 46/46 aserciones) |
 | HU12 | Notificaciones por correo | Implementada (backend verificado end-to-end: 34/34 aserciones; transporte `mailto:`, sin SES) |
 | HU13 | Citas del taller | Implementada (backend verificado end-to-end: 42/42 aserciones; roles admin/jefe_taller) |
+| HU14 | Asignar trabajos a los mecánicos | Implementada (backend verificado end-to-end: 30/30 aserciones; roles admin/jefe_taller, mecánico consulta lo suyo) |
 
 ---
 

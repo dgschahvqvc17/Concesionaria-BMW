@@ -78,10 +78,16 @@ const cancelarCitaSchema = z.object({
   motivo: z.string().trim().max(500, 'El motivo no puede superar los 500 caracteres.').optional(),
 });
 
+const asignarCitaSchema = z.object({
+  mecanicoId: z.string().trim().min(1, 'Selecciona un mecánico.'),
+  observaciones: observacionesSchema,
+});
+
 const listCitasQuerySchema = z
   .object({
     clienteId: z.string().trim().min(1).optional(),
     vehiculoId: z.string().trim().min(1).optional(),
+    mecanicoId: z.string().trim().min(1).optional(),
     estado: z.enum(ESTADOS_CITA).optional(),
     fechaDesde: z.string().datetime({ message: 'La fecha inicial no es válida.' }).optional(),
     fechaHasta: z.string().datetime({ message: 'La fecha final no es válida.' }).optional(),
@@ -115,6 +121,7 @@ module.exports = {
   iniciarCitaSchema,
   finalizarCitaSchema,
   cancelarCitaSchema,
+  asignarCitaSchema,
   listCitasQuerySchema,
   validate,
 };

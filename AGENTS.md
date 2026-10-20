@@ -50,9 +50,10 @@ cd infra; npx tsc --noEmit
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
-  HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo y
-  HU13 citas del taller (Sprint 3 = "Taller y administración")
-  (HU01–HU06 verificadas end-to-end; HU07–HU13 con backend verificado e2e y
+  HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo,
+  HU13 citas del taller y HU14 asignación de trabajos a mecánicos
+  (Sprint 3 = "Taller y administración")
+  (HU01–HU06 verificadas end-to-end; HU07–HU14 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -111,6 +112,17 @@ cd infra; npx tsc --noEmit
   atención 08:00–18:00 en pasos de 15 min (duración 15–480, defecto 60). Notificaciones
   tipo `cita_taller` (eventos `cita_*`) con `registrarSinFallo`. Frontend: ruta `/citas`
   (admin/jefe_taller, ítem «Taller»).
+- Asignación de trabajos a mecánicos (HU14): reutiliza `CitasTaller` como **órdenes de
+  trabajo** con el campo `mecanicoId` + GSI `mecanico-index` (`mecanicoId` + `fechaHora`;
+  sin tabla nueva ni infraestructura adicional). `POST /api/citas-taller/:citaId/asignar`
+  y `GET /api/usuarios/mecanicos` (ambos `admin`/`jefe_taller`); `GET /api/citas-taller`
+  acepta `?mecanicoId=`. Solo se asigna sobre citas `confirmada`/`en_atencion` (409);
+  404 si el usuario no existe y 409 si no tiene rol `mecanico` o está inactivo («no se
+  asignan trabajos a usuarios inactivos»), además del 409 por mecánico repetido. Guarda
+  snapshot `mecanico`, `asignadoAt` e historial `asignaciones` (`asignada`/`reasignada`);
+  notifica al mecánico con eventos `cita_asignada`/`cita_reasignada` (transporte
+  `mailto:`). El rol `mecanico` accede a `/citas` pero **solo ve sus propias citas**
+  (listado filtrado por `req.auth.sub` y 403 en detalle ajeno).
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

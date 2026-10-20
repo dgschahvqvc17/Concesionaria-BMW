@@ -29,8 +29,8 @@ import { Construct } from 'constructs';
  * consultar el historial de correos de una operación).
  *
  * HU13 - Citas del taller: tabla `CitasTaller` (índice por vehículo + fechaHora
- * para detectar solapes de agenda, por cliente para el historial y por número
- * de cita).
+ * para detectar solapes de agenda, por cliente para el historial, por número
+ * de cita y por mecánico (HU14, carga de trabajo).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -216,8 +216,8 @@ export class RepuestosStack extends cdk.Stack {
     });
 
     // HU13: Citas del taller. PK = citaId (UUID). GSI por vehículo + fechaHora
-    // para detectar solapes de agenda de una unidad, GSI por cliente (historial)
-    // y GSI por número (número único).
+    // para detectar solapes de agenda de una unidad, GSI por cliente (historial),
+    // GSI por número (número único) y GSI por mecánico (HU14, carga de trabajo).
     this.citasTallerTable = new dynamodb.Table(this, 'CitasTallerTable', {
       partitionKey: { name: 'citaId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -241,6 +241,13 @@ export class RepuestosStack extends cdk.Stack {
     this.citasTallerTable.addGlobalSecondaryIndex({
       indexName: 'numero-index',
       partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.citasTallerTable.addGlobalSecondaryIndex({
+      indexName: 'mecanico-index',
+      partitionKey: { name: 'mecanicoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 

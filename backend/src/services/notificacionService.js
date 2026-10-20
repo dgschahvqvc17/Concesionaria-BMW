@@ -190,6 +190,19 @@ function notificarCita(cita, evento) {
   });
 }
 
+/** Notificación interna al mecánico asignado (HU14), al correo del usuario. */
+function notificarMecanico(cita, evento) {
+  return registrarEvento({
+    tipo: 'cita_taller',
+    recursoId: cita.citaId,
+    evento,
+    numero: cita.numero,
+    destinatario: cita.mecanico?.email,
+    destinatarioNombre: cita.mecanico?.nombre ?? null,
+    plantilla: plantillasCorreo.citaMecanicoEvento(cita, evento),
+  });
+}
+
 function notificarVenta(venta, evento, extras = {}) {
   if (evento === 'venta_confirmada_vendedor') {
     return registrarEvento({
@@ -225,5 +238,6 @@ module.exports = {
   notificarCotizacion,
   notificarPrueba,
   notificarCita,
+  notificarMecanico,
   notificarVenta,
 };

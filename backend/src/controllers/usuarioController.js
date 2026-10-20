@@ -8,6 +8,12 @@ const list = asyncHandler(async (req, res) => {
   res.json({ total: usuarios.length, usuarios });
 });
 
+/** GET /api/usuarios/mecanicos */
+const listMecanicos = asyncHandler(async (req, res) => {
+  const mecanicos = await usuarioService.listMecanicos();
+  res.json({ total: mecanicos.length, mecanicos });
+});
+
 /** GET /api/usuarios/:userId */
 const getOne = asyncHandler(async (req, res) => {
   const usuario = await usuarioService.getUsuario(req.params.userId);
@@ -36,4 +42,4 @@ const changeEstado = asyncHandler(async (req, res) => {
   res.json({ message, usuario });
 });
 
-module.exports = { list, getOne, create, update, changeEstado };
+module.exports = { list, listMecanicos, getOne, create, update, changeEstado };

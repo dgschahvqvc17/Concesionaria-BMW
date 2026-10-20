@@ -241,6 +241,39 @@ function citaEvento(cita, evento) {
   };
 }
 
+const TITULOS_CITA_MECANICO = {
+  cita_asignada: 'Nuevo trabajo asignado en el taller',
+  cita_reasignada: 'Trabajo reasignado en el taller',
+};
+
+const MENSAJES_CITA_MECANICO = {
+  cita_asignada: 'Se te asignó un trabajo del taller. Revisa los detalles y confirma con el jefe si tienes observaciones.',
+  cita_reasignada: 'Un trabajo del taller fue reasignado a tu persona con nuevos detalles.',
+};
+
+function citaMecanicoEvento(cita, evento) {
+  const titulo = TITULOS_CITA_MECANICO[evento] ?? 'Actualización de trabajo en el taller';
+  const mensaje = MENSAJES_CITA_MECANICO[evento] ?? 'Tiene una actualización sobre un trabajo del taller.';
+  return {
+    asunto: asunto(`${titulo} (${cita.numero})`),
+    cuerpo: cuerpo([
+      `Hola ${cita.mecanico?.nombre ?? 'mecánico'}:`,
+      '',
+      mensaje,
+      '',
+      `Vehículo: ${descripcionVehiculo(cita.vehiculo)}`,
+      `Tipo de servicio: ${cita.tipoServicio}`,
+      `Fecha y hora: ${formatoFecha(cita.fechaHora)}`,
+      `Duración: ${cita.duracionMinutos} minutos`,
+      `Número de cita: ${cita.numero}`,
+      ...(cita.observaciones ? ['', `Observaciones: ${cita.observaciones}`] : []),
+      '',
+      'Saludos cordiales,',
+      REMITENTE,
+    ]),
+  };
+}
+
 module.exports = {
   reservaAlta,
   reservaCancelada,
@@ -249,6 +282,7 @@ module.exports = {
   cotizacionEstado,
   pruebaEvento,
   citaEvento,
+  citaMecanicoEvento,
   ventaConfirmada,
   ventaInterna,
 };

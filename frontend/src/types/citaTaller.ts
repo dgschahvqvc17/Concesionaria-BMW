@@ -30,6 +30,25 @@ export interface CitaHistorial {
   observaciones?: string;
 }
 
+/** Snapshot del mecánico responsable (HU14). */
+export interface CitaMecanico {
+  userId: string;
+  nombre: string;
+  email: string;
+}
+
+export type TipoAsignacionCita = 'asignada' | 'reasignada';
+
+/** Entrada del historial de cambios de asignación (HU14). */
+export interface CitaAsignacion {
+  mecanicoId: string;
+  mecanicoNombre?: string;
+  tipo: TipoAsignacionCita;
+  fecha: string;
+  usuario?: string | null;
+  observaciones?: string;
+}
+
 export interface CitaTaller {
   citaId: string;
   numero: string;
@@ -41,12 +60,30 @@ export interface CitaTaller {
   fechaHora: string;
   duracionMinutos: number;
   estado: EstadoCita;
+  mecanicoId?: string | null;
+  mecanico?: CitaMecanico | null;
+  asignadoAt?: string | null;
+  asignaciones?: CitaAsignacion[];
   observaciones?: string;
   historial?: CitaHistorial[];
   createdBy?: string | null;
   createdByName?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Mecánico disponible para asignar (HU14). */
+export interface Mecanico {
+  userId: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  estado: string;
+}
+
+export interface MecanicosResponse {
+  total: number;
+  mecanicos: Mecanico[];
 }
 
 export interface CreateCitaTallerInput {
@@ -70,6 +107,11 @@ export interface EstadoCitaInput {
 
 export interface CancelarCitaInput {
   motivo?: string;
+}
+
+export interface AsignarCitaInput {
+  mecanicoId: string;
+  observaciones?: string;
 }
 
 export interface CitasResponse {
