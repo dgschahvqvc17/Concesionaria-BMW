@@ -4,8 +4,9 @@ Aplicación web **full-stack** para la gestión de una concesionaria BMW: autent
 usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
 vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
 comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
-gestión de pruebas de manejo, citas del taller (HU13) y notificaciones por correo (HU12,
-con transporte `mailto:` para mantenerse en la capa gratuita).
+gestión de pruebas de manejo, citas del taller (HU13) con asignación de trabajos a
+mecánicos (HU14) y notificaciones por correo (HU12, con transporte `mailto:` para
+mantenerse en la capa gratuita).
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
@@ -40,6 +41,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU11** | Pruebas de manejo: solicitud pública desde el catálogo o interna, agenda sin conflictos por vehículo (08:00–18:00), confirmación, reprogramación, cancelación y registro de realizadas. | Implementada (backend verificado e2e) |
 | **HU12** | Notificaciones por correo: registro anti-duplicados de los correos de reservas, cotizaciones, pruebas y ventas, historial de intentos con reintento y envío vía `mailto:` (sin SES, capa gratuita). | Implementada (backend verificado e2e) |
 | **HU13** | Citas del taller: agenda interna (admin/jefe_taller) con horario 08:00–18:00, sin solapes por vehículo, transiciones de estado, numeración única y notificaciones por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU14** | Asignar trabajos de mantenimiento y reparación a los mecánicos: orden de trabajo con mecánico responsable, fecha de asignación, reasignación e historial de cambios, control de carga de trabajo y bloqueo de mecánicos inactivos. | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -168,6 +170,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | GET/POST | `/api/usuarios` | `admin` |
 | GET/PATCH | `/api/usuarios/:userId` | `admin` |
 | PATCH | `/api/usuarios/:userId/estado` | `admin` |
+| GET | `/api/usuarios/mecanicos` | `admin`, `jefe_taller` |
 | GET | `/api/vehiculos` | Autenticado |
 | GET | `/api/vehiculos/:vehiculoId` | Autenticado |
 | POST | `/api/vehiculos` | `admin`, `vendedor` |
@@ -196,8 +199,9 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | POST | `/api/cotizaciones/:cotizacionId/enviar-correo` | `admin`, `vendedor` |
 | GET | `/api/notificaciones` , `/api/notificaciones/:eventoId` | `admin`, `vendedor` |
 | POST | `/api/notificaciones/:eventoId/enviar` | `admin`, `vendedor` |
-| GET | `/api/citas-taller` , `/api/citas-taller/:citaId` | `admin`, `jefe_taller` |
+| GET | `/api/citas-taller` , `/api/citas-taller/:citaId` | `admin`, `jefe_taller`, `mecanico` (solo sus citas) |
 | POST | `/api/citas-taller` , `/:citaId/confirmar` , `/:citaId/reprogramar` , `/:citaId/iniciar` , `/:citaId/finalizar` , `/:citaId/cancelar` | `admin`, `jefe_taller` |
+| POST | `/api/citas-taller/:citaId/asignar` | `admin`, `jefe_taller` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

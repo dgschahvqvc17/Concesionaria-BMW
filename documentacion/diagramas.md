@@ -31,6 +31,7 @@ cualquier editor compatible.
 | 14 | Prueba de manejo: solicitud y gestión (HU11) | Secuencia |
 | 15 | Notificaciones por correo (HU12) | Secuencia |
 | 16 | Citas del taller (HU13) | Secuencia |
+| 17 | Asignar trabajos a los mecánicos (HU14) | Secuencia |
 
 ---
 
@@ -158,6 +159,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Solicitar y gestionar pruebas de manejo (HU11)" as UC_pruebas
   usecase "Consultar y reenviar notificaciones (HU12)" as UC_notificaciones
   usecase "Gestionar citas del taller (HU13)" as UC_citas_taller
+  usecase "Asignar trabajos a los mecanicos (HU14)" as UC_asignar_trabajos
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -170,12 +172,14 @@ cliente --> UC_pruebas : con su sesion
 
 mecanico --> UC_login
 mecanico --> UC_consultar
+mecanico --> UC_asignar_trabajos : consulta sus trabajos
 
 jefe --> UC_login
 jefe --> UC_consultar
 jefe --> UC_repuestos
 jefe --> UC_movimientos
 jefe --> UC_citas_taller
+jefe --> UC_asignar_trabajos
 
 vendedor --> UC_login
 vendedor --> UC_vehiculos
@@ -201,6 +205,7 @@ admin --> UC_ventas
 admin --> UC_pruebas
 admin --> UC_notificaciones
 admin --> UC_citas_taller
+admin --> UC_asignar_trabajos
 admin --> UC_usuarios
 @enduml
 ```
@@ -407,6 +412,10 @@ entity "CitasTaller" as citas {
   fechaHora : string
   duracionMinutos : number
   estado : string
+  mecanicoId <<GSI mecanico-index>> : string
+  mecanico : object
+  asignadoAt : string
+  asignaciones : list<object>
   observaciones : string
   historial : list<object>
   createdAt : string
@@ -433,6 +442,7 @@ pruebas ||..o{ notificaciones : "genera correo"
 ventas ||..o{ notificaciones : "genera correo"
 vehiculos ||..o{ citas : "recibe servicio"
 clientes ||..o{ citas : "agenda"
+usuarios ||..o{ citas : "trabaja como mecanico asignado"
 citas ||..o{ notificaciones : "genera correo"
 
 note bottom of usuarios
@@ -1035,6 +1045,106 @@ note bottom of ddb
   Amazon SES (capa gratuita).
   registrarSinFallo: un fallo al notificar
   nunca revierte la operacion del taller.
+end note
+@enduml
+```
+
+---
+
+## Diagrama 17 — Asignar trabajos a los mecánicos (HU14)
+
+```plantuml
+@startuml
+title Secuencia — Asignar trabajos a los mecanicos (HU14)
+skinparam shadowing false
+
+actor "Jefe de taller" as jefe
+actor "Mecanico" as mecanico
+participant "Frontend\n/citas" as fe
+participant "API\n/api/citas-taller\n/api/usuarios/mecanicos" as api
+participant "citaTaller\nController" as ctrl
+participant "citaTaller\nService" as svc
+participant "citaTaller\nRepository" as repo
+database "DynamoDB\nCitasTaller\n(GSI mecanico-index)" as db
+database "DynamoDB\nUsuarios" as dbu
+database "DynamoDB\nNotificaciones" as ddb
+
+group Listar mecanicos activos
+  jefe -> fe : /citas, detalle de la cita "Asignar mecanico"
+  fe -> api : GET /api/usuarios/mecanicos\n(Bearer admin/jefe_taller)
+  api -> ctrl : asyncHandler(listMecanicos)
+  ctrl -> svc : (usuarioService.listMecanicos)
+  svc -> dbu : Scan/Query usuarios\n(rol=mecanico, estado=activo)
+  dbu --> svc : mecanicos
+  svc --> api : { total, mecanicos } (orden por nombre)
+  api --> fe : 200 { total, mecanicos }
+  fe --> jefe : Selector de mecanicos activos
+end
+
+group Asignar o reasignar el mecanico responsable
+  jefe -> fe : Elige mecanico (+ observaciones opcionales)
+  fe -> api : POST /api/citas-taller/:citaId/asignar\n(Bearer admin/jefe_taller)\n{ mecanicoId, observaciones? }
+  api -> ctrl : asyncHandler(asignar)
+  ctrl -> ctrl : validate(asignarCitaSchema)
+  ctrl -> svc : asignarMecanico(citaId, datos, actor)
+  svc -> repo : findById (GetCommand)
+  repo -> db : GetCommand cita
+  db --> repo : cita
+  repo --> svc : cita
+  svc -> dbu : GetCommand usuario
+  dbu --> svc : usuario
+  alt Usuario inexistente
+    svc --> api : 404 NOT FOUND
+  else Rol distinto de "mecanico"
+    svc --> api : 409 CONFLICT (no es mecanico)
+  else Mecanico inactivo
+    svc --> api : 409 CONFLICT (inactivo)
+  else Estado fuera de confirmada/en_atencion
+    svc --> api : 409 CONFLICT (asignacion no permitida)
+  else Ya asignada al mismo mecanico
+    svc --> api : 409 CONFLICT (ya asignada)
+  else Asignacion valida
+    svc -> svc : guarda mecanicoId, mecanico (snapshot),\nasignadoAt y agrega a asignaciones[]\n(tipo "asignada" o "reasignada")
+    svc -> repo : update (asignacion + historial)
+    repo -> db : UpdateCommand
+    db --> repo : OK
+    svc -> ddb : notificarMecanico\n'cita_asignada' / 'cita_reasignada'\nregistrarSinFallo (destinatario = email\ndel mecanico, transporte mailto:)
+    ddb --> svc : pendiente
+    svc --> api : cita actualizada
+    api --> fe : 200 { message, cita }
+    fe --> jefe : Mecanico asignado + historial
+  end
+end
+
+group El mecanico consulta sus trabajos
+  mecanico -> fe : /citas (rol mecanico)
+  fe -> api : GET /api/citas-taller?mecanicoId=<sub del token>\n(Bearer mecanico)
+  api -> ctrl : asyncHandler(list) (fuerza\nmecanicoId = req.auth.sub)
+  ctrl -> svc : listCitas(filtro del mecanico)
+  svc -> repo : findByMecanico (GSI mecanico-index)
+  repo -> db : Query mecanico-index
+  db --> repo : citas del mecanico
+  repo --> svc : citas
+  svc --> api : { total, citas }
+  api --> fe : 200 { total, citas }
+  fe --> mecanico : Solo sus trabajos asignados
+end
+
+note right of svc
+  La HU14 reutiliza la tabla CitasTaller de la
+  HU13 como ordenes de trabajo: no crea tabla
+  nueva, solo anade el GSI mecanico-index
+  (mecanicoId + fechaHora). El detalle de una
+  cita ajena responde 403 al rol mecanico.
+end note
+
+note bottom of ddb
+  Tipo cita_taller, eventos cita_asignada y
+  cita_reasignada, destinatario = email del
+  mecanico asignado, transporte mailto: sin
+  Amazon SES (capa gratuita).
+  registrarSinFallo: un fallo al notificar
+  nunca revierte la asignacion.
 end note
 @enduml
 ```

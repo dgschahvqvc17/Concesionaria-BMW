@@ -35,6 +35,11 @@ async function findByVehiculo(vehiculoId) {
   return queryByIndex('vehiculo-index', 'vehiculoId', vehiculoId);
 }
 
+/** Citas asignadas a un mecánico (GSI `mecanico-index`). */
+async function findByMecanico(mecanicoId) {
+  return queryByIndex('mecanico-index', 'mecanicoId', mecanicoId);
+}
+
 async function queryByIndex(indexName, keyName, value) {
   const items = [];
   let ExclusiveStartKey;
@@ -120,4 +125,4 @@ async function update(citaId, updates) {
   return result.Attributes;
 }
 
-module.exports = { findById, findByNumero, findByCliente, findByVehiculo, listAll, siguienteSecuencia, save, update };
+module.exports = { findById, findByNumero, findByCliente, findByVehiculo, findByMecanico, listAll, siguienteSecuencia, save, update };

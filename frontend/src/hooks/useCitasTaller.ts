@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getErrorMessage } from '@/lib/api';
 import { citasTallerService } from '@/services/citasTaller';
 import type {
+  AsignarCitaInput,
   CancelarCitaInput,
   CitaTaller,
   CreateCitaTallerInput,
@@ -14,12 +15,13 @@ import type {
 interface UseCitasFiltro {
   clienteId?: string;
   vehiculoId?: string;
+  mecanicoId?: string;
   estado?: EstadoCita;
 }
 
-/** Hook que encapsula la carga y mutación de citas del taller (HU13). */
+/** Hook que encapsula la carga y mutación de citas del taller (HU13 + HU14). */
 export function useCitasTaller(filtro: UseCitasFiltro = {}) {
-  const { clienteId, vehiculoId, estado } = filtro;
+  const { clienteId, vehiculoId, mecanicoId, estado } = filtro;
 
   const [citas, setCitas] = useState<CitaTaller[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,14 +31,14 @@ export function useCitasTaller(filtro: UseCitasFiltro = {}) {
     setLoading(true);
     setError(null);
     try {
-      const { citas: lista } = await citasTallerService.list({ clienteId, vehiculoId, estado });
+      const { citas: lista } = await citasTallerService.list({ clienteId, vehiculoId, mecanicoId, estado });
       setCitas(lista);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [clienteId, vehiculoId, estado]);
+  }, [clienteId, vehiculoId, mecanicoId, estado]);
 
   useEffect(() => {
     void cargar();
@@ -81,6 +83,11 @@ export function useCitasTaller(filtro: UseCitasFiltro = {}) {
     [accion]
   );
 
+  const asignar = useCallback(
+    (citaId: string, input: AsignarCitaInput) => accion(() => citasTallerService.asignar(citaId, input)),
+    [accion]
+  );
+
   const ordenadas = useMemo(
     () => citas.slice().sort((a, b) => String(a.fechaHora ?? '').localeCompare(String(b.fechaHora ?? ''))),
     [citas]
@@ -97,5 +104,6 @@ export function useCitasTaller(filtro: UseCitasFiltro = {}) {
     iniciar,
     finalizar,
     cancelar,
+    asignar,
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BadgeCheck, CalendarClock, Check, Loader2, Play, Wrench, XCircle } from 'lucide-react';
+import { BadgeCheck, CalendarClock, Check, Loader2, Play, UserCog, Wrench, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
 import { getErrorMessage } from '@/lib/api';
@@ -24,9 +25,11 @@ import {
   ESTADO_CITA_LABELS,
   ESTADO_CITA_STYLES,
   PASO_MINUTOS,
+  TIPO_ASIGNACION_LABELS,
   TIPO_SERVICIO_LABELS,
   aValorLocal,
   formatFechaHora,
+  puedeAsignarseMecanico,
   puedeCancelarse,
   puedeConfirmarse,
   puedeFinalizarse,
@@ -37,9 +40,11 @@ import {
 } from '@/lib/citasTaller';
 import { formatPrecio } from '@/lib/repuestos';
 import type {
+  AsignarCitaInput,
   CancelarCitaInput,
   CitaTaller,
   EstadoCitaInput,
+  Mecanico,
   ReprogramarCitaInput,
 } from '@/types/citaTaller';
 
@@ -47,24 +52,28 @@ interface CitaTallerDetalleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cita: CitaTaller | null;
+  mecanicos: Mecanico[];
   onConfirmar: (input: EstadoCitaInput) => Promise<void>;
   onReprogramar: (input: ReprogramarCitaInput) => Promise<void>;
   onIniciar: (input: EstadoCitaInput) => Promise<void>;
   onFinalizar: (input: EstadoCitaInput) => Promise<void>;
   onCancelar: (input: CancelarCitaInput) => Promise<void>;
+  onAsignar: (input: AsignarCitaInput) => Promise<void>;
   loading?: boolean;
 }
 
-/** Detalle de una cita del taller: datos, historial y acciones de gestión (HU13). */
+/** Detalle de una cita del taller: datos, historial y acciones de gestión (HU13 + HU14). */
 export function CitaTallerDetalleDialog({
   open,
   onOpenChange,
   cita,
+  mecanicos,
   onConfirmar,
   onReprogramar,
   onIniciar,
   onFinalizar,
   onCancelar,
+  onAsignar,
   loading,
 }: CitaTallerDetalleDialogProps) {
   const [observaciones, setObservaciones] = useState('');
@@ -72,11 +81,13 @@ export function CitaTallerDetalleDialog({
   const [fechaHora, setFechaHora] = useState('');
   const [duracion, setDuracion] = useState(DURACION_DEFECTO);
   const [errorFecha, setErrorFecha] = useState<string | null>(null);
+  const [mecanicoSeleccionado, setMecanicoSeleccionado] = useState('');
 
   useEffect(() => {
     setObservaciones('');
     setMotivo('');
     setErrorFecha(null);
+    setMecanicoSeleccionado('');
     if (cita) {
       setFechaHora(aValorLocal(cita.fechaHora));
       setDuracion(cita.duracionMinutos);
@@ -134,7 +145,25 @@ export function CitaTallerDetalleDialog({
     );
   };
 
+  const asignar = async () => {
+    if (!mecanicoSeleccionado) {
+      toast.error('Selecciona un mecánico.');
+      return;
+    }
+    await ejecutar(
+      () =>
+        onAsignar(
+          observaciones.trim()
+            ? { mecanicoId: mecanicoSeleccionado, observaciones: observaciones.trim() }
+            : { mecanicoId: mecanicoSeleccionado }
+        ),
+      cita.mecanico ? 'Mecánico reasignado.' : 'Mecánico asignado.'
+    );
+    setMecanicoSeleccionado('');
+  };
+
   const gestionaEstados = puedeConfirmarse(cita) || puedeIniciarse(cita) || puedeFinalizarse(cita);
+  const asignaciones = cita.asignaciones ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,6 +217,25 @@ export function CitaTallerDetalleDialog({
               </p>
             </div>
             <div className="rounded-xl border border-border/60 p-4">
+              <p className="mb-1 flex items-center gap-2 font-semibold">
+                <UserCog className="h-4 w-4 text-brand-blue" aria-hidden="true" />
+                Mecánico asignado
+              </p>
+              {cita.mecanico ? (
+                <>
+                  <p>{cita.mecanico.nombre}</p>
+                  <p className="text-muted-foreground">
+                    {cita.asignadoAt ? `Asignado el ${formatFechaHora(cita.asignadoAt)}` : 'Asignado'}
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Sin asignar.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4 text-sm sm:grid-cols-2">
+            <div className="rounded-xl border border-border/60 p-4">
               <p className="font-semibold">Registrada por</p>
               <p className="text-muted-foreground">{cita.createdByName ?? '—'}</p>
             </div>
@@ -222,6 +270,62 @@ export function CitaTallerDetalleDialog({
               {historial.length === 0 && <li className="text-sm text-muted-foreground">Sin historial.</li>}
             </ul>
           </div>
+
+          {puedeAsignarseMecanico(cita) && (
+            <div className="space-y-3 rounded-xl border border-border/60 p-4">
+              <p className="text-sm font-semibold">
+                {cita.mecanico ? 'Reasignar mecánico responsable' : 'Asignar mecánico responsable'}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="cita-mecanico">Mecánico</Label>
+                <Select value={mecanicoSeleccionado} onValueChange={setMecanicoSeleccionado}>
+                  <SelectTrigger id="cita-mecanico">
+                    <SelectValue placeholder="Selecciona un mecánico activo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mecanicos.map((mecanico) => (
+                      <SelectItem key={mecanico.userId} value={mecanico.userId}>
+                        {mecanico.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {mecanicos.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No hay mecánicos activos disponibles para asignar.
+                  </p>
+                )}
+              </div>
+              <Button onClick={asignar} disabled={loading || !mecanicoSeleccionado}>
+                <UserCog className="h-4 w-4" aria-hidden="true" />
+                {cita.mecanico ? 'Reasignar' : 'Asignar'}
+              </Button>
+            </div>
+          )}
+
+          {asignaciones.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Historial de asignaciones</p>
+              <ul className="space-y-2">
+                {asignaciones.map((entrada, index) => (
+                  <li
+                    key={`${entrada.mecanicoId}-${index}`}
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 p-2 text-sm"
+                  >
+                    <Badge className="border-transparent bg-brand-blue/10 text-brand-blue">
+                      {TIPO_ASIGNACION_LABELS[entrada.tipo]}
+                    </Badge>
+                    <span className="font-medium">{entrada.mecanicoNombre ?? entrada.mecanicoId}</span>
+                    <span className="text-muted-foreground">{formatFechaHora(entrada.fecha)}</span>
+                    {entrada.usuario && <span className="text-muted-foreground">· {entrada.usuario}</span>}
+                    {entrada.observaciones && (
+                      <span className="text-muted-foreground">· {entrada.observaciones}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <NotificacionesRecurso recursoId={cita.citaId} />
 

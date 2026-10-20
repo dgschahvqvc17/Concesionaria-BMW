@@ -66,8 +66,8 @@ export function App() {
                 <Route path="/usuarios" element={<UsersPage />} />
               </Route>
 
-              {/* Citas del taller (HU13): jefes de taller y administradores. */}
-              <Route element={<ProtectedRoute roles={['admin', 'jefe_taller']} />}>
+              {/* Citas y órdenes de trabajo (HU13 + HU14): jefe de taller, admin y mecánicos. */}
+              <Route element={<ProtectedRoute roles={['admin', 'jefe_taller', 'mecanico']} />}>
                 <Route path="/citas" element={<CitasTallerPage />} />
               </Route>
             </Route>

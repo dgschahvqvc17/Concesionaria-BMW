@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13)
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13), ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13), ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13)
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14)
     └── utils/asyncHandler.js
 ```
 
@@ -369,7 +369,7 @@ Reglas de negocio (HU11):
 | --- | --- | --- |
 | `eventoId` (PK) | string | clave única `tipo:recursoId:evento:destinatario`; el `Put` condicional (`attribute_not_exists`) garantiza un registro por evento + destinatario |
 | `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` \| `cita_taller` |
-| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, `cita_solicitada`, etc. |
+| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, `cita_solicitada`, `cita_asignada`, `cita_reasignada`, etc. |
 | `recursoId` | string | índice secundario `recurso-index` (+ `createdAt`) |
 | `numero` | string | número del documento (RES/COT/PRB/VTA) |
 | `destinatario` | string \| null | correo del cliente/contacto; `null` si la operación no tenía correo |
@@ -383,7 +383,8 @@ Reglas de negocio (HU11):
 
 Reglas de negocio (HU12):
 - **Transporte `mailto:`**: los servicios de negocio (reserva, cotización, prueba,
-  venta) registran la notificación con el mensaje ya redactado; el endpoint de envío
+  venta, cita del taller) registran la notificación con el mensaje ya redactado; el
+  endpoint de envío
   devuelve el enlace `mailto:` y el frontend abre el cliente de correo del usuario.
   No se usa Amazon SES ni ningún servicio de pago (regla de capa gratuita).
 - **Anti-duplicados**: cada evento + destinatario genera un solo registro (PK única +
@@ -396,7 +397,7 @@ Reglas de negocio (HU12):
   estado `omitido` y `enviar` responde `400`.
 - Los correos nunca incluyen contraseñas ni datos internos (VIN, `createdBy`, etc.).
 
-### Tabla `CitasTaller` (RepuestosStack, HU13)
+### Tabla `CitasTaller` (RepuestosStack, HU13/HU14)
 
 | Atributo | Tipo | Notas |
 | --- | --- | --- |
@@ -413,12 +414,18 @@ Reglas de negocio (HU12):
 | `observaciones` | string | opcional (≤ 1000 caracteres) |
 | `motivo` | string | motivo de cancelación (≤ 500 caracteres) |
 | `historial` | object[] | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
+| `mecanicoId` | string | índice secundario `mecanico-index` (+ `fechaHora`); mecánico responsable (HU14) |
+| `mecanico` | object \| null | snapshot `{ userId, nombre, email }` del mecánico asignado (HU14) |
+| `asignadoAt` | string | ISO-8601 de la última asignación (HU14) |
+| `asignaciones` | object[] | historial de asignaciones: `{ mecanicoId, mecanicoNombre, tipo: 'asignada'\|'reasignada', fecha, usuario?, observaciones? }` (HU14) |
 | `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) |
 | `createdAt`/`updatedAt` | string | ISO-8601 |
 
 Reglas de negocio (HU13):
-- Gestión **interna** de `admin`/`jefe_taller` en los 8 endpoints (todos con
-  `requireAuth` + `requireRole('admin', 'jefe_taller')`; no hay solicitud pública).
+- Gestión **interna** en los 9 endpoints (todos con `requireAuth`; no hay solicitud
+  pública): `GET /` y `GET /:citaId` admiten `admin`/`jefe_taller`/`mecanico` (este
+  último solo sus propias citas, HU14) y el resto —incluido `POST /:citaId/asignar`—
+  es solo `admin`/`jefe_taller`.
 - El vehículo debe existir en `Vehiculos` (404 si no), **sin restricción de estado**:
   también los autos ya vendidos van al taller. El cliente es obligatorio y debe existir
   en `ClientesComerciales` (404 si no).
@@ -441,6 +448,31 @@ Reglas de negocio (HU13):
   `cita_solicitada`, `cita_confirmada`, `cita_reprogramada`, `cita_cancelada` y
   `cita_finalizada`, destinatario = email del cliente (snapshot), transporte `mailto:`.
 
+Reglas de negocio (HU14 — asignación de trabajos a mecánicos):
+- Reutiliza esta misma tabla como **órdenes de trabajo** (sin tabla nueva ni variables
+  de entorno adicionales); el GSI `mecanico-index` (`mecanicoId` + `fechaHora`) permite
+  consultar la carga de trabajo por mecánico (`findByMecanico`).
+- `POST /:citaId/asignar` (solo `admin`/`jefe_taller`) asigna o reasigna el mecánico
+  responsable sobre citas en estado `confirmada`/`en_atencion`
+  (`ESTADOS_CITA_ASIGNABLES`); cualquier otro estado responde `409 Conflict`
+  (`assertEstado`).
+- El mecánico debe existir (404), tener rol `mecanico` (409) y estar `activo` (409:
+  «no se asignan trabajos a usuarios inactivos»); si la cita ya está asignada al mismo
+  mecánico responde `409 Conflict`.
+- Al asignar se registran `mecanicoId`, snapshot `mecanico` (`{ userId, nombre, email }`),
+  `asignadoAt` y una entrada en `asignaciones` (`tipo: 'asignada' | 'reasignada'`, con
+  autor y `observaciones` opcionales); se notifica al mecánico con `registrarSinFallo`
+  (eventos `cita_asignada`/`cita_reasignada`, destinatario = email del mecánico,
+  transporte `mailto:`).
+- `listCitas` acepta el filtro `mecanicoId` (tiene prioridad al elegir el GSI).
+- El rol `mecanico` puede listar y ver citas (`GET /` y `GET /:citaId`), pero **solo las
+  suyas**: el controlador fuerza `filtros.mecanicoId = req.auth.sub` en el listado y
+  lanza `ForbiddenError` (403) en el detalle si la cita no es suya.
+- **Endpoint de apoyo**: `GET /api/usuarios/mecanicos` (`admin`/`jefe_taller`, declarado
+  en `usuarioRoutes.js` **antes** del `router.use(requireAuth, requireRole('admin'))`)
+  devuelve `{ total, mecanicos }` con los usuarios de rol `mecanico` y estado `activo`
+  ordenados por nombre (`usuarioService.listMecanicos`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -456,6 +488,7 @@ Reglas de negocio (HU13):
 | GET | `/api/usuarios/:userId` | admin | Obtener usuario |
 | PATCH | `/api/usuarios/:userId` | admin | Actualizar usuario |
 | PATCH | `/api/usuarios/:userId/estado` | admin | Activar/desactivar |
+| GET | `/api/usuarios/mecanicos` | admin/jefe_taller | Mecánicos activos para asignar (`{ total, mecanicos }`, HU14) |
 | GET | `/api/vehiculos` | token | Listar inventario |
 | GET | `/api/vehiculos/:vehiculoId` | token | Obtener vehículo |
 | POST | `/api/vehiculos` | admin/vendedor | Registrar vehículo |
@@ -495,14 +528,15 @@ Reglas de negocio (HU13):
 | GET | `/api/notificaciones` | admin/vendedor | Listar notificaciones (`?tipo=&estado=&recursoId=`) |
 | GET | `/api/notificaciones/:eventoId` | admin/vendedor | Obtener una notificación con su historial |
 | POST | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | Registrar el intento de envío y devolver el enlace `mailto:` |
-| GET | `/api/citas-taller` | admin/jefe_taller | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=`) |
-| GET | `/api/citas-taller/:citaId` | admin/jefe_taller | Obtener cita con historial (404 si no existe) |
+| GET | `/api/citas-taller` | admin/jefe_taller/mecanico | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=&mecanicoId=`); el rol `mecanico` solo ve las suyas |
+| GET | `/api/citas-taller/:citaId` | admin/jefe_taller/mecanico | Obtener cita con historial (404 si no existe; 403 al `mecanico` si no es suya) |
 | POST | `/api/citas-taller` | admin/jefe_taller | Registrar cita (número único, 201) |
 | POST | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar una cita solicitada |
 | POST | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | Cambiar fecha/hora (revalida conflicto) |
 | POST | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | Marcar como en atención |
 | POST | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | Finalizar una cita en atención |
 | POST | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | Cancelar una cita (motivo opcional) |
+| POST | `/api/citas-taller/:citaId/asignar` | admin/jefe_taller | Asignar o reasignar el mecánico responsable (HU14) |
 
 ## Variables de entorno
 

@@ -1,4 +1,4 @@
-import type { CitaTaller, EstadoCita, TipoServicioCita } from '@/types/citaTaller';
+import type { CitaTaller, EstadoCita, TipoAsignacionCita, TipoServicioCita } from '@/types/citaTaller';
 
 export const ESTADOS_CITA: EstadoCita[] = ['solicitada', 'confirmada', 'en_atencion', 'finalizada', 'cancelada'];
 
@@ -63,6 +63,26 @@ export function puedeIniciarse(cita: CitaTaller): boolean {
 export function puedeFinalizarse(cita: CitaTaller): boolean {
   return cita.estado === 'en_atencion';
 }
+
+/** Estados en los que la cita admite asignación o reasignación de mecánico (HU14). */
+export const ESTADOS_ASIGNABLES: EstadoCita[] = ['confirmada', 'en_atencion'];
+
+export function puedeAsignarseMecanico(cita: CitaTaller): boolean {
+  return ESTADOS_ASIGNABLES.includes(cita.estado);
+}
+
+/** Estado de la asignación de la orden de trabajo (HU14). */
+export function etiquetaAsignacion(cita: CitaTaller): string {
+  if (cita.mecanico?.nombre) return cita.mecanico.nombre;
+  if (cita.mecanicoId) return 'Asignada';
+  if (puedeAsignarseMecanico(cita)) return 'Sin asignar';
+  return '—';
+}
+
+export const TIPO_ASIGNACION_LABELS: Record<TipoAsignacionCita, string> = {
+  asignada: 'Asignada',
+  reasignada: 'Reasignada',
+};
 
 export function formatFechaHora(iso: string): string {
   return new Date(iso).toLocaleString('es-BO', {

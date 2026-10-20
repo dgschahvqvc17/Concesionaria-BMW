@@ -5,15 +5,23 @@ const {
   iniciarCitaSchema,
   finalizarCitaSchema,
   cancelarCitaSchema,
+  asignarCitaSchema,
   listCitasQuerySchema,
   validate,
 } = require('../validation/citaTallerSchemas');
 const citaTallerService = require('../services/citaTallerService');
+const { ForbiddenError } = require('../errors/AppError');
 const { asyncHandler } = require('../utils/asyncHandler');
 
-/** GET /api/citas-taller?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta= */
+/** Un mecánico solo consulta sus propias citas; el gestor ve y filtra todo (HU14). */
+function esGestor(req) {
+  return (req.authRoles ?? []).some((rol) => rol === 'admin' || rol === 'jefe_taller');
+}
+
+/** GET /api/citas-taller?clienteId=&vehiculoId=&mecanicoId=&estado=&fechaDesde=&fechaHasta= */
 const list = asyncHandler(async (req, res) => {
   const filtros = validate(listCitasQuerySchema, req.query);
+  if (!esGestor(req)) filtros.mecanicoId = req.auth?.sub;
   const citas = await citaTallerService.listCitas(filtros);
   res.json({ total: citas.length, citas });
 });
@@ -21,6 +29,9 @@ const list = asyncHandler(async (req, res) => {
 /** GET /api/citas-taller/:citaId */
 const getOne = asyncHandler(async (req, res) => {
   const cita = await citaTallerService.getCita(req.params.citaId);
+  if (!esGestor(req) && cita.mecanicoId !== req.auth?.sub) {
+    throw new ForbiddenError('Solo puede consultar las citas asignadas a su persona.');
+  }
   res.json({ cita });
 });
 
@@ -66,4 +77,11 @@ const cancelar = asyncHandler(async (req, res) => {
   res.json({ message: 'Cita cancelada.', cita });
 });
 
-module.exports = { list, getOne, create, confirmar, reprogramar, iniciar, finalizar, cancelar };
+/** POST /api/citas-taller/:citaId/asignar */
+const asignar = asyncHandler(async (req, res) => {
+  const datos = validate(asignarCitaSchema, req.body);
+  const cita = await citaTallerService.asignarMecanico(req.params.citaId, datos, req.auth);
+  res.json({ message: 'Mecánico asignado a la cita.', cita });
+});
+
+module.exports = { list, getOne, create, confirmar, reprogramar, iniciar, finalizar, cancelar, asignar };

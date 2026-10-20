@@ -37,7 +37,7 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos
 ├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, ...
 ├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller (llamadas a la API)
@@ -251,29 +251,42 @@ degradado BMW).
   redacta el mensaje, registra el intento (máx. 5, anti-duplicados) y el frontend abre el
   cliente de correo del usuario.
 
-## Citas del taller (HU13)
+## Citas del taller (HU13) y asignación de trabajos a mecánicos (HU14)
 
 - `pages/citasTaller/CitasTallerPage` + `components/citasTaller/` (`CitasTallerTable`,
   `CitaTallerFormDialog`, `CitaTallerDetalleDialog`).
-  Ruta `/citas` bajo `<ProtectedRoute roles={['admin', 'jefe_taller']}>` (ítem «Taller»
-  en la navegación, icono `Wrench`, en `components/layout/AppLayout.tsx`).
+  Ruta `/citas` bajo `<ProtectedRoute roles={['admin', 'jefe_taller', 'mecanico']}>`
+  (ítem «Taller» en la navegación, icono `Wrench`, en `components/layout/AppLayout.tsx`,
+  con los mismos roles).
 - Datos: `services/citasTaller.ts` (`citasTallerService.list/get/create/confirmar/
-  reprogramar/iniciar/finalizar/cancelar`) + `hooks/useCitasTaller.ts` (filtros
-  `clienteId`/`vehiculoId`/`estado`/`fechaDesde`/`fechaHasta`).
+  reprogramar/iniciar/finalizar/cancelar/asignar` + `listMecanicos`) +
+  `hooks/useCitasTaller.ts` (filtros `clienteId`/`vehiculoId`/`estado`/`fechaDesde`/
+  `fechaHasta`/`mecanicoId` y acción `asignar`) y `hooks/useMecanicos.ts` (HU14:
+  mecánicos activos para asignar, `GET /api/usuarios/mecanicos`).
 - `CitaTallerFormDialog`: selecciona vehículo, cliente comercial, tipo de servicio y
   fecha/hora; valida con `validarFechaCita` (fecha futura, 08:00–18:00, pasos de 15 min
   y duración 15–480, espejo del backend).
 - `CitaTallerDetalleDialog`: snapshot del vehículo/cliente, agenda (`fechaHora` +
-  duración), historial de estados, las acciones según estado y la sección
+  duración), historial de estados, las acciones según estado, la tarjeta del
+  **mecánico asignado** con su historial de asignaciones, la sección **«Asignar/
+  Reasignar mecánico»** (selector de mecánicos activos, HU14) y la sección
   **`NotificacionesRecurso`** con los correos del evento.
+- `CitasTallerTable` incluye la columna **Mecánico**; `CitasTallerPage` carga los
+  mecánicos (`useMecanicos`), ofrece un **filtro por mecánico** y pasa `onAsignar`
+  al diálogo de detalle.
+- `types/citaTaller.ts` ampliado con `CitaMecanico`, `CitaAsignacion`, `Mecanico` y
+  `AsignarCitaInput` (HU14).
 - `lib/citasTaller.ts`: `ESTADOS_CITA` con etiquetas/estilos
   (`solicitada`/`confirmada`/`en_atencion`/`finalizada`/`cancelada`),
   `TIPOS_SERVICIO` labels, horario de atención (08:00–18:00, paso 15 min), guards
   `puedeConfirmarse`/`puedeReprogramarse`/`puedeCancelarse`/`puedeIniciarse`/
-  `puedeFinalizarse` y `validarFechaCita` (espejo del backend).
+  `puedeFinalizarse` y `validarFechaCita` (espejo del backend); para HU14:
+  `ESTADOS_ASIGNABLES` (`confirmada`/`en_atencion`), `puedeAsignarseMecanico`,
+  `etiquetaAsignacion` y `TIPO_ASIGNACION_LABELS` (`asignada`/`reasignada`).
 - `lib/notificaciones.ts` y `types/notificacion.ts` ampliados con el tipo
   `cita_taller` y las etiquetas de eventos `cita_*` («Cita solicitada», «Cita
-  confirmada», «Cita reprogramada», «Cita cancelada», «Cita finalizada»).
+  confirmada», «Cita reprogramada», «Cita cancelada», «Cita finalizada», «Cita
+  asignada», «Cita reasignada»).
 
 ## Acceso a la API
 

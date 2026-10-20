@@ -10,8 +10,8 @@ La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), 
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
 gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
 la generación de cotizaciones (HU08), las reservas de vehículos (HU09), las ventas de
-vehículos (HU10), las pruebas de manejo (HU11), las notificaciones por correo (HU12) y las
-citas del taller (HU13).
+vehículos (HU10), las pruebas de manejo (HU11), las notificaciones por correo (HU12), las
+citas del taller (HU13) y la asignación de trabajos a los mecánicos (HU14).
 
 ## Índice
 
@@ -35,6 +35,7 @@ citas del taller (HU13).
 18. [Pruebas de manejo (HU11)](#18-pruebas-de-manejo-hu11)
 19. [Notificaciones por correo (HU12)](#19-notificaciones-por-correo-hu12)
 20. [Citas del taller (HU13)](#20-citas-del-taller-hu13)
+21. [Asignación de trabajos a mecánicos (HU14)](#21-asignación-de-trabajos-a-mecánicos-hu14)
 
 ---
 
@@ -121,7 +122,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # CatalogoCard, CatalogoFiltros, CatalogoLayout, CatalogoShell, VehiculoGaleria
-│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13)
+│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13/HU14)
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
@@ -136,13 +137,13 @@ frontend/src/
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos (HU14)
 ├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts, notificaciones.ts, citasTaller.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
 │                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11), notificaciones/ (HU12), citasTaller/ (HU13)
 ├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts, notificacion.ts, citaTaller.ts
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts, notificacion.ts, citaTaller.ts (HU13 + tipos de asignación HU14: CitaMecanico, CitaAsignacion, Mecanico, AsignarCitaInput)
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -167,7 +168,7 @@ conservar la accesibilidad.
 | `ReservaFormDialog` / `ReservaDetalleDialog` | `components/reservas` | Registro y gestión de reservas (HU09): apartado del vehículo, historial, cancelación y conversión en venta. |
 | `VentaFormDialog` / `VentaDetalleDialog` | `components/ventas` | Registro y detalle de ventas (HU10): cálculo de importes, snapshot de cliente/vehículo y comprobante PDF. |
 | `PruebaManejoFormDialog` / `PruebasManejoTable` / `PruebaManejoDetalleDialog` | `components/pruebasManejo` | Solicitud y gestión de pruebas de manejo (HU11): agenda 08:00–18:00 en pasos de 15 min, snapshot de vehículo/cliente, historial de estados y acciones (confirmar, reprogramar, cancelar, realizar). |
-| `CitaTallerFormDialog` / `CitasTallerTable` / `CitaTallerDetalleDialog` | `components/citasTaller` | Gestión de citas del taller (HU13): agenda 08:00–18:00 en pasos de 15 min, snapshots de vehículo/cliente, historial, transiciones (confirmar, reprogramar, iniciar, finalizar, cancelar) y notificaciones del recurso. |
+| `CitaTallerFormDialog` / `CitasTallerTable` / `CitaTallerDetalleDialog` | `components/citasTaller` | Gestión de citas del taller (HU13): agenda 08:00–18:00 en pasos de 15 min, snapshots de vehículo/cliente, historial, transiciones (confirmar, reprogramar, iniciar, finalizar, cancelar) y notificaciones del recurso; desde la HU14 también asigna/reasigna el mecánico responsable (columna «Mecánico», filtro e historial de asignaciones). |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -287,7 +288,7 @@ comparte entre páginas sin repetir código.
 | `/ventas` | `VentasPage` | `admin`, `vendedor` (HU10). |
 | `/pruebas-man` | `PruebasManejoPage` | `admin`, `vendedor` (HU11). |
 | `/notificaciones` | `NotificacionesPage` | `admin`, `vendedor` (HU12). |
-| `/citas` | `CitasTallerPage` | `admin`, `jefe_taller` (HU13). |
+| `/citas` | `CitasTallerPage` | `admin`, `jefe_taller` (HU13); desde la HU14 también `mecanico` (ve solo sus trabajos asignados). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -711,7 +712,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `ventas.ts` | `list/get/create` | `/api/ventas` | Sí (`admin`/`vendedor`) | Ventas de vehículos (HU10). |
 | `pruebasManejo.ts` | `list/get/create/solicitar/confirmar/reprogramar/cancelar/realizar` | `/api/pruebas-man` | `create` (staff) y `solicitar` (**público**, token opcional); resto `admin`/`vendedor` | Pruebas de manejo (HU11). |
 | `notificaciones.ts` | `list/get/enviar/enviarCotizacion` | `/api/notificaciones`, `/api/cotizaciones/:id/enviar-correo` | Sí (`admin`/`vendedor`) | Notificaciones por correo (HU12). |
-| `citasTaller.ts` | `list/get/create/confirmar/reprogramar/iniciar/finalizar/cancelar` | `/api/citas-taller` | Sí (`admin`/`jefe_taller`) | Citas del taller (HU13). |
+| `citasTaller.ts` | `list/get/create/confirmar/reprogramar/iniciar/finalizar/cancelar/asignar/listMecanicos` | `/api/citas-taller`, `/api/usuarios/mecanicos` | Sí (`admin`/`jefe_taller`; `list`/`get` también `mecanico`) | Citas del taller (HU13) y asignación de mecánicos (HU14, filtro `?mecanicoId=`). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -862,7 +863,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU13:
+Recorrí los flujos principales alineados a HU01–HU14:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -883,6 +884,7 @@ Recorrí los flujos principales alineados a HU01–HU13:
 | HU11 | Pruebas de manejo | `/pruebas-man` (solo `admin`/`vendedor`) → listado con filtros, nueva solicitud, detalle con historial y acciones (confirmar/reprogramar/cancelar/realizar); solicitud pública desde el detalle del vehículo y desde la ficha del cliente. | **OK** (backend e2e: 46/46 aserciones — `201`/`409`/`400`/`404`/`200`/`401`; UI con build limpio). | Código: `pages/pruebasManejo/`, `components/pruebasManejo/`, `services/pruebasManejo.ts`, `lib/pruebasManejo.ts` |
 | HU12 | Notificaciones por correo | `/notificaciones` (solo `admin`/`vendedor`) → listado con filtros, detalle con historial de intentos y botón «Enviar» (reintento); secciones reutilizables en los detalles de cotización/reserva/prueba/venta; envío de cotización con descarga de PDF + `mailto:`. | **OK** (backend e2e: 34/34 aserciones — `200`/`400`/`401`/`404`/`409`; UI con build limpio). | Código: `pages/notificaciones/`, `components/notificaciones/`, `services/notificaciones.ts`, `lib/notificaciones.ts` |
 | HU13 | Citas del taller | `/citas` (solo `admin`/`jefe_taller`) → listado con búsqueda y filtro de estado, nueva cita (vehículo + cliente + tipo de servicio + fecha validada), detalle con historial, transiciones (confirmar/reprogramar/iniciar/finalizar/cancelar) y notificaciones del recurso. | **OK** (backend e2e: 42/42 aserciones — `201`/`200`/`400`/`401`/`404`/`409`; UI con build limpio). | Código: `pages/citasTaller/`, `components/citasTaller/`, `services/citasTaller.ts`, `lib/citasTaller.ts` |
+| HU14 | Asignación de trabajos | `/citas` (`admin`/`jefe_taller`; el rol `mecanico` ve solo sus trabajos) → listado con filtro de mecánico, detalle → tarjeta del mecánico asignado, «Asignar/Reasignar mecánico» (solo `confirmada`/`en_atencion`) e historial de asignaciones; notificaciones `cita_asignada`/`cita_reasignada`. | **OK** (backend e2e: 30/30 aserciones — `200`/`400`/`401`/`403`/`404`/`409`; UI con build limpio). | Código: `components/citasTaller/`, `hooks/useMecanicos.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1655,6 +1657,89 @@ reasignan al campo correspondiente.
   inexistente (`404`), listado sin token (`401`) y con filtros (`200`), transiciones
   (confirmar/reprogramar/iniciar/finalizar/cancelar `200` con historial) y sus combinaciones
   inválidas (`409`), más el registro de notificaciones `cita_taller` con `registrarSinFallo`.
+
+---
+
+## 21. Asignación de trabajos a mecánicos (HU14)
+
+La HU14 convierte las citas del taller (HU13) en **órdenes de trabajo** con un **mecánico
+responsable**, sin crear una tabla nueva: `CitasTaller` gana los campos `mecanicoId`,
+`mecanico` (snapshot), `asignadoAt` y el historial `asignaciones`, y el backend expone
+`POST /api/citas-taller/:citaId/asignar` y `GET /api/usuarios/mecanicos`. En el frontend,
+`admin` y `jefe_taller` asignan o reasignan mecánicos desde el detalle de la cita; el rol
+`mecanico` suma el acceso a `/citas` y **solo ve los trabajos asignados a su persona** (el
+filtado por `mecanicoId` lo fuerza el backend con el `sub` del token).
+
+**Archivos**
+
+```text
+├── pages/citasTaller/CitasTallerPage.tsx          # + filtro "Mecánico"
+├── components/citasTaller/
+│   ├── CitasTallerTable.tsx                       # + columna "Mecánico"
+│   └── CitaTallerDetalleDialog.tsx                # + tarjeta del mecánico, asignar/reasignar
+│                                                  #   e historial de asignaciones
+├── hooks/useMecanicos.ts                          # mecánicos activos (HU14)
+├── hooks/useCitasTaller.ts                        # + filtro mecanicoId y mutación asignar
+├── services/citasTaller.ts                        # + asignar/listMecanicos
+├── lib/citasTaller.ts                             # + ESTADOS_ASIGNABLES, puedeAsignarseMecanico,
+│                                                  #   etiquetaAsignacion, TIPO_ASIGNACION_LABELS
+├── lib/notificaciones.ts                          # + eventos cita_asignada/cita_reasignada
+└── types/citaTaller.ts                            # + CitaMecanico, CitaAsignacion, Mecanico,
+                                                   #   MecanicosResponse, AsignarCitaInput
+```
+
+**Listado (`CitasTallerPage` + `CitasTallerTable`)**
+
+- Nueva columna **Mecánico** en la tabla, con `etiquetaAsignacion(cita)`: muestra el nombre
+  del mecánico asignado, «Asignada» si hay `mecanicoId` sin snapshot, «Sin asignar» si la
+  cita ya es asignable o «—» en los demás estados.
+- Nuevo filtro por mecánico (selector con `useMecanicos`, «Todos los mecánicos» por
+  defecto) que combina con la búsqueda libre y el filtro de estado.
+
+**Detalle (`CitaTallerDetalleDialog`)**
+
+- Tarjeta **«Mecánico asignado»** con el nombre, la fecha `asignadoAt` (o «Sin asignar»).
+- Sección **«Asignar mecánico responsable»** / **«Reasignar mecánico responsable»** visible
+  solo cuando `puedeAsignarseMecanico(cita)` (estado `confirmada` o `en_atencion`, espejo
+  de `ESTADOS_ASIGNABLES`): selector `Select` con los mecánicos activos de `useMecanicos`
+  (con aviso si no hay disponibles) y botón que envía `{ mecanicoId, observaciones? }` a
+  `asignar`; el toast distingue «Mecánico asignado.» de «Mecánico reasignado.».
+- **Historial de asignaciones**: lista `cita.asignaciones[]` con el badge
+  `TIPO_ASIGNACION_LABELS` (**Asignada**/**Reasignada**), nombre del mecánico, fecha, usuario
+  y observaciones.
+
+**Datos y reglas (espejo del backend)**
+
+- `useMecanicos` carga una sola vez `GET /api/usuarios/mecanicos` (`{ total, mecanicos }`,
+  solo `admin`/`jefe_taller`) y expone `mecanicos/loading/error/recargar`.
+- `lib/citasTaller.ts` añade `ESTADOS_ASIGNABLES` (`confirmada`, `en_atencion`),
+  `puedeAsignarseMecanico`, `etiquetaAsignacion` y `TIPO_ASIGNACION_LABELS`.
+- `useCitasTaller` acepta `mecanicoId` en el filtro (query param `?mecanicoId=`) y expone la
+  mutación `asignar`; los `404`/`409` del backend (mecánico inexistente, sin rol `mecanico`,
+  inactivo, cita fuera de estado o ya asignada al mismo) llegan como `ApiError` y se muestran
+  con `toast.error(getErrorMessage(err))`.
+- `lib/notificaciones.ts` registra los eventos `cita_asignada` («Trabajo asignado al
+  mecánico») y `cita_reasignada` («Trabajo reasignado al mecánico») del índice
+  `cita_taller`, que `NotificacionesRecurso` muestra en el detalle de la cita.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/citas` queda bajo
+  `<ProtectedRoute roles={['admin', 'jefe_taller', 'mecanico']} />`.
+- En `AppLayout.tsx`, el ítem «Taller» (icono `Wrench`) usa los mismos roles.
+- El rol `mecanico` ve en `/citas` **solo sus propias órdenes de trabajo**: el backend
+  ignora cualquier `mecanicoId` ajeno en el listado y responde `403` al abrir el detalle de
+  una cita que no le corresponde.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end (30/30 aserciones): asignación (`200` con `mecanicoId`,
+  `asignadoAt`, `asignaciones[]` y notificaciones `cita_asignada`/`cita_reasignada`),
+  mecanicoId inexistente (`404`), usuario sin rol `mecanico` o inactivo (`409`), asignación
+  fuera de `confirmada`/`en_atencion` o al mismo mecánico (`409`), listado `GET
+  /api/usuarios/mecanicos` (`200`/`401`) y el rol `mecanico` viendo solo sus citas (`200`)
+  y recibiendo `403` en el detalle ajeno.
 
 ---
 
