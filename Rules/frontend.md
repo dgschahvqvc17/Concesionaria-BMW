@@ -28,17 +28,18 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
+│   ├── pruebasManejo/      # PruebaManejoFormDialog, PruebasManejoTable, PruebaManejoDetalleDialog (HU11)
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, ventas, ventaPdf, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo
 ```
 
 ### Flujo de datos
@@ -204,6 +205,31 @@ degradado BMW).
 - `lib/ventaPdf.ts`: comprobante `Comprobante-<numero>.pdf` con **jsPDF** (sin costo en AWS).
 - La ficha del cliente (`ClienteComercialDetallePage`) incluye además una tarjeta con sus ventas
   y acceso directo al comprobante.
+
+## Pruebas de manejo (HU11)
+
+- `pages/pruebasManejo/PruebasManejoPage` + `components/pruebasManejo/`
+  (`PruebaManejoFormDialog`, `PruebasManejoTable`, `PruebaManejoDetalleDialog`).
+  Ruta `/pruebas-man` (admin/vendedor, ítem «Pruebas» en la navegación).
+- Datos: `services/pruebasManejo.ts` + `hooks/usePruebasManejo.ts` (listado ordenado por
+  fecha, filtros `clienteId`/`vehiculoId`/`estado` y acciones `crear`/`confirmar`/
+  `reprogramar`/`cancelar`/`realizar`).
+- `PruebaManejoFormDialog` es reutilizable en tres contextos: **catálogo público**
+  (vehículo fijo, solicitud con `publicRequest`), **ficha del cliente** (cliente fijo,
+  vinculada automáticamente) y **gestión interna** (selector de vehículo + cliente opcional).
+  Filtra vehículos con `esVehiculoParaPrueba` (`disponible`/`reservado`, no dados de baja).
+- **Solicitud pública**: `VehiculoDetallePage` muestra el botón «Solicitar prueba de manejo»
+  cuando el vehículo es elegible; usa `pruebasManejoService.solicitar` (`publicRequest` sin token).
+- `PruebaManejoDetalleDialog`: snapshot del contacto/vehículo, agenda (`fechaHora` +
+  duración), historial de estados y las acciones según estado (confirmar, marcar realizada,
+  reprogramar con nueva fecha/hora, cancelar con motivo).
+- `lib/pruebasManejo.ts`: estados y etiquetas/estilos, `ORIGEN_PRUEBA_LABELS`, horario de
+  atención (08:00–18:00), paso de 15 min, duración 15–180 (espejo del backend),
+  `esVehiculoParaPrueba`, `puedeConfirmarse`/`puedeReprogramarse`/`puedeCancelarse`/
+  `puedeRealizarse` y helpers de `datetime-local` (`fechaHoraPorDefecto`, `validarFechaPrueba`,
+  `aValorLocal`).
+- La ficha del cliente (`ClienteComercialDetallePage`) incluye una tarjeta con sus pruebas
+  y el botón «Nueva solicitud».
 
 ## Acceso a la API
 

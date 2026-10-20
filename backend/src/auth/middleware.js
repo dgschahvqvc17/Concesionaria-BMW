@@ -28,6 +28,25 @@ async function requireAuth(req, res, next) {
   }
 }
 
+/**
+ * Autenticación opcional (rutas accesibles públicamente con sesión opcional):
+ * si el token es válido deja `req.auth`/`req.authRoles`; si falta o no es válido,
+ * la petición continúa sin sesión.
+ */
+async function optionalAuth(req, res, next) {
+  const token = extractBearerToken(req.headers.authorization);
+  if (!token) return next();
+
+  try {
+    req.auth = await verifyIdToken(token);
+    req.authRoles = normalizeRoles(req.auth['cognito:groups']);
+  } catch {
+    req.auth = undefined;
+    req.authRoles = [];
+  }
+  return next();
+}
+
 /** Protege rutas por rol: requiere pertenecer a al menos uno de los roles indicados. */
 function requireRole(...roles) {
   return (req, res, next) => {
@@ -41,4 +60,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole, extractBearerToken };
+module.exports = { requireAuth, optionalAuth, requireRole, extractBearerToken };

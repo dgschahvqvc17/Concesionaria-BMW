@@ -13,6 +13,7 @@ const config = {
   cotizacionesTableName: process.env.COTIZACIONES_TABLE_NAME || 'Cotizaciones',
   reservasTableName: process.env.RESERVAS_TABLE_NAME || 'Reservas',
   ventasTableName: process.env.VENTAS_TABLE_NAME || 'Ventas',
+  pruebasManejoTableName: process.env.PRUEBAS_MANEJO_TABLE_NAME || 'PruebasManejo',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };

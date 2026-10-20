@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Loader2, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { VehiculoGaleria } from '@/components/catalog/VehiculoGaleria';
+import { PruebaManejoFormDialog } from '@/components/pruebasManejo/PruebaManejoFormDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCatalogoVehiculo } from '@/hooks/useCatalogo';
+import { getErrorMessage } from '@/lib/api';
+import { esVehiculoParaPrueba } from '@/lib/pruebasManejo';
 import {
   CONDICION_LABELS,
   ESTADO_LABELS,
@@ -13,11 +18,30 @@ import {
   formatKilometraje,
   formatPrecio,
 } from '@/lib/vehiculos';
+import { pruebasManejoService } from '@/services/pruebasManejo';
+import type { CreatePruebaManejoInput } from '@/types/pruebaManejo';
 
 /** Página de detalle público de un vehículo del catálogo (HU05). */
 export function VehiculoDetallePage() {
   const { vehiculoId } = useParams<{ vehiculoId: string }>();
   const { vehiculo, loading, error } = useCatalogoVehiculo(vehiculoId);
+
+  const [pruebaOpen, setPruebaOpen] = useState(false);
+  const [solicitando, setSolicitando] = useState(false);
+
+  const solicitarPrueba = async (input: CreatePruebaManejoInput) => {
+    setSolicitando(true);
+    try {
+      await pruebasManejoService.solicitar(input);
+      toast.success('Solicitud enviada. El equipo comercial se pondrá en contacto para confirmarla.');
+      setPruebaOpen(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      throw err;
+    } finally {
+      setSolicitando(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -46,6 +70,7 @@ export function VehiculoDetallePage() {
   }
 
   const caracteristicas = vehiculo.caracteristicas ?? [];
+  const puedePrueba = esVehiculoParaPrueba(vehiculo);
 
   return (
     <div className="space-y-6">
@@ -123,19 +148,42 @@ export function VehiculoDetallePage() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-border/70 bg-brand-blue-ice/60 p-5">
-            <p className="text-sm text-muted-foreground">
-              ¿Te interesa este vehículo? Inicia sesión para contactar con un vendedor.
-            </p>
-            <Button asChild className="mt-3">
-              <Link to="/login">
-                <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                Contactar a un vendedor
-              </Link>
-            </Button>
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-brand-blue-ice/60 p-5">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                ¿Te interesa este vehículo? Inicia sesión para contactar con un vendedor.
+              </p>
+              <Button asChild>
+                <Link to="/login">
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                  Contactar a un vendedor
+                </Link>
+              </Button>
+            </div>
+
+            {puedePrueba && (
+              <div className="space-y-3 border-t border-border/70 pt-3">
+                <p className="text-sm text-muted-foreground">
+                  Agenda una prueba de manejo sin compromiso: de 8:00 a 18:00, de lunes a sábado.
+                </p>
+                <Button variant="outline" className="bg-background" onClick={() => setPruebaOpen(true)}>
+                  <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                  Solicitar prueba de manejo
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <PruebaManejoFormDialog
+        open={pruebaOpen}
+        onOpenChange={setPruebaOpen}
+        vehiculos={[]}
+        vehiculoFijo={vehiculo}
+        onSubmit={solicitarPrueba}
+        loading={solicitando}
+      />
     </div>
   );
 }

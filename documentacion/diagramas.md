@@ -28,6 +28,7 @@ cualquier editor compatible.
 | 11 | Generación de cotización (HU08) | Secuencia |
 | 12 | Reserva de vehículo y conversión en venta (HU09) | Secuencia |
 | 13 | Registro de venta de vehículo (HU10) | Secuencia |
+| 14 | Prueba de manejo: solicitud y gestión (HU11) | Secuencia |
 
 ---
 
@@ -52,7 +53,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(7 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(9 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -95,6 +96,8 @@ cloud "AWS us-east-2" {
     database "ClientesComerciales" as t5
     database "Cotizaciones" as t6
     database "Reservas" as t7
+    database "Ventas" as t8
+    database "PruebasManejo" as t9
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -148,13 +151,16 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Generar cotizaciones (HU08)" as UC_cotizaciones
   usecase "Gestionar reservas (HU09)" as UC_reservas
   usecase "Registrar ventas (HU10)" as UC_ventas
+  usecase "Solicitar y gestionar pruebas de manejo (HU11)" as UC_pruebas
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
 visitante --> UC_catalogo
+visitante --> UC_pruebas : solicitud anonima
 cliente --> UC_catalogo
 cliente --> UC_registro
 cliente --> UC_login
+cliente --> UC_pruebas : con su sesion
 
 mecanico --> UC_login
 mecanico --> UC_consultar
@@ -173,6 +179,7 @@ vendedor --> UC_clientes
 vendedor --> UC_cotizaciones
 vendedor --> UC_reservas
 vendedor --> UC_ventas
+vendedor --> UC_pruebas
 
 admin --> UC_login
 admin --> UC_vehiculos
@@ -183,6 +190,7 @@ admin --> UC_clientes
 admin --> UC_cotizaciones
 admin --> UC_reservas
 admin --> UC_ventas
+admin --> UC_pruebas
 admin --> UC_usuarios
 @enduml
 ```
@@ -196,7 +204,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (8 tablas)
+title Modelo de datos — DynamoDB (9 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -337,6 +345,25 @@ entity "Ventas" as ventas {
   updatedAt : string
 }
 
+entity "PruebasManejo" as pruebas {
+  * pruebaId <<PK>> : string
+  --
+  numero <<GSI numero-index>> : string
+  vehiculoId <<GSI vehiculo-index>> : string
+  vehiculo : object
+  clienteId <<GSI cliente-index>> : string
+  cliente : object
+  contacto : object
+  fechaHora : string
+  duracionMinutos : number
+  estado : string
+  origen : string
+  observaciones : string
+  historial : list<object>
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
@@ -349,6 +376,8 @@ vehiculos ||..o{ reservas : "se reserva"
 clientes ||..o{ ventas : "compra"
 vehiculos ||..o{ ventas : "se vende"
 reservas ||..o{ ventas : "origina"
+vehiculos ||..o{ pruebas : "se prueba"
+clientes ||..o{ pruebas : "solicita"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -723,6 +752,74 @@ end
 v -> fe : Ver comprobante
 fe -> fe : jsPDF genera Comprobante-VTA-AAAA-######.pdf
 fe --> v : PDF descargado
+@enduml
+```
+
+---
+
+## Diagrama 14 — Prueba de manejo: solicitud y gestión (HU11)
+
+```plantuml
+@startuml
+title Secuencia — Prueba de manejo (HU11)
+skinparam shadowing false
+
+actor Visitante as visitante
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nPruebasManejo" as db
+database "DynamoDB\nVehiculos/Clientes" as db2
+
+visitante -> fe : Detalle del vehículo publicado\n"Solicitar prueba de manejo"
+fe -> be : POST /api/pruebas-man\n(optionalAuth: sin token)
+be -> be : validate(createPruebaManejoSchema)\n(futura, 08:00-18:00, paso 15 min)
+be -> db2 : GetCommand vehiculo
+alt Vehiculo inexistente
+  db2 --> be : no existe
+  be --> fe : 404 NOT FOUND
+else No publicado o no disponible
+  db2 --> be : publicado=false / vendido
+  be --> fe : 409 CONFLICT
+else Vehiculo apto (disponible o reservado)
+  db2 --> be : vehiculo
+  be -> db : Query GSI vehiculo-index\n(pruebas del vehículo)
+  db --> be : agenda
+  alt Ventana solapada con otra prueba
+    be --> fe : 409 CONFLICT (numero en conflicto)
+  else Horario libre
+    be -> db : UpdateItem ADD secuencia#<año> (numero unico)
+    db --> be : secuencia
+    be -> db : PutCommand (pruebaId = UUID,\nestado=pendiente, origen, historial)
+    db --> be : OK
+    be --> fe : 201 { message, prueba } (PRB-AAAA-######)
+    fe --> visitante : Confirmacion
+  end
+end
+
+note over be
+  Si el POST llega con token, el clienteId del staff
+  se vincula; sin token queda clienteId='anonimo'.
+end note
+
+v -> fe : /pruebas-man (admin/vendedor)\nlista con filtros cliente/vehiculo/estado
+fe -> be : GET /api/pruebas-man (Bearer admin/vendedor)
+be -> db : Query (indice por filtro) o Scan
+db --> be : pruebas
+be --> fe : 200 { pruebas, total }
+
+v -> fe : Confirmar / Reprogramar / Cancelar / Realizar
+fe -> be : POST /api/pruebas-man/:id/<accion>\n(Bearer admin/vendedor)
+be -> db : GetCommand prueba
+alt Estado no permitido (ej. confirmar dos veces)
+  be --> fe : 409 CONFLICT
+else Transicion valida
+  be -> db : Query vehiculo-index (si reprograma)\nrevalida solapes
+  be -> db : UpdateCommand estado + historial
+  db --> be : OK
+  be --> fe : 200 { message, prueba }
+  fe --> v : Estado actualizado + toast
+end
 @enduml
 ```
 

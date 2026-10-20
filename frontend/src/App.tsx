@@ -19,6 +19,7 @@ import { ClientesComercialesPage } from '@/pages/clientesComerciales/ClientesCom
 import { CotizacionesPage } from '@/pages/cotizaciones/CotizacionesPage';
 import { ReservasPage } from '@/pages/reservas/ReservasPage';
 import { VentasPage } from '@/pages/ventas/VentasPage';
+import { PruebasManejoPage } from '@/pages/pruebasManejo/PruebasManejoPage';
 
 export function App() {
   return (
@@ -45,14 +46,15 @@ export function App() {
                 <Route path="/repuestos" element={<RepuestosPage />} />
               </Route>
 
-              {/* Seguimiento comercial (HU07), cotizaciones (HU08), reservas (HU09) y
-                  ventas (HU10): admin y vendedores. */}
+              {/* Seguimiento comercial (HU07), cotizaciones (HU08), reservas (HU09),
+                  ventas (HU10) y pruebas de manejo (HU11): admin y vendedores. */}
               <Route element={<ProtectedRoute roles={['admin', 'vendedor']} />}>
                 <Route path="/clientes-comerciales" element={<ClientesComercialesPage />} />
                 <Route path="/clientes-comerciales/:clienteId" element={<ClienteComercialDetallePage />} />
                 <Route path="/cotizaciones" element={<CotizacionesPage />} />
                 <Route path="/reservas" element={<ReservasPage />} />
                 <Route path="/ventas" element={<VentasPage />} />
+                <Route path="/pruebas-man" element={<PruebasManejoPage />} />
               </Route>
 
               {/* Gestión de usuarios: solo administradores. */}

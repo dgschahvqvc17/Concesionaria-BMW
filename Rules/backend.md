@@ -42,17 +42,17 @@ backend/
     ├── config.js                 # Variables de entorno + assertAuthConfig()
     ├── auth/
     │   ├── verify.js             # Verificador de ID token (aws-jwt-verify)
-    │   ├── middleware.js         # requireAuth, requireRole
+    │   ├── middleware.js         # requireAuth, requireRole, optionalAuth
     │   └── roles.js              # USER_ROLES, normalizeRoles, primaryRole
     ├── db/dynamodb.js            # documentClient (SDK v3)
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -99,6 +99,9 @@ backend/
 - `requireAuth`: exige `Authorization: Bearer <ID token>` y valida el JWT contra el
   User Pool (`src/auth/verify.js`). Deja `req.auth` (payload) y `req.authRoles`.
 - `requireRole('admin', 'vendedor', ...)`: exige al menos uno de los roles.
+- `optionalAuth` (HU11): válida el token **si viene** y deja `req.auth`/`req.authRoles`;
+  si no hay token la petición sigue como pública. Se usa en `POST /api/pruebas-man`
+  (solicitud desde el catálogo con sesión opcional).
 - Roles del sistema (orden = precedencia): `['admin', 'vendedor', 'jefe_taller', 'mecanico', 'cliente']`.
   Rol por defecto: `mecanico`.
 - `STAFF_ROLES` (admin/vendedor/jefe_taller/mecanico) son los roles internos gestionables
@@ -323,6 +326,43 @@ Reglas de negocio (HU10):
 - Los datos se validan con Zod antes de crear la operación (principio de validar antes de confirmar).
 - El comprobante se genera en el **frontend con jsPDF** (sin servicios de pago).
 
+### Tabla `PruebasManejo` (RepuestosStack, HU11)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `pruebaId` (PK) | string | UUID (o `secuencia#<año>` para el contador interno) |
+| `numero` | string | `PRB-AAAA-######`; índice secundario `numero-index`; único |
+| `vehiculoId` | string | índice secundario `vehiculo-index` (+ `fechaHora`), agenda y conflictos |
+| `vehiculo` | object | snapshot: `{ vehiculoId, marca, modelo, version, anio, precio, color? }` |
+| `clienteId` | string | índice secundario `cliente-index` (+ `createdAt`); `'anonimo'` en solicitudes públicas |
+| `cliente` | object \| null | snapshot `{ clienteId, nombres, apellidos, email, telefono }` si hay vínculo |
+| `contacto` | object | `{ nombre, telefono, email? }` datos del solicitante |
+| `fechaHora` | string | ISO-8601 de inicio (hora local, futura, 08:00–18:00, pasos de 15 min) |
+| `duracionMinutos` | number | 15–180 (por defecto 60) |
+| `estado` | string | `pendiente` \| `confirmada` \| `realizada` \| `cancelada` |
+| `origen` | string | `catalogo` \| `cliente` \| `interno` |
+| `observaciones` | string | opcional (≤ 1000 caracteres) |
+| `historial` | object[] | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
+| `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) o vacío en solicitud pública |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU11):
+- Solicitud **pública** (`POST` sin token vía `optionalAuth`), de un **cliente autenticado**
+  o registrada por **vendedor/admin**; la gestión (listado, detalle, transiciones) es
+  solo `admin`/`vendedor`.
+- Solo se prueban vehículos `disponible`/`reservado` con `publicado !== false`; en otro
+  caso responde `409 Conflict` (404 si no existe).
+- **Conflicto de agenda**: mismo vehículo con ventanas solapadas en estados
+  `pendiente`/`confirmada` → `409 Conflict` (query al GSI `vehiculo-index` + solape en memoria).
+- Validaciones de tiempo en Zod: fecha **futura**, inicio entre **08:00 y 18:00** y
+  alineado a **pasos de 15 minutos**; duración 15–180 min.
+- El **número** se reserva de forma atómica (`UpdateItem` con `ADD` sobre `secuencia#<año>`).
+- Transiciones: `pendiente → confirmada | cancelada`; `confirmada → realizada | cancelada`.
+  Reprogramar solo sobre `pendiente`/`confirmada` (conserva el estado y registra la entrada
+  en el historial); cualquier otra transición responde `409 Conflict`.
+- En solicitudes públicas el `clienteId` se ignora (queda `'anonimo'`); solo el personal
+  puede vincular la prueba a un cliente comercial.
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -366,6 +406,13 @@ Reglas de negocio (HU10):
 | GET | `/api/ventas` | admin/vendedor | Historial de ventas (`?clienteId=&vehiculoId=`) |
 | POST | `/api/ventas` | admin/vendedor | Registrar venta (número único, vehículo `vendido`, 201) |
 | GET | `/api/ventas/:ventaId` | admin/vendedor | Obtener el detalle de una venta |
+| POST | `/api/pruebas-man` | público (token opcional) | Solicitar prueba de manejo (201, número único) |
+| GET | `/api/pruebas-man` | admin/vendedor | Listar pruebas (`?clienteId=&vehiculoId=&estado=`) |
+| GET | `/api/pruebas-man/:pruebaId` | admin/vendedor | Obtener prueba con historial |
+| POST | `/api/pruebas-man/:pruebaId/confirmar` | admin/vendedor | Confirmar una prueba pendiente |
+| POST | `/api/pruebas-man/:pruebaId/reprogramar` | admin/vendedor | Cambiar fecha/hora (revalida conflicto) |
+| POST | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | Cancelar una prueba (motivo opcional) |
+| POST | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | Marcar como realizada |
 
 ## Variables de entorno
 
@@ -385,6 +432,7 @@ Ver `backend/.env.example`:
 | `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
 | `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
 | `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
+| `PRUEBAS_MANEJO_TABLE_NAME` | Tabla DynamoDB de pruebas de manejo (HU11) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

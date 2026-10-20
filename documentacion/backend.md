@@ -52,7 +52,7 @@ backend/
     ├── app.js                # Crea la app Express, registra middlewares y rutas
     ├── config.js             # Lee .env, expone `config` y `assertAuthConfig()`
     ├── auth/                 # Autenticación y autorización
-    │   ├── middleware.js     # requireAuth / requireRole / extractBearerToken
+    │   ├── middleware.js     # requireAuth / optionalAuth / requireRole / extractBearerToken
     │   ├── verify.js         # Verificación del ID token de Cognito (JWT)
     │   └── roles.js          # Roles, STAFF_ROLES, normalizeRoles, primaryRole
     ├── db/
@@ -66,7 +66,11 @@ backend/
     │   ├── vehiculoRoutes.js
     │   ├── repuestoRoutes.js
     │   ├── movimientoRoutes.js
-    │   └── clienteComercialRoutes.js
+    │   ├── clienteComercialRoutes.js
+    │   ├── cotizacionRoutes.js
+    │   ├── reservaRoutes.js
+    │   ├── ventaRoutes.js
+    │   └── pruebaManejoRoutes.js     (HU11: POST público con token opcional)
     ├── controllers/          # Reciben HTTP, validan y delegan en services
     │   ├── usuarioController.js
     │   ├── clienteController.js
@@ -74,7 +78,11 @@ backend/
     │   ├── vehiculoController.js
     │   ├── repuestoController.js
     │   ├── movimientoController.js
-    │   └── clienteComercialController.js
+    │   ├── clienteComercialController.js
+    │   ├── cotizacionController.js
+    │   ├── reservaController.js
+    │   ├── ventaController.js
+    │   └── pruebaManejoController.js
     ├── services/             # REGLAS DE NEGOCIO (aquí vive la lógica)
     │   ├── usuarioService.js
     │   ├── cognitoService.js
@@ -83,20 +91,32 @@ backend/
     │   ├── storageService.js         # S3: presign, validación, borrado, URLs
     │   ├── repuestoService.js
     │   ├── movimientoService.js
-    │   └── clienteComercialService.js
+    │   ├── clienteComercialService.js
+    │   ├── cotizacionService.js
+    │   ├── reservaService.js
+    │   ├── ventaService.js
+    │   └── pruebaManejoService.js    # agenda, conflictos de horario y estados
     ├── repositories/         # ÚNICO lugar que habla con DynamoDB
     │   ├── usuarioRepository.js
     │   ├── vehiculoRepository.js
     │   ├── repuestoRepository.js
     │   ├── movimientoRepository.js
-    │   └── clienteComercialRepository.js
+    │   ├── clienteComercialRepository.js
+    │   ├── cotizacionRepository.js
+    │   ├── reservaRepository.js
+    │   ├── ventaRepository.js
+    │   └── pruebaManejoRepository.js
     ├── validation/           # Esquemas Zod + helper `validate`
     │   ├── usuarioSchemas.js
     │   ├── clienteSchemas.js
     │   ├── vehiculoSchemas.js
     │   ├── repuestoSchemas.js
     │   ├── movimientoSchemas.js
-    │   └── clienteComercialSchemas.js
+    │   ├── clienteComercialSchemas.js
+    │   ├── cotizacionSchemas.js
+    │   ├── reservaSchemas.js
+    │   ├── ventaSchemas.js
+    │   └── pruebaManejoSchemas.js    # horario 08:00–18:00 en pasos de 15 min
     ├── errors/               # Jerarquía de errores y manejador central
     │   ├── AppError.js
     │   └── errorHandler.js
@@ -299,6 +319,11 @@ Variables relacionadas con la base de datos y archivos:
 | `VEHICULOS_TABLE_NAME` | Tabla de vehículos. |
 | `REPUESTOS_TABLE_NAME` | Tabla de repuestos. |
 | `MOVIMIENTOS_TABLE_NAME` | Tabla de movimientos de inventario. |
+| `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla de clientes comerciales (HU07). |
+| `COTIZACIONES_TABLE_NAME` | Tabla de cotizaciones (HU08). |
+| `RESERVAS_TABLE_NAME` | Tabla de reservas (HU09). |
+| `VENTAS_TABLE_NAME` | Tabla de ventas (HU10). |
+| `PRUEBAS_MANEJO_TABLE_NAME` | Tabla de pruebas de manejo (HU11). |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías y documentos. |
 
 ### Modo de capacidad y región
@@ -318,17 +343,20 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí ocho tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
-`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas` y `Ventas`. Cada una tiene
+Con DynamoDB definí nueve tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas`, `Ventas` y
+`PruebasManejo`. Cada una tiene
 su propia clave primaria y, cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
 `vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
 en `ClientesComerciales` usé `email-index` y `documento-index` para buscar y evitar
 duplicados, en `Cotizaciones` usé `cliente-index` (historial por cliente) y `numero-index`
 (unicidad del número), en `Reservas` usé `vehiculo-index` (detectar reservas activas de una
-unidad), `cliente-index` (historial por cliente) y `numero-index` (unicidad del número), y en
+unidad), `cliente-index` (historial por cliente) y `numero-index` (unicidad del número), en
 `Ventas` usé `vehiculo-index` (control de doble venta), `cliente-index` (historial por cliente)
-y `numero-index` (unicidad del número).
+y `numero-index` (unicidad del número), y en `PruebasManejo` usé `vehiculo-index`
+(consulta la agenda por vehículo para detectar solapes), `cliente-index` (historial por
+cliente) y `numero-index` (unicidad del número).
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -506,6 +534,38 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > **Vínculo con reservas:** si la unidad estaba reservada, la venta guarda `reservaId`/
 > `numeroReserva` y la reserva pasa a `convertida` con el número de venta.
 
+### Tabla `PruebasManejo` (HU11)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `pruebaId` | string (UUID) | **PK** (también guarda la partición `secuencia#<año>`) |
+| `numero` | string | GSI `numero-index`; formato `PRB-AAAA-######` (único) |
+| `vehiculoId` | string | GSI `vehiculo-index` (+ `fechaHora`); agenda por vehículo y detección de solapes |
+| `vehiculo` | objeto | Snapshot: `{ vehiculoId, marca, modelo, version, anio, precio, color }` |
+| `clienteId` | string | GSI `cliente-index` (+ `createdAt`); historial por cliente (`'anonimo'` si es solicitud pública) |
+| `cliente` | objeto \| null | Snapshot del cliente cuando el registro lo vincula |
+| `contacto` | objeto | `{ nombre, telefono, email? }` — siempre presente, incluso sin cliente |
+| `fechaHora` | string (ISO) | Inicio de la prueba (futuro, 08:00–18:00, pasos de 15 min) |
+| `duracionMinutos` | number | 15–180 (por defecto 60) |
+| `estado` | string | `pendiente` \| `confirmada` \| `realizada` \| `cancelada` |
+| `origen` | string | `catalogo` (visitante) \| `cliente` (sesión de cliente) \| `interno` (staff) |
+| `observaciones` | string | Opcional (≤ 1000 caracteres) |
+| `historial` | list&lt;objeto&gt; | `{ estado, fecha, usuario?, motivo?, observaciones? }` |
+| `createdBy` / `createdByName` | string \| null | Autor (sub / nombre del token; `null` en solicitudes anónimas) |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Conflictos de agenda:** al crear (y al reprogramar) el servicio consulta el GSI
+> `vehiculo-index` y descarta las pruebas `cancelada`/`realizada`; si la ventana
+> `[fechaHora, fechaHora + duración)` se solapa con otra del mismo vehículo, responde `409`
+> con la prueba en conflicto. **Numeración atómica:** igual que en las demás operaciones
+> comerciales, el contador se reserva con `ADD` sobre la partición `secuencia#<año>`.
+> **Transiciones de estado:** `pendiente → confirmada | cancelada`,
+> `confirmada → realizada | cancelada`; cualquier otra combinación responde `409` y toda
+> transición (incluida la reprogramación, que conserva el estado) agrega una entrada al
+> `historial`. **Sin cambio de estado del vehículo:** a diferencia de reservas y ventas, la
+> prueba no modifica el vehículo; solo exige que esté `disponible` o `reservado` y
+> publicado.
+
 ### Relación entre tablas (sin claves foráneas)
 
 DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convención:
@@ -521,6 +581,9 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
   `Vehiculos.vehiculoId` (guardando además un snapshot).
 - `Ventas.clienteId` → `ClientesComerciales.clienteId`, `Ventas.vehiculoId` →
   `Vehiculos.vehiculoId` y `Ventas.reservaId` → `Reservas.reservaId` (con snapshots).
+- `PruebasManejo.vehiculoId` → `Vehiculos.vehiculoId` (con snapshot) y
+  `PruebasManejo.clienteId` → `ClientesComerciales.clienteId`; en las solicitudes anónimas
+  el `clienteId` queda como `'anonimo'` y `cliente` como `null`.
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
 `movimientoService` verifica que el repuesto exista antes de registrar el movimiento),
@@ -797,11 +860,44 @@ this.ventasTable.addGlobalSecondaryIndex({
 });
 ```
 
+En la HU11 agregué la tabla `PruebasManejo`, con un índice por vehículo (agenda y detección
+de solapes), otro por cliente (historial) y otro por número (unicidad):
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU11: nueva tabla + índices)
+this.pruebasManejoTable = new dynamodb.Table(this, 'PruebasManejoTable', {
+  partitionKey: { name: 'pruebaId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.pruebasManejoTable.addGlobalSecondaryIndex({
+  indexName: 'vehiculo-index',
+  partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+});
+
+this.pruebasManejoTable.addGlobalSecondaryIndex({
+  indexName: 'cliente-index',
+  partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+
+this.pruebasManejoTable.addGlobalSecondaryIndex({
+  indexName: 'numero-index',
+  partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+});
+```
+
+> Nota: a diferencia de los demás GSIs por fecha (`createdAt`), el `vehiculo-index` usa
+> `fechaHora` como clave de ordenación para que la agenda de un vehículo quede ordenada
+> cronológicamente y el servicio pueda filtrar las ventanas solapadas con un `Query`.
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10, `PruebasManejoTable` HU11) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
 | `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
@@ -835,10 +931,10 @@ endpoints del proyecto se aplican.
 
 | Operación | Significado | HTTP | Comando DynamoDB | Endpoints del proyecto |
 | --- | --- | --- | --- | --- |
-| **C — Create** | Crear un recurso | `POST` | `PutCommand` | `POST /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/clientes/registro`, `/api/clientes-comerciales`, `/api/cotizaciones` |
-| **R — Read (uno)** | Leer un recurso por su clave | `GET` | `GetCommand` (o `QueryCommand` por GSI) | `GET /api/usuarios/:userId`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/catalogo/:vehiculoId`, `/api/cotizaciones/:cotizacionId` |
-| **R — Read (lista)** | Listar todos los recursos | `GET` | `ScanCommand` (`QueryCommand` si hay filtro) | `GET /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/catalogo`, `/api/cotizaciones` |
-| **U — Update** | Actualizar parcialmente | `PATCH` | `PutCommand` / `UpdateCommand` | `PATCH /api/usuarios/:userId`, `/api/usuarios/:userId/estado`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/clientes-comerciales/:clienteId`, `/api/cotizaciones/:cotizacionId` |
+| **C — Create** | Crear un recurso | `POST` | `PutCommand` | `POST /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/clientes/registro`, `/api/clientes-comerciales`, `/api/cotizaciones`, `/api/reservas`, `/api/ventas`, `/api/pruebas-man` |
+| **R — Read (uno)** | Leer un recurso por su clave | `GET` | `GetCommand` (o `QueryCommand` por GSI) | `GET /api/usuarios/:userId`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/catalogo/:vehiculoId`, `/api/cotizaciones/:cotizacionId`, `/api/reservas/:reservaId`, `/api/ventas/:ventaId`, `/api/pruebas-man/:pruebaId` |
+| **R — Read (lista)** | Listar todos los recursos | `GET` | `ScanCommand` (`QueryCommand` si hay filtro) | `GET /api/usuarios`, `/api/vehiculos`, `/api/repuestos`, `/api/movimientos`, `/api/catalogo`, `/api/cotizaciones`, `/api/reservas`, `/api/ventas`, `/api/pruebas-man` |
+| **U — Update** | Actualizar parcialmente | `PATCH` (o `POST .../<accion>` en la HU11) | `PutCommand` / `UpdateCommand` | `PATCH /api/usuarios/:userId`, `/api/usuarios/:userId/estado`, `/api/vehiculos/:vehiculoId`, `/api/repuestos/:repuestoId`, `/api/clientes-comerciales/:clienteId`, `/api/cotizaciones/:cotizacionId`; `POST /api/pruebas-man/:pruebaId/confirmar|reprogramar|cancelar|realizar` |
 | **D — Delete** | Borrar | — (sin endpoint) | `DeleteObjectCommand` (S3) | Al quitar fotos/documentos de un vehículo; desactivación lógica de usuarios en Cognito |
 
 > **Nota sobre el borrado.** No hay `DELETE` de usuarios, vehículos ni repuestos para no
@@ -1068,13 +1164,43 @@ const updateCotizacionSchema = z.object({ /* campos opcionales */ })
   });
 ```
 
+```javascript
+// Prueba de manejo (HU11): fecha futura dentro del horario de atención y en pasos de 15 min
+const fechaHoraSchema = z.string()
+  .datetime({ message: 'La fecha y la hora no son válidas.' })
+  .refine((valor) => new Date(valor) > new Date(), {
+    message: 'La fecha y la hora deben ser futuras.',
+  })
+  .refine((valor) => {
+    const minutos = new Date(valor).getHours() * 60 + new Date(valor).getMinutes();
+    return minutos >= 8 * 60 && minutos < 18 * 60 && minutos % 15 === 0;
+  }, { message: 'El horario de atención es de 08:00 a 18:00 y las horas se agendan de 15 en 15 minutos.' });
+
+const createPruebaManejoSchema = z.object({
+  vehiculoId: z.string().trim().min(1, 'Selecciona un vehículo.'),
+  clienteId: z.string().trim().min(1).optional(),   // solo lo envía el staff
+  contacto: z.object({
+    nombre: z.string().trim().min(2).max(120),
+    telefono: z.string().trim().min(6).max(30),
+    email: z.string().trim().email().max(160).optional(),
+  }),
+  fechaHora: fechaHoraSchema,
+  duracionMinutos: z.coerce.number().int().min(15).max(180).optional(),  // defecto 60
+  observaciones: z.string().trim().max(1000).optional(),
+});
+```
+
 ### 9.3 Reglas y buenas prácticas aplicadas
 
 - **Coerción de tipos:** `z.coerce.number()` convierte strings de formularios a números.
 - **Normalización:** `trim()` y `toUpperCase()` limpian los datos antes de guardarlos.
 - **Enums cerrados:** `condicion`, `tipo`, `estado`, `rol`, `estadoSeguimiento` (HU07) y
-  `estado`/descuento/vigencia de cotización (HU08) solo aceptan valores permitidos.
-- **Límites:** longitudes máximas, rangos (`anio` entre 1950 y año actual+1, precio > 0).
+  `estado`/descuento/vigencia de cotización (HU08) solo aceptan valores permitidos. En la
+  HU11, `estado` de la prueba (`pendiente`/`confirmada`/`realizada`/`cancelada`) y `estado`
+  del listado usan enums igual de cerrados.
+- **Límites:** longitudes máximas, rangos (`anio` entre 1950 y año actual+1, precio > 0) y,
+  en la HU11, duración de 15 a 180 minutos más la restricción de horario (08:00–18:00 en
+  pasos de 15 minutos) resuelta con `refine`.
 - **El esquema de actualización es parcial:** `updateVehiculoSchema`/`updateUsuarioSchema`
   usan `.partial()` (y `updateUsuarioSchema` exige al menos un campo con `.refine`).
 
@@ -1165,7 +1291,9 @@ Armé la API siguiendo las convenciones de REST: sustantivos en plural con el pr
 y el verbo HTTP adecuado (`GET` para consultar, `POST` para crear y `PATCH` para actualizar
 de forma parcial). Cada ruta protegida pasa primero por `requireAuth`, que exige el token, y
 después por `requireRole(...)` cuando hay que limitar por rol. Dejé como públicas solo la
-raíz, `/info`, el catálogo y el autorregistro de clientes; el resto necesita un token o un
+raíz, `/info`, el catálogo, el autorregistro de clientes y el alta de pruebas de manejo
+(`POST /api/pruebas-man`, con token **opcional** mediante `optionalAuth`); el resto
+necesita un token o un
 rol específico. No expuse ningún `DELETE` de vehículos ni repuestos para no perder el
 histórico, y lo único que borro son los archivos de S3 cuando se quitan de un vehículo.
 
@@ -1174,7 +1302,7 @@ verbos HTTP según la acción y respuestas JSON. El prefijo general es `/api`.
 
 ### Referencia completa de endpoints
 
-Tabla consolidada con **todos** los endpoints de la API (27 en total). La columna
+Tabla consolidada con **todos** los endpoints de la API (46 en total). La columna
 *Autenticación* indica lo que exige cada ruta y *Cuerpo / Query* los datos que recibe.
 
 | Método | Ruta | Autenticación | Cuerpo / Query | Descripción |
@@ -1206,6 +1334,25 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 | `GET` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | — | Obtener cliente con historial de consultas |
 | `PATCH` | `/api/clientes-comerciales/:clienteId` | admin/vendedor | campos parciales del cliente | Actualizar datos o `estadoSeguimiento` |
 | `POST` | `/api/clientes-comerciales/:clienteId/consultas` | admin/vendedor | `{ vehiculo?, interes, observacion? }` | Agregar una consulta al historial |
+| `GET` | `/api/cotizaciones` | admin/vendedor | query `?clienteId=&estado=` | Listar cotizaciones |
+| `POST` | `/api/cotizaciones` | admin/vendedor | `{ clienteId, vehiculoIds[], descuentoPorcentaje?, observaciones?, vigenciaDias? }` | Generar cotización (número único, `201`) |
+| `GET` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | — | Obtener una cotización |
+| `PATCH` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | `{ descuentoPorcentaje?, observaciones?, estado? }` | Actualizar cotización |
+| `GET` | `/api/reservas` | admin/vendedor | query `?clienteId=&vehiculoId=&estado=` | Listar reservas |
+| `POST` | `/api/reservas` | admin/vendedor | `{ clienteId, vehiculoId, condiciones?, monto?, vigenciaDias? }` | Registrar reserva (aparta vehículo, `201`) |
+| `GET` | `/api/reservas/:reservaId` | admin/vendedor | — | Obtener una reserva |
+| `POST` | `/api/reservas/:reservaId/cancelar` | admin/vendedor | `{ motivo? }` | Cancelar reserva y liberar vehículo |
+| `POST` | `/api/reservas/:reservaId/convertir` | admin/vendedor | `{ observaciones? }` | Convertir en venta (vehículo `vendido`) |
+| `GET` | `/api/ventas` | admin/vendedor | query `?clienteId=&vehiculoId=` | Historial de ventas |
+| `POST` | `/api/ventas` | admin/vendedor | `{ clienteId, vehiculoId, descuentoPorcentaje?, observaciones?, reservaId?, fechaVenta? }` | Registrar venta (número único, `201`) |
+| `GET` | `/api/ventas/:ventaId` | admin/vendedor | — | Obtener el detalle de una venta |
+| `POST` | `/api/pruebas-man` | token opcional | `{ vehiculoId, clienteId?, contacto, fechaHora, duracionMinutos?, observaciones? }` | Solicitar prueba de manejo (`201`, `PRB-AAAA-######`) |
+| `GET` | `/api/pruebas-man` | admin/vendedor | query `?clienteId=&vehiculoId=&estado=` | Listar pruebas (orden por `fechaHora`) |
+| `GET` | `/api/pruebas-man/:pruebaId` | admin/vendedor | — | Obtener una prueba |
+| `POST` | `/api/pruebas-man/:pruebaId/confirmar` | admin/vendedor | `{ observaciones? }` | `pendiente` → `confirmada` |
+| `POST` | `/api/pruebas-man/:pruebaId/reprogramar` | admin/vendedor | `{ fechaHora, duracionMinutos?, observaciones? }` | Cambia horario conservando el estado |
+| `POST` | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | `{ motivo? }` | `pendiente`/`confirmada` → `cancelada` |
+| `POST` | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | `{ observaciones? }` | `confirmada` → `realizada` |
 
 > **Autorización en dos niveles.** Todas las rutas protegidas pasan primero por
 > `requireAuth` (token JWT obligatorio) y, cuando aplica, por `requireRole(...)`. En el
@@ -1223,6 +1370,7 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 | `POST` | `/api/clientes/registro` | Autorregistro de clientes |
 | `GET` | `/api/catalogo` | Catálogo público (solo publicados) |
 | `GET` | `/api/catalogo/:vehiculoId` | Detalle público de un vehículo |
+| `POST` | `/api/pruebas-man` | Solicitar prueba de manejo (token **opcional**: si llega, se identifica al cliente) |
 
 **Autenticación y usuarios**
 
@@ -1293,17 +1441,36 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 | `POST` | `/api/ventas` | admin/vendedor | Registrar venta (número único, vehículo `vendido`, `201`) |
 | `GET` | `/api/ventas/:ventaId` | admin/vendedor | Obtener el detalle de una venta |
 
+**Pruebas de manejo (HU11)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `POST` | `/api/pruebas-man` | token opcional | Solicitar prueba (`201`, número único, conflicto de horario `409`) |
+| `GET` | `/api/pruebas-man` | admin/vendedor | Listar pruebas (`?clienteId=&vehiculoId=&estado=`) |
+| `GET` | `/api/pruebas-man/:pruebaId` | admin/vendedor | Obtener una prueba + historial |
+| `POST` | `/api/pruebas-man/:pruebaId/confirmar` | admin/vendedor | Confirmar (`pendiente` → `confirmada`) |
+| `POST` | `/api/pruebas-man/:pruebaId/reprogramar` | admin/vendedor | Reprogramar (conserva estado, revalida horario) |
+| `POST` | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | Cancelar (libera el horario) |
+| `POST` | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | Marcar realizada (`confirmada` → `realizada`) |
+
+> **Token opcional (`optionalAuth`).** Solo el `POST /api/pruebas-man` usa este middleware:
+> si la petición trae `Authorization`, se verifica el JWT y el `clienteId` enviado por el
+> staff se vincula a la solicitud; si no trae token (visitante desde el catálogo), la prueba
+> se guarda con `clienteId: 'anonimo'` y `origen: 'catalogo'`. Todas las demás rutas de la
+> HU11 exigen `requireAuth` + `requireRole('admin', 'vendedor')`.
+
 ### Parámetros (path, query y cuerpos)
 
 - **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId`, `:cotizacionId`,
-  `:reservaId` y `:ventaId` identifican el
+  `:reservaId`, `:ventaId` y `:pruebaId` identifican el
   recurso a
   consultar o modificar.
 - **Query strings:** `GET /api/movimientos` acepta filtros opcionales
   (`?repuestoId=<uuid>` y `?tipo=entrada|salida`) y `GET /api/cotizaciones` acepta
   `?clienteId=<uuid>` y `?estado=<pendiente|aceptada|rechazada|vencida>`; `GET /api/reservas`
-  acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`, y
-  `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`. Los
+  acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`,
+  `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`, y `GET /api/pruebas-man` acepta
+  `?clienteId=`, `?vehiculoId=` y `?estado=<pendiente|confirmada|realizada|cancelada>`. Los
   demás listados
   no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
@@ -1322,6 +1489,11 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
     `POST .../convertir` → `{ observaciones? }` (deja el vehículo `vendido`).
   - `POST /api/ventas` → `{ clienteId, vehiculoId, descuentoPorcentaje?, observaciones?, reservaId?, fechaVenta? }`
     (el backend verifica la disponibilidad, aparta la unidad, calcula los importes y genera el número).
+  - `POST /api/pruebas-man` → `{ vehiculoId, clienteId?, contacto: { nombre, telefono, email? }, fechaHora, duracionMinutos?, observaciones? }`
+    (el backend valida horario futuro 08:00–18:00 en pasos de 15 min, descarta solapes del
+    mismo vehículo con `409` y genera el número); `POST .../reprogramar` →
+    `{ fechaHora, duracionMinutos?, observaciones? }`; `POST .../confirmar` y
+    `POST .../realizar` → `{ observaciones? }`; `POST .../cancelar` → `{ motivo? }`.
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1329,12 +1501,15 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 
 - **`PATCH`** para actualizaciones parciales (no `PUT`), porque se envía solo lo que cambia.
 - **Recursos anidados por acción**: `POST /api/vehiculos/archivos/presign` es una acción
-  sobre el sub-recurso `archivos`.
+  sobre el sub-recurso `archivos`, igual que `confirmar`, `reprogramar`, `cancelar` y
+  `realizar` sobre una prueba de manejo (`POST /api/pruebas-man/:pruebaId/<accion>`), en lugar
+  de un `PATCH` de estado.
 - **Sin `DELETE`** de vehículos/repuestos: se preserva el histórico (auditoría). El único
   borrado es de archivos en S3 cuando se quitan del recurso.
 - **Filtros por query string**: `GET /api/movimientos?repuestoId=...&tipo=...`.
 - **Respuestas de listado** siempre incluyen `total` junto a la colección (`vehiculos`,
-  `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`, `reservas`, `ventas`).
+  `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`, `reservas`, `ventas`,
+  `pruebas`).
 
 ---
 
@@ -1348,7 +1523,8 @@ ocurrió: `200` en consultas y actualizaciones, `201` al crear, `400` si los dat
 válidos, `401` si falta el token o expiró, `403` si no hay permisos, `404` si el recurso no
 existe, `409` ante un conflicto (código o VIN repetido, stock insuficiente, email o
 documento de cliente repetido, vehículo no cotizable, cotización ya no modificable, vehículo
-no disponible para reservar o reserva ya no gestionable) y `500` para
+no disponible para reservar o reserva ya no gestionable, horario de prueba ocupado o
+transición de estado inválida en una prueba de manejo) y `500` para
 errores inesperados, que además registro en el log sin mostrar detalles internos.
 
 ### 12.1 Formato de petición y respuesta
@@ -1420,7 +1596,7 @@ Content-Type: application/json
 | `401 Unauthorized` | Falta token o es inválido/expirado | `requireAuth` |
 | `403 Forbidden` | Token válido pero sin permiso | `requireRole` / cuenta inactiva |
 | `404 Not Found` | Recurso o ruta inexistente | `NotFoundError` / `notFoundHandler` |
-| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente, email/documento de cliente duplicado |
+| `409 Conflict` | Duplicado o conflicto de estado | código/VIN duplicado, stock insuficiente, email/documento de cliente duplicado, prueba con horario solapado, transición de estado inválida |
 | `500 Internal Server Error` | Error inesperado | fallo no controlado (se registra en log) |
 
 ### 12.3 Contrato de error uniforme
@@ -1470,7 +1646,7 @@ curl http://localhost:3000/info
 | Rol | Descripción |
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
-| `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08), reservas (HU09) y ventas (HU10). |
+| `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08), reservas (HU09), ventas (HU10) y pruebas de manejo (HU11). |
 | `jefe_taller` | Gestiona repuestos y movimientos. |
 | `mecanico` | Consulta inventario (rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
@@ -1507,6 +1683,7 @@ CLIENTES_COMERCIALES_TABLE_NAME=ClientesComerciales
 COTIZACIONES_TABLE_NAME=Cotizaciones
 RESERVAS_TABLE_NAME=Reservas
 VENTAS_TABLE_NAME=Ventas
+PRUEBAS_MANEJO_TABLE_NAME=PruebasManejo
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1530,7 +1707,8 @@ Resumen para consulta veloz (el detalle completo de cada endpoint, con su cuerpo
 permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable con
 `PORT`). Todas las respuestas son JSON y las rutas protegidas requieren el encabezado
 `Authorization: Bearer <ID token>`. `{id}` representa `:userId`, `:vehiculoId`,
-`:repuestoId`, `:clienteId` o `:cotizacionId` según el recurso.
+`:repuestoId`, `:clienteId`, `:cotizacionId`, `:reservaId`, `:ventaId` o `:pruebaId` según
+el recurso.
 
 | Acción | Método y ruta | Requiere |
 | --- | --- | --- |
@@ -1560,6 +1738,10 @@ permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable
 | Cancelar / convertir reserva | `POST /api/reservas/{id}/cancelar` · `/convertir` | admin/vendedor |
 | Historial / detalle de ventas | `GET /api/ventas` · `/api/ventas/{id}` | admin/vendedor |
 | Registrar venta | `POST /api/ventas` | admin/vendedor |
+| Solicitar prueba de manejo | `POST /api/pruebas-man` | — (token opcional) |
+| Listar / ver pruebas de manejo | `GET /api/pruebas-man` · `/api/pruebas-man/{id}` (`?clienteId=&vehiculoId=&estado=`) | admin/vendedor |
+| Confirmar / reprogramar prueba | `POST /api/pruebas-man/{id}/confirmar` · `/reprogramar` | admin/vendedor |
+| Cancelar / realizar prueba | `POST /api/pruebas-man/{id}/cancelar` · `/realizar` | admin/vendedor |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1643,6 +1825,18 @@ curl -X POST http://localhost:3000/api/ventas \
 
 # 16) Historial de ventas (filtra por cliente o vehículo)
 curl "http://localhost:3000/api/ventas?clienteId=<uuid>" -H "Authorization: Bearer $TOKEN"
+
+# 17) Solicitar una prueba de manejo (público: sin Authorization, o con token si hay sesión)
+curl -X POST http://localhost:3000/api/pruebas-man \
+  -H "Content-Type: application/json" \
+  -d '{"vehiculoId":"<uuid-vehiculo>","contacto":{"nombre":"Ana Torres","telefono":"71234567"},"fechaHora":"2026-11-10T10:15:00","duracionMinutos":60}'
+
+# 18) Gestionar una prueba (admin/vendedor): confirmar, reprogramar y marcar realizada
+curl -X POST http://localhost:3000/api/pruebas-man/<uuid>/confirmar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+curl -X POST http://localhost:3000/api/pruebas-man/<uuid>/realizar \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"observaciones":"Cliente conforme con el equipo."}'
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1665,6 +1859,7 @@ curl "http://localhost:3000/api/ventas?clienteId=<uuid>" -H "Authorization: Bear
 | HU08 | Cotizaciones | Implementada (backend verificado end-to-end) |
 | HU09 | Reservas de vehículos | Implementada (backend verificado end-to-end) |
 | HU10 | Ventas de vehículos | Implementada (backend verificado end-to-end) |
+| HU11 | Pruebas de manejo | Implementada (backend verificado end-to-end: 46/46 aserciones) |
 
 ---
 

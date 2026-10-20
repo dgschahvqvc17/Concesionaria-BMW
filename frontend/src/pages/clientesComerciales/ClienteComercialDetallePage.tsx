@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PruebaManejoFormDialog } from '@/components/pruebasManejo/PruebaManejoFormDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,17 +13,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
 import { useCotizaciones } from '@/hooks/useCotizaciones';
+import { usePruebasManejo } from '@/hooks/usePruebasManejo';
 import { useReservas } from '@/hooks/useReservas';
 import { useVentas } from '@/hooks/useVentas';
+import { useVehiculos } from '@/hooks/useVehiculos';
 import { getErrorMessage } from '@/lib/api';
 import { abrirCorreoConsulta } from '@/lib/consultaEmail';
 import { descargarCotizacionPdf } from '@/lib/cotizacionPdf';
 import { ESTADO_COTIZACION_LABELS, ESTADO_COTIZACION_STYLES } from '@/lib/cotizaciones';
 import { ESTADO_RESERVA_LABELS, ESTADO_RESERVA_STYLES } from '@/lib/reservas';
+import {
+  ESTADO_PRUEBA_LABELS,
+  ESTADO_PRUEBA_STYLES,
+  formatFechaHora,
+} from '@/lib/pruebasManejo';
 import { descargarVentaPdf } from '@/lib/ventaPdf';
 import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import { clientesComercialesService } from '@/services/clientesComerciales';
 import type { ClienteComercial } from '@/types/clienteComercial';
+import type { CreatePruebaManejoInput } from '@/types/pruebaManejo';
 
 export function ClienteComercialDetallePage() {
   const { clienteId } = useParams();
@@ -30,6 +40,8 @@ export function ClienteComercialDetallePage() {
   const { cotizaciones, loading: cargandoCotizaciones } = useCotizaciones({ clienteId });
   const { reservas, loading: cargandoReservas } = useReservas({ clienteId });
   const { ventas, loading: cargandoVentas } = useVentas({ clienteId });
+  const { pruebas, loading: cargandoPruebas, crear: crearPrueba } = usePruebasManejo({ clienteId });
+  const { vehiculos } = useVehiculos();
   const [cliente, setCliente] = useState<ClienteComercial | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -37,6 +49,8 @@ export function ClienteComercialDetallePage() {
   const [interes, setInteres] = useState('');
   const [observacion, setObservacion] = useState('');
   const [notificar, setNotificar] = useState(true);
+  const [pruebaOpen, setPruebaOpen] = useState(false);
+  const [guardandoPrueba, setGuardandoPrueba] = useState(false);
 
   useEffect(() => {
     if (!clienteId) return;
@@ -66,6 +80,20 @@ export function ClienteComercialDetallePage() {
       toast.error(getErrorMessage(saveError));
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const registrarPrueba = async (input: CreatePruebaManejoInput) => {
+    setGuardandoPrueba(true);
+    try {
+      const prueba = await crearPrueba(input);
+      toast.success(`Prueba ${prueba.numero} registrada correctamente.`);
+      setPruebaOpen(false);
+    } catch (pruebaError) {
+      toast.error(getErrorMessage(pruebaError));
+      throw pruebaError;
+    } finally {
+      setGuardandoPrueba(false);
     }
   };
 
@@ -206,6 +234,51 @@ export function ClienteComercialDetallePage() {
           )}
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Pruebas de manejo</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => setPruebaOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Nueva solicitud
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {cargandoPruebas ? (
+            <p className="text-sm text-muted-foreground">Cargando pruebas…</p>
+          ) : pruebas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin pruebas de manejo registradas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {pruebas.map((prueba) => (
+                <li key={prueba.pruebaId} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">
+                      {prueba.numero} · {prueba.vehiculo.marca} {prueba.vehiculo.modelo}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatFechaHora(prueba.fechaHora)} · {prueba.contacto.nombre}
+                    </div>
+                  </div>
+                  <Badge className={ESTADO_PRUEBA_STYLES[prueba.estado]}>
+                    {ESTADO_PRUEBA_LABELS[prueba.estado]}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <PruebaManejoFormDialog
+        open={pruebaOpen}
+        onOpenChange={setPruebaOpen}
+        vehiculos={vehiculos}
+        clienteFijo={cliente}
+        onSubmit={registrarPrueba}
+        loading={guardandoPrueba}
+      />
     </div>
   );
 }
