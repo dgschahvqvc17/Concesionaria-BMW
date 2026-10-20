@@ -10,7 +10,7 @@ La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), 
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
 gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
 la generación de cotizaciones (HU08), las reservas de vehículos (HU09), las ventas de
-vehículos (HU10) y las pruebas de manejo (HU11).
+vehículos (HU10), las pruebas de manejo (HU11) y las notificaciones por correo (HU12).
 
 ## Índice
 
@@ -32,6 +32,7 @@ vehículos (HU10) y las pruebas de manejo (HU11).
 16. [Reservas de vehículos (HU09)](#16-reservas-de-vehículos-hu09)
 17. [Ventas de vehículos (HU10)](#17-ventas-de-vehículos-hu10)
 18. [Pruebas de manejo (HU11)](#18-pruebas-de-manejo-hu11)
+19. [Notificaciones por correo (HU12)](#19-notificaciones-por-correo-hu12)
 
 ---
 
@@ -124,6 +125,7 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
 │   ├── layout/             # AppLayout, PageHeader
+│   ├── notificaciones/      # NotificacionesTable, NotificacionDetalleDialog, NotificacionesRecurso (HU12)
 │   ├── pruebasManejo/      # PruebaManejoFormDialog, PruebasManejoTable, PruebaManejoDetalleDialog (HU11)
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
@@ -131,13 +133,13 @@ frontend/src/
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts, notificaciones.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11), notificaciones/ (HU12)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts, notificacion.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -280,6 +282,7 @@ comparte entre páginas sin repetir código.
 | `/reservas` | `ReservasPage` | `admin`, `vendedor` (HU09). |
 | `/ventas` | `VentasPage` | `admin`, `vendedor` (HU10). |
 | `/pruebas-man` | `PruebasManejoPage` | `admin`, `vendedor` (HU11). |
+| `/notificaciones` | `NotificacionesPage` | `admin`, `vendedor` (HU12). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -702,6 +705,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `reservas.ts` | `list/get/create/cancelar/convertir` | `/api/reservas` | Sí (`admin`/`vendedor`) | Reservas de vehículos (HU09). |
 | `ventas.ts` | `list/get/create` | `/api/ventas` | Sí (`admin`/`vendedor`) | Ventas de vehículos (HU10). |
 | `pruebasManejo.ts` | `list/get/create/solicitar/confirmar/reprogramar/cancelar/realizar` | `/api/pruebas-man` | `create` (staff) y `solicitar` (**público**, token opcional); resto `admin`/`vendedor` | Pruebas de manejo (HU11). |
+| `notificaciones.ts` | `list/get/enviar/enviarCotizacion` | `/api/notificaciones`, `/api/cotizaciones/:id/enviar-correo` | Sí (`admin`/`vendedor`) | Notificaciones por correo (HU12). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -871,6 +875,7 @@ Recorrí los flujos principales alineados a HU01–HU11:
 | HU09 | Reservas de vehículos | `/reservas` (solo `admin`/`vendedor`) → nueva reserva (cliente + vehículo disponible); detalle → cancelar (libera unidad) o convertir en venta. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/reservas/`, `services/reservas.ts`, `lib/reservas.ts` |
 | HU10 | Ventas de vehículos | `/ventas` (solo `admin`/`vendedor`) → nueva venta (cliente + vehículo vendible + descuento ≤ 20%); detalle → comprobante PDF. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/ventas/`, `services/ventas.ts`, `lib/ventaPdf.ts` |
 | HU11 | Pruebas de manejo | `/pruebas-man` (solo `admin`/`vendedor`) → listado con filtros, nueva solicitud, detalle con historial y acciones (confirmar/reprogramar/cancelar/realizar); solicitud pública desde el detalle del vehículo y desde la ficha del cliente. | **OK** (backend e2e: 46/46 aserciones — `201`/`409`/`400`/`404`/`200`/`401`; UI con build limpio). | Código: `pages/pruebasManejo/`, `components/pruebasManejo/`, `services/pruebasManejo.ts`, `lib/pruebasManejo.ts` |
+| HU12 | Notificaciones por correo | `/notificaciones` (solo `admin`/`vendedor`) → listado con filtros, detalle con historial de intentos y botón «Enviar» (reintento); secciones reutilizables en los detalles de cotización/reserva/prueba/venta; envío de cotización con descarga de PDF + `mailto:`. | **OK** (backend e2e: 34/34 aserciones — `200`/`400`/`401`/`404`/`409`; UI con build limpio). | Código: `pages/notificaciones/`, `components/notificaciones/`, `services/notificaciones.ts`, `lib/notificaciones.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1435,6 +1440,101 @@ validación, se reasignan al campo correspondiente con `setError`.
   registro por vendedor con `clienteId` (`201`, `origen: interno`), transiciones
   (confirmar/realizar/cancelar/reprogramar `200` con historial) y sus repeticiones o
   combinaciones inválidas (`409`/`404`).
+
+---
+
+## 19. Notificaciones por correo (HU12)
+
+La HU12 permite a `admin` y `vendedor` consultar el historial de correos generados por las
+operaciones comerciales (reservas, cotizaciones, pruebas de manejo y ventas), ver el detalle
+de cada mensaje con su historial de intentos y **reintentar el envío**. El transporte es un
+enlace **`mailto:`** —decisión de diseño para no usar Amazon SES, que cobra por mensaje y
+saldría de la capa gratuita—: el backend redacta el asunto y el cuerpo, registra el intento
+en la tabla `Notificaciones` (máximo 5, anti-duplicados) y devuelve el enlace, que el
+frontend abre en el cliente de correo del usuario.
+
+**Archivos**
+
+```text
+frontend/src/
+├── pages/notificaciones/NotificacionesPage.tsx     # listado + filtros + diálogos
+├── components/notificaciones/
+│   ├── NotificacionesTable.tsx                     # tabla con tipo, evento, destinatario y estado
+│   ├── NotificacionDetalleDialog.tsx               # mensaje, historial y botón «Enviar»
+│   └── NotificacionesRecurso.tsx                   # sección reutilizable por recursoId
+├── services/notificaciones.ts
+├── hooks/useNotificaciones.ts
+├── lib/notificaciones.ts                           # etiquetas/estilos y `abrirMailto`
+└── types/notificacion.ts
+```
+
+**Servicio**
+
+```typescript
+// services/notificaciones.ts (extracto)
+export const notificacionesService = {
+  list: (filtro?: NotificacionesFiltro) =>
+    apiRequest<NotificacionesResponse>(`/api/notificaciones${queryString(filtro)}`),
+  get: (eventoId: string) => apiRequest<NotificacionResponse>(`/api/notificaciones/${eventoId}`),
+  enviar: (eventoId: string) =>
+    apiRequest<EnviarNotificacionResponse>(`/api/notificaciones/${eventoId}/enviar`, {
+      method: 'POST',
+    }),
+  enviarCotizacion: (cotizacionId: string) =>
+    apiRequest<EnviarNotificacionResponse>(`/api/cotizaciones/${cotizacionId}/enviar-correo`, {
+      method: 'POST',
+    }),
+};
+```
+
+`useNotificaciones` acepta `{ tipo?, estado?, recursoId? }`, expone
+`notificaciones/loading/error` y las acciones `recargar` y `enviar` (que refresca la lista
+tras cada intento).
+
+**Puntos de entrada**
+
+- `/notificaciones` (ruta protegida `admin`/`vendedor`, ítem «Correos» con icono `Mail` en
+  `AppLayout`): listado con búsqueda por número/destinatario, filtros de tipo y estado, y
+  el diálogo de detalle con el mensaje completo (`asunto`/`cuerpo`), el historial de
+  intentos y el botón «Enviar» para `pendiente`/`intentado`/`fallido`.
+- `NotificacionesRecurso` (sección compacta con `recursoId`) se inserta en los diálogos de
+  detalle de cotización, reserva, prueba de manejo y venta, para ver y reintentar los
+  correos de esa operación sin salir del detalle.
+- El botón «Enviar por correo» de `CotizacionDetalleDialog` llama a
+  `enviarCotizacion` (HU08 + HU12): descarga el PDF con jsPDF y abre el `mailto:` devuelto
+  por el backend.
+
+**Reglas de negocio (espejo del backend)**
+
+- `lib/notificaciones.ts` define `TIPO_NOTIFICACION`/`ESTADO_NOTIFICACION` con etiquetas y
+  estilos de *badge*, `EVENTO_NOTIFICACION_LABELS` (p. ej. `reserva_alta` → «Reserva
+  registrada») y `abrirMailto(href)` (`window.location.href = href`).
+- Máximo 5 intentos por notificación (el backend responde `409` al 6.º); estados
+  `pendiente`/`intentado`/`fallido`/`omitido` (la operación sin correo se muestra como
+  «Sin correo» y no puede enviarse).
+- El correo nunca incluye VIN, contraseñas ni datos internos; el PDF lo adjunta el usuario
+  en su cliente de correo.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/notificaciones` queda bajo
+  `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Correos» (icono `Mail`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (máximo de intentos alcanzado), `400` (notificación `omitido`, sin correo),
+`404` (`eventoId` inexistente) y `401` (sin token) llegan como `ApiError` y se muestran
+con `toast.error(getErrorMessage(err))`.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end (34/34 aserciones): listado sin token (`401`), dedup de
+  eventos (mismo `eventoId` no se duplica), `mailto:` con asunto/cuerpo, 5 intentos
+  permitidos + 6.º (`409`), notificación `omitido` (`400` al enviar), filtros por
+  tipo/estado, notificación inexistente (`404`) y venta que genera dos notificaciones
+  (cliente + vendedor).
 
 ---
 

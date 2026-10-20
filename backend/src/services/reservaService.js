@@ -2,6 +2,8 @@ const { NotFoundError, ConflictError } = require('../errors/AppError');
 const reservaRepository = require('../repositories/reservaRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
+const notificacionService = require('./notificacionService');
+const { registrarSinFallo } = notificacionService;
 const { VIGENCIA_DIAS_DEFECTO } = require('../validation/reservaSchemas');
 
 /** La reserva solo puede tomar una unidad disponible (HU09). */
@@ -148,7 +150,7 @@ async function createReserva(datos, actor = {}) {
   const vigenciaDias = datos.vigenciaDias ?? VIGENCIA_DIAS_DEFECTO;
   const fechaVencimiento = datos.fechaVencimiento ?? calcularFechaVencimiento(creadaEn, vigenciaDias);
 
-  return reservaRepository.save({
+  const creada = await reservaRepository.save({
     numero,
     clienteId: cliente.clienteId,
     cliente: resumenCliente(cliente),
@@ -165,6 +167,9 @@ async function createReserva(datos, actor = {}) {
     createdAt: creadaEn,
     updatedAt: creadaEn,
   });
+
+  await registrarSinFallo(() => notificacionService.notificarReserva(creada, 'reserva_alta'));
+  return creada;
 }
 
 async function cancelarReserva(reservaId, datos = {}, actor = {}) {
@@ -182,6 +187,7 @@ async function cancelarReserva(reservaId, datos = {}, actor = {}) {
   });
 
   await liberarVehiculo(reserva.vehiculoId);
+  await registrarSinFallo(() => notificacionService.notificarReserva(actualizada, 'reserva_cancelada', { motivo: datos.motivo }));
   return actualizada;
 }
 
@@ -201,7 +207,7 @@ async function convertirReserva(reservaId, datos = {}, actor = {}) {
     throw new ConflictError('El vehículo ya no está reservado; no se pudo registrar la venta.');
   }
 
-  return reservaRepository.update(reservaId, {
+  const actualizada = await reservaRepository.update(reservaId, {
     estado: 'convertida',
     observaciones: datos.observaciones,
     historial: [
@@ -209,6 +215,9 @@ async function convertirReserva(reservaId, datos = {}, actor = {}) {
       { estado: 'convertida', fecha: new Date().toISOString(), usuario: autorNombre(actor) },
     ],
   });
+
+  await registrarSinFallo(() => notificacionService.notificarReserva(actualizada, 'reserva_convertida'));
+  return actualizada;
 }
 
 module.exports = {

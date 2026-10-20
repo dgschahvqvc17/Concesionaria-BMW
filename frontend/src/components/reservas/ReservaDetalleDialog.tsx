@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
 import { getErrorMessage } from '@/lib/api';
 import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import { ESTADO_RESERVA_LABELS, ESTADO_RESERVA_STYLES, puedeGestionarse } from '@/lib/reservas';
@@ -156,6 +157,8 @@ export function ReservaDetalleDialog({
               {historial.length === 0 && <li className="text-sm text-muted-foreground">Sin historial.</li>}
             </ul>
           </div>
+
+          <NotificacionesRecurso recursoId={reserva.reservaId} />
 
           {gestionable && (
             <div className="space-y-4 rounded-xl border border-border/60 p-4">

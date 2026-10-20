@@ -29,6 +29,7 @@ cualquier editor compatible.
 | 12 | Reserva de vehículo y conversión en venta (HU09) | Secuencia |
 | 13 | Registro de venta de vehículo (HU10) | Secuencia |
 | 14 | Prueba de manejo: solicitud y gestión (HU11) | Secuencia |
+| 15 | Notificaciones por correo (HU12) | Secuencia |
 
 ---
 
@@ -53,7 +54,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(9 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(10 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -98,6 +99,7 @@ cloud "AWS us-east-2" {
     database "Reservas" as t7
     database "Ventas" as t8
     database "PruebasManejo" as t9
+    database "Notificaciones" as t10
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -152,6 +154,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Gestionar reservas (HU09)" as UC_reservas
   usecase "Registrar ventas (HU10)" as UC_ventas
   usecase "Solicitar y gestionar pruebas de manejo (HU11)" as UC_pruebas
+  usecase "Consultar y reenviar notificaciones (HU12)" as UC_notificaciones
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -180,6 +183,7 @@ vendedor --> UC_cotizaciones
 vendedor --> UC_reservas
 vendedor --> UC_ventas
 vendedor --> UC_pruebas
+vendedor --> UC_notificaciones
 
 admin --> UC_login
 admin --> UC_vehiculos
@@ -191,6 +195,7 @@ admin --> UC_cotizaciones
 admin --> UC_reservas
 admin --> UC_ventas
 admin --> UC_pruebas
+admin --> UC_notificaciones
 admin --> UC_usuarios
 @enduml
 ```
@@ -204,7 +209,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (9 tablas)
+title Modelo de datos — DynamoDB (10 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -364,6 +369,27 @@ entity "PruebasManejo" as pruebas {
   updatedAt : string
 }
 
+entity "Notificaciones" as notificaciones {
+  * eventoId <<PK>> : string
+  --
+  recursoId <<GSI recurso-index>> : string
+  tipo : string
+  evento : string
+  numero : string
+  destinatario : string
+  destinatarioNombre : string
+  asunto : string
+  cuerpo : string
+  estado : string
+  intentos : number
+  maxIntentos : number
+  ultimoResultado : string
+  ultimoIntentoAt : string
+  historial : list<object>
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
@@ -378,6 +404,10 @@ vehiculos ||..o{ ventas : "se vende"
 reservas ||..o{ ventas : "origina"
 vehiculos ||..o{ pruebas : "se prueba"
 clientes ||..o{ pruebas : "solicita"
+reservas ||..o{ notificaciones : "genera correo"
+cotizaciones ||..o{ notificaciones : "genera correo"
+pruebas ||..o{ notificaciones : "genera correo"
+ventas ||..o{ notificaciones : "genera correo"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -820,6 +850,68 @@ else Transicion valida
   be --> fe : 200 { message, prueba }
   fe --> v : Estado actualizado + toast
 end
+@enduml
+```
+
+---
+
+## Diagrama 15 — Notificaciones por correo (HU12)
+
+```plantuml
+@startuml
+title Secuencia — Notificaciones por correo (HU12)
+skinparam shadowing false
+
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nOperacion\n(Reserva/Cotizacion/...)" as db
+database "DynamoDB\nNotificaciones" as ddb
+
+group Operacion de negocio (ej. crear reserva)
+  v -> fe : Completa el formulario
+  fe -> be : POST /api/reservas (Bearer admin/vendedor)
+  be -> db : PutCommand (operacion)
+  db --> be : OK
+  be -> ddb : PutCommand condicional\n(eventoId = tipo:recurso:evento:destinatario)\nregistrarSinFallo
+  alt Registro duplicado
+    ddb --> be : ConditionalCheckFailed (se ignora)
+  else Registro nuevo
+    ddb --> be : notificacion pendiente
+  end
+  be --> fe : 201 { message, reserva }
+  fe --> v : Operacion confirmada
+end
+
+group Envio del correo (HU12)
+  v -> fe : /notificaciones o detalle de la operacion\n"Enviar"
+  fe -> be : GET /api/notificaciones (filtros opcionales)
+  be -> ddb : Scan/Query (GSI recurso-index)
+  ddb --> be : notificaciones
+  be --> fe : 200 { notificaciones, total }
+
+  fe -> be : POST /api/notificaciones/:eventoId/enviar\n(Bearer admin/vendedor)
+  be -> ddb : GetCommand (notificacion)
+  alt Sin correo / estado omitido
+    be --> fe : 400 (la operacion no tiene correo)
+  else Mas de 5 intentos
+    be --> fe : 409 (maximo de intentos alcanzado)
+  else Envio permitido
+    be -> be : registrar intento (+1, historial[])
+    be -> ddb : UpdateCommand (intentos, estado,\nhistorial, ultimoResultado)
+    ddb --> be : OK
+    be --> fe : 200 { message, mailto, notificacion }
+    fe -> fe : abrirMailto(mailto)\n(cotizaciones: ademas descarga el PDF con jsPDF)
+    fe --> v : Se abre el gestor de correo del usuario
+  end
+end
+
+note right of be
+  Transporte mailto: sin Amazon SES (capa gratuita).
+  registrarSinFallo: un fallo al registrar
+  la notificacion nunca revierte la operacion.
+  Dedup: PK unica + Put condicional.
+end note
 @enduml
 ```
 

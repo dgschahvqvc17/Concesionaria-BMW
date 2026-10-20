@@ -15,6 +15,7 @@ import { useClientesComerciales } from '@/hooks/useClientesComerciales';
 import { useCotizaciones } from '@/hooks/useCotizaciones';
 import { useVehiculos } from '@/hooks/useVehiculos';
 import { getErrorMessage } from '@/lib/api';
+import { notificacionesService } from '@/services/notificaciones';
 import { ESTADOS_COTIZACION, ESTADO_COTIZACION_LABELS } from '@/lib/cotizaciones';
 import type { CreateCotizacionInput, EstadoCotizacion, UpdateCotizacionInput } from '@/types/cotizacion';
 
@@ -82,6 +83,20 @@ export function CotizacionesPage() {
   const abrirDetalle = (cotizacionId: string) => {
     setSeleccionId(cotizacionId);
     setDetalleOpen(true);
+  };
+
+  const handleEnviarCorreo = async () => {
+    if (!seleccionId) return;
+    setDetalleLoading(true);
+    try {
+      const { mailto } = await notificacionesService.enviarCotizacion(seleccionId);
+      window.location.href = mailto;
+    } catch (sendError) {
+      toast.error(getErrorMessage(sendError));
+      throw sendError;
+    } finally {
+      setDetalleLoading(false);
+    }
   };
 
   return (
@@ -167,6 +182,7 @@ export function CotizacionesPage() {
         onOpenChange={setDetalleOpen}
         cotizacion={seleccionada}
         onSubmit={handleActualizar}
+        onEnviarCorreo={handleEnviarCorreo}
         loading={detalleLoading}
       />
     </div>

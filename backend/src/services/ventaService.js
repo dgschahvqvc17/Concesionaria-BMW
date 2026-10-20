@@ -3,6 +3,8 @@ const ventaRepository = require('../repositories/ventaRepository');
 const reservaRepository = require('../repositories/reservaRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
+const notificacionService = require('./notificacionService');
+const { registrarSinFallo } = notificacionService;
 const { DESCUENTO_MAXIMO } = require('../validation/ventaSchemas');
 
 const ESTADO_VEHICULO_DISPONIBLE = 'disponible';
@@ -172,6 +174,16 @@ async function createVenta(datos, actor = {}) {
         { estado: 'convertida', fecha: ahora, usuario: autorNombre(actor), motivo: `Venta ${numero}` },
       ],
     });
+  }
+
+  await registrarSinFallo(() => notificacionService.notificarVenta(venta, 'venta_confirmada'));
+  if (actor?.email) {
+    await registrarSinFallo(() =>
+      notificacionService.notificarVenta(venta, 'venta_confirmada_vendedor', {
+        email: actor.email,
+        nombre: autorNombre(actor),
+      })
+    );
   }
 
   return venta;

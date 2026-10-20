@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -363,6 +363,39 @@ Reglas de negocio (HU11):
 - En solicitudes públicas el `clienteId` se ignora (queda `'anonimo'`); solo el personal
   puede vincular la prueba a un cliente comercial.
 
+### Tabla `Notificaciones` (RepuestosStack, HU12)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `eventoId` (PK) | string | clave única `tipo:recursoId:evento:destinatario`; el `Put` condicional (`attribute_not_exists`) garantiza un registro por evento + destinatario |
+| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` |
+| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, etc. |
+| `recursoId` | string | índice secundario `recurso-index` (+ `createdAt`) |
+| `numero` | string | número del documento (RES/COT/PRB/VTA) |
+| `destinatario` | string \| null | correo del cliente/contacto; `null` si la operación no tenía correo |
+| `destinatarioNombre` | string \| null | nombre para el saludo |
+| `asunto` / `cuerpo` | string | mensaje redactado por `plantillasCorreo` (texto plano) |
+| `estado` | string | `pendiente` \| `intentado` \| `fallido` \| `omitido` |
+| `intentos` / `maxIntentos` | number | reintentos controlados (máx. 5) |
+| `ultimoResultado` / `ultimoIntentoAt` | string | último intento registrado |
+| `historial` | object[] | `{ fecha, resultado, detalle? }` |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU12):
+- **Transporte `mailto:`**: los servicios de negocio (reserva, cotización, prueba,
+  venta) registran la notificación con el mensaje ya redactado; el endpoint de envío
+  devuelve el enlace `mailto:` y el frontend abre el cliente de correo del usuario.
+  No se usa Amazon SES ni ningún servicio de pago (regla de capa gratuita).
+- **Anti-duplicados**: cada evento + destinatario genera un solo registro (PK única +
+  `Put` condicional); los reenvíos reutilizan el registro y solo incrementan
+  `intentos` (máximo 5; luego `409 Conflict`).
+- **Sin romper la operación de negocio**: el registro de notificaciones se ejecuta
+  con `registrarSinFallo` (un fallo al guardar la notificación no revierte la
+  reserva/venta/etc.).
+- Si la operación no tenía correo de contacto válido, la notificación se crea en
+  estado `omitido` y `enviar` responde `400`.
+- Los correos nunca incluyen contraseñas ni datos internos (VIN, `createdBy`, etc.).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -398,6 +431,7 @@ Reglas de negocio (HU11):
 | POST | `/api/cotizaciones` | admin/vendedor | Generar cotización (número único, 201) |
 | GET | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Obtener cotización |
 | PATCH | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Actualizar descuento, observaciones o estado |
+| POST | `/api/cotizaciones/:cotizacionId/enviar-correo` | admin/vendedor | Envío solicitado por el vendedor: registra el intento y devuelve `mailto:` |
 | GET | `/api/reservas` | admin/vendedor | Listar reservas (`?clienteId=&vehiculoId=&estado=`) |
 | POST | `/api/reservas` | admin/vendedor | Registrar reserva (número único, 201) |
 | GET | `/api/reservas/:reservaId` | admin/vendedor | Obtener reserva |
@@ -413,6 +447,9 @@ Reglas de negocio (HU11):
 | POST | `/api/pruebas-man/:pruebaId/reprogramar` | admin/vendedor | Cambiar fecha/hora (revalida conflicto) |
 | POST | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | Cancelar una prueba (motivo opcional) |
 | POST | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | Marcar como realizada |
+| GET | `/api/notificaciones` | admin/vendedor | Listar notificaciones (`?tipo=&estado=&recursoId=`) |
+| GET | `/api/notificaciones/:eventoId` | admin/vendedor | Obtener una notificación con su historial |
+| POST | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | Registrar el intento de envío y devolver el enlace `mailto:` |
 
 ## Variables de entorno
 
@@ -433,6 +470,7 @@ Ver `backend/.env.example`:
 | `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
 | `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
 | `PRUEBAS_MANEJO_TABLE_NAME` | Tabla DynamoDB de pruebas de manejo (HU11) |
+| `NOTIFICACIONES_TABLE_NAME` | Tabla DynamoDB de notificaciones (HU12) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

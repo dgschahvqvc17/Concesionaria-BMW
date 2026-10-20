@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
 import { getErrorMessage } from '@/lib/api';
 import {
   DURACION_DEFECTO,
@@ -214,6 +215,8 @@ export function PruebaManejoDetalleDialog({
               {historial.length === 0 && <li className="text-sm text-muted-foreground">Sin historial.</li>}
             </ul>
           </div>
+
+          <NotificacionesRecurso recursoId={prueba.pruebaId} />
 
           {(puedeConfirmarse(prueba) || puedeRealizarse(prueba)) && (
             <div className="space-y-3 rounded-xl border border-border/60 p-4">

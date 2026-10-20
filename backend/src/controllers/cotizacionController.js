@@ -36,4 +36,15 @@ const update = asyncHandler(async (req, res) => {
   res.json({ message: 'Cotización actualizada correctamente.', cotizacion });
 });
 
-module.exports = { list, getOne, create, update };
+/** POST /api/cotizaciones/:cotizacionId/enviar-correo */
+const enviarCorreo = asyncHandler(async (req, res) => {
+  const { cotizacionId } = req.params;
+  const resultado = await cotizacionService.enviarCorreo(cotizacionId, req.auth);
+  res.json({
+    message: 'Se abrió el correo con la cotización redactada. Adjunta el PDF antes de enviarlo.',
+    notificacion: resultado.notificacion,
+    mailto: resultado.mailto,
+  });
+});
+
+module.exports = { list, getOne, create, update, enviarCorreo };

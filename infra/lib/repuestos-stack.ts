@@ -23,6 +23,10 @@ import { Construct } from 'constructs';
  * HU11 - Pruebas de manejo: tabla `PruebasManejo` (índice por vehículo + fecha
  * para detectar conflictos de horario, por cliente para el historial y por
  * número de solicitud).
+ *
+ * HU12 - Notificaciones: tabla `Notificaciones` (PK = eventoId, clave única por
+ * evento + destinatario para evitar envíos duplicados; índice por recurso para
+ * consultar el historial de correos de una operación).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -32,6 +36,7 @@ export class RepuestosStack extends cdk.Stack {
   public readonly reservasTable: dynamodb.Table;
   public readonly ventasTable: dynamodb.Table;
   public readonly pruebasManejoTable: dynamodb.Table;
+  public readonly notificacionesTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -189,6 +194,22 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU12: Notificaciones. PK = eventoId (clave única por evento + destinatario;
+    // el Put condicional impide el envío duplicado de un mismo evento). GSI por
+    // recurso + createdAt para ver el historial de correos de una operación.
+    this.notificacionesTable = new dynamodb.Table(this, 'NotificacionesTable', {
+      partitionKey: { name: 'eventoId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.notificacionesTable.addGlobalSecondaryIndex({
+      indexName: 'recurso-index',
+      partitionKey: { name: 'recursoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -219,6 +240,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'PruebasManejoTableName', {
       value: this.pruebasManejoTable.tableName,
       description: 'Nombre de la tabla DynamoDB de pruebas de manejo (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'NotificacionesTableName', {
+      value: this.notificacionesTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de notificaciones (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,
