@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js
     └── utils/asyncHandler.js
 ```
 
@@ -288,6 +288,41 @@ Reglas de negocio (HU09):
 - Cancelar solo procede sobre reservas `activa` (libera la unidad); convertir en venta deja
   la reserva `convertida` y el vehículo `vendido` (update condicional sobre `reservado`).
 
+### Tabla `Ventas` (RepuestosStack, HU10)
+
+| Atributo | Tipo | Notas |
+| --- | --- | --- |
+| `ventaId` (PK) | string | UUID (o `secuencia#<año>` para el contador interno) |
+| `numero` | string | `VTA-AAAA-######`; índice secundario `numero-index`; único |
+| `clienteId` | string | índice secundario `cliente-index` (+ `createdAt`) |
+| `cliente` | object | snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `vehiculoId` | string | índice secundario `vehiculo-index` (+ `createdAt`); control de doble venta |
+| `vehiculo` | object | snapshot: `{ vehiculoId, marca, modelo, version, anio, vin, precio }` |
+| `reservaId` / `numeroReserva` | string | opcionales: reserva vigente que originó la venta |
+| `precioLista` | number | precio vigente del vehículo al vender |
+| `descuentoPorcentaje` | number | descuento autorizado (0–20) |
+| `descuentoMonto` | number | descuento calculado |
+| `precioFinal` | number | `precioLista - descuentoMonto` |
+| `observaciones` | string | opcional (≤ 1000 caracteres) |
+| `fechaVenta` | string | ISO-8601 (por defecto la fecha de registro) |
+| `createdBy`/`createdByName` | string | autor de la operación (`sub`/nombre del token) |
+| `createdAt`/`updatedAt` | string | ISO-8601 |
+
+Reglas de negocio (HU10):
+- Solo se vende un vehículo en estado `disponible` o `reservado` con una **reserva vigente**;
+  si está `vendido`, `no_disponible` o reservado sin reserva válida, responde `409 Conflict`.
+- Antes de confirmar se **verifica de nuevo la disponibilidad** y se aparta la unidad con un
+  **update condicional atómico** (`cambiarEstadoCondicional`: `estado → vendido`). Si otro
+  proceso la vendió antes, la operación falla con `409` (imposible vender la misma unidad dos veces).
+- El **número** se reserva de forma atómica (`UpdateItem` con `ADD` sobre `secuencia#<año>`).
+- El descuento máximo autorizado es `20%`; `precioFinal = precioLista - descuentoMonto`
+  (se validan en Zod y en el servicio).
+- Si la unidad estaba reservada, la venta queda **vinculada** (`reservaId`/`numeroReserva`) y la
+  reserva pasa a `convertida` con el número de venta.
+- La `fechaVenta` no puede ser futura; el vehículo pasa a `vendido` al confirmar.
+- Los datos se validan con Zod antes de crear la operación (principio de validar antes de confirmar).
+- El comprobante se genera en el **frontend con jsPDF** (sin servicios de pago).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -328,6 +363,9 @@ Reglas de negocio (HU09):
 | GET | `/api/reservas/:reservaId` | admin/vendedor | Obtener reserva |
 | POST | `/api/reservas/:reservaId/cancelar` | admin/vendedor | Cancelar reserva y liberar vehículo |
 | POST | `/api/reservas/:reservaId/convertir` | admin/vendedor | Convertir en venta (vehículo `vendido`) |
+| GET | `/api/ventas` | admin/vendedor | Historial de ventas (`?clienteId=&vehiculoId=`) |
+| POST | `/api/ventas` | admin/vendedor | Registrar venta (número único, vehículo `vendido`, 201) |
+| GET | `/api/ventas/:ventaId` | admin/vendedor | Obtener el detalle de una venta |
 
 ## Variables de entorno
 
@@ -346,6 +384,7 @@ Ver `backend/.env.example`:
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
 | `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
+| `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (Vite: `http://localhost:5173`) |
 

@@ -29,15 +29,16 @@ frontend/src/
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
+│   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, utils
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, ventas, ventaPdf, utils
 ├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta
 ```
 
 ### Flujo de datos
@@ -186,6 +187,23 @@ degradado BMW).
 - `lib/reservas.ts`: estados (`activa`/`cancelada`/`vencida`/`convertida`), etiquetas/estilos,
   `puedeGestionarse` y la vigencia por defecto/máxima (espejo del backend).
 - La ficha del cliente (`ClienteComercialDetallePage`) incluye además una tarjeta con sus reservas.
+
+## Ventas de vehículos (HU10)
+
+- `pages/ventas/VentasPage` + `components/ventas/` (`VentaFormDialog`, `VentasTable`,
+  `VentaDetalleDialog`).
+- Datos: `services/ventas.ts` + `hooks/useVentas.ts`; se alimenta del inventario
+  (`useVehiculos`) y de los clientes (`useClientesComerciales`). Solo se ofrecen vehículos
+  `disponible` o `reservado` (`esVendible` en `lib/ventas.ts`).
+- `VentaFormDialog`: selecciona cliente, vehículo, descuento autorizado (≤ 20%) y
+  observaciones; muestra un resumen con `precioLista`, `descuentoMonto` y `precioFinal`.
+- `VentaDetalleDialog`: snapshot del cliente/vehículo, importes, autor de la operación y
+  **descarga del comprobante** en PDF.
+- `lib/ventas.ts`: `DESCUENTO_MAXIMO`, `calcularImportes`, `esVendible` y
+  `etiquetaEstadoVehiculo` (espejo del backend).
+- `lib/ventaPdf.ts`: comprobante `Comprobante-<numero>.pdf` con **jsPDF** (sin costo en AWS).
+- La ficha del cliente (`ClienteComercialDetallePage`) incluye además una tarjeta con sus ventas
+  y acceso directo al comprobante.
 
 ## Acceso a la API
 

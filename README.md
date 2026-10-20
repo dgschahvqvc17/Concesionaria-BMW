@@ -34,6 +34,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas, estados y notificación por correo (`mailto:`). | Implementada (backend verificado e2e) |
 | **HU08** | Cotizaciones: generación con precios vigentes, descuentos ≤ 20%, estados, PDF (jsPDF) y envío por correo (`mailto:`). | Implementada (backend verificado e2e) |
 | **HU09** | Reservas de vehículos: apartado con vigencia, estados e historial, cancelación y conversión en venta. | Implementada (backend verificado e2e) |
+| **HU10** | Ventas de vehículos: registro con cliente/vehículo, descuentos autorizados, número único, historial, detalle y comprobante (jsPDF). | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
@@ -133,6 +134,7 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
 | `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
 | `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
+| `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
 | `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
 
@@ -178,6 +180,8 @@ Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales
 | GET | `/api/reservas/:reservaId` | `admin`, `vendedor` |
 | POST | `/api/reservas/:reservaId/cancelar` | `admin`, `vendedor` |
 | POST | `/api/reservas/:reservaId/convertir` | `admin`, `vendedor` |
+| GET/POST | `/api/ventas` | `admin`, `vendedor` |
+| GET | `/api/ventas/:ventaId` | `admin`, `vendedor` |
 
 Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
 

@@ -12,6 +12,7 @@ const config = {
   clientesComercialesTableName: process.env.CLIENTES_COMERCIALES_TABLE_NAME || 'ClientesComerciales',
   cotizacionesTableName: process.env.COTIZACIONES_TABLE_NAME || 'Cotizaciones',
   reservasTableName: process.env.RESERVAS_TABLE_NAME || 'Reservas',
+  ventasTableName: process.env.VENTAS_TABLE_NAME || 'Ventas',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };
