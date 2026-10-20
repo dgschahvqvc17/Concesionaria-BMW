@@ -11,5 +11,6 @@ router.get('/', requireAuth, puedeGestionar, cotizacionController.list);
 router.post('/', requireAuth, puedeGestionar, cotizacionController.create);
 router.get('/:cotizacionId', requireAuth, puedeGestionar, cotizacionController.getOne);
 router.patch('/:cotizacionId', requireAuth, puedeGestionar, cotizacionController.update);
+router.post('/:cotizacionId/enviar-correo', requireAuth, puedeGestionar, cotizacionController.enviarCorreo);
 
 module.exports = router;

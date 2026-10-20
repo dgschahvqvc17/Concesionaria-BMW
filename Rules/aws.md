@@ -20,7 +20,7 @@ Infraestructura declarada como código con **AWS CDK (TypeScript)** en `infra/`.
 | Servicio | Para qué | Recurso |
 | --- | --- | --- |
 | **Amazon Cognito** | Autenticación (email + contraseña) y roles vía Groups. | User Pool + App Client + 4 grupos |
-| **Amazon DynamoDB** | Persistencia de usuarios, vehículos, repuestos, movimientos, clientes comerciales, cotizaciones, reservas, ventas y pruebas de manejo. | 9 tablas (modo on-demand) |
+| **Amazon DynamoDB** | Persistencia de usuarios, vehículos, repuestos, movimientos, clientes comerciales, cotizaciones, reservas, ventas, pruebas de manejo y notificaciones. | 10 tablas (modo on-demand) |
 | **Amazon S3** | Almacenamiento de fotografías de vehículos. | 1 bucket privado |
 | **AWS CloudFormation** | Despliegue de la infraestructura (lo usa CDK). | 3 stacks |
 | **AWS Lambda** | Helper de CDK para vaciar el bucket al destruir el stack (`autoDeleteObjects`). | 1 función auxiliar |
@@ -29,6 +29,14 @@ Infraestructura declarada como código con **AWS CDK (TypeScript)** en `infra/`.
 | **Amazon CloudWatch** | Métricas/alarmas del presupuesto. | mínimo |
 
 No se usa API Gateway, EC2, RDS, S3 público ni ninguna base relacional.
+
+**HU12 (notificaciones por correo)**: la HU originalmente planteaba **Amazon SES**,
+que cobra por mensaje (~$0.10/1.000) y no está cubierto por la capa gratuita. Por la
+regla principal de este repositorio se implementó con transporte **`mailto:`** (el
+correo se redacta en el backend y se abre con el cliente de correo del usuario, sin
+costo); el registro de cada intento vive en la tabla `Notificaciones`. Si en el
+futuro se necesitara envío automático, habría que confirmar explícitamente el costo
+de SES antes de agregarlo.
 
 ## Regla de la capa gratuita — detalle por servicio
 
@@ -55,7 +63,7 @@ infra/
 ├── lib/
 │   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
 │   ├── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
-│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales + Cotizaciones + Reservas + Ventas + PruebasManejo)
+│   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales + Cotizaciones + Reservas + Ventas + PruebasManejo + Notificaciones)
 └── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
 ```
 
@@ -77,7 +85,7 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
@@ -100,9 +108,14 @@ infra/
   `cliente-index` (`clienteId` + `createdAt`, historial por cliente) y
   `numero-index` (número único `PRB-AAAA-######`). Guarda una partición auxiliar
   `secuencia#<año>` para la numeración atómica.
+- **Tabla `Notificaciones`** (HU12, DynamoDB): PK `eventoId` (clave única
+  `tipo:recurso:evento:destinatario`; el `Put` condicional con
+  `attribute_not_exists` impide el envío duplicado de un mismo evento) y GSI
+  `recurso-index` (`recursoId` + `createdAt`, historial de correos de una
+  operación).
 - Salidas: `RepuestosTableName`, `MovimientosTableName`,
   `ClientesComercialesTableName`, `CotizacionesTableName`, `ReservasTableName`,
-  `VentasTableName`, `PruebasManejoTableName`, `Region`.
+  `VentasTableName`, `PruebasManejoTableName`, `NotificacionesTableName`, `Region`.
 
 Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
 de `backend` y `frontend`.

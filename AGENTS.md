@@ -50,8 +50,8 @@ cd infra; npx tsc --noEmit
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
-  HU10 ventas de vehículos y HU11 pruebas de manejo
-  (HU01–HU06 verificadas end-to-end; HU07–HU11 con backend verificado e2e y
+  HU10 ventas de vehículos, HU11 pruebas de manejo y HU12 notificaciones por correo
+  (HU01–HU06 verificadas end-to-end; HU07–HU12 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -92,6 +92,16 @@ cd infra; npx tsc --noEmit
   en solicitudes públicas el `clienteId` se ignora (`'anonimo'`). Frontend: página
   `/pruebas-man` (admin/vendedor), diálogo reutilizable desde el detalle del vehículo
   (público) y la ficha del cliente.
+- Notificaciones por correo (HU12): tabla `Notificaciones` (PK `eventoId` =
+  `tipo:recursoId:evento:destinatario` con `Put` condicional anti-duplicados; GSI
+  `recurso-index`); rutas `/api/notificaciones` (solo `admin`/`vendedor`) con `GET /`,
+  `GET /:eventoId` y `POST /:eventoId/enviar`. Los servicios de negocio (reserva, cotización,
+  prueba, venta) registran la notificación con `registrarSinFallo` (un fallo al notificar
+  no revierte la operación). Transporte **`mailto:`** (decisión: sin Amazon SES por la capa
+  gratuita, igual que HU08); máximo 5 intentos por registro (6.º → 409); estados
+  `pendiente`/`intentado`/`fallido`/`omitido`. Frontend: página `/notificaciones`
+  (admin/vendedor), `NotificacionesRecurso` en los detalles de cotización/reserva/prueba/venta
+  y envío de cotización con descarga de PDF + `mailto:`.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

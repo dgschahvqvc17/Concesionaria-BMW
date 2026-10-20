@@ -70,7 +70,8 @@ backend/
     │   ├── cotizacionRoutes.js
     │   ├── reservaRoutes.js
     │   ├── ventaRoutes.js
-    │   └── pruebaManejoRoutes.js     (HU11: POST público con token opcional)
+    │   ├── pruebaManejoRoutes.js     (HU11: POST público con token opcional)
+    │   └── notificacionRoutes.js     (HU12)
     ├── controllers/          # Reciben HTTP, validan y delegan en services
     │   ├── usuarioController.js
     │   ├── clienteController.js
@@ -82,7 +83,8 @@ backend/
     │   ├── cotizacionController.js
     │   ├── reservaController.js
     │   ├── ventaController.js
-    │   └── pruebaManejoController.js
+    │   ├── pruebaManejoController.js
+    │   └── notificacionController.js
     ├── services/             # REGLAS DE NEGOCIO (aquí vive la lógica)
     │   ├── usuarioService.js
     │   ├── cognitoService.js
@@ -95,7 +97,9 @@ backend/
     │   ├── cotizacionService.js
     │   ├── reservaService.js
     │   ├── ventaService.js
-    │   └── pruebaManejoService.js    # agenda, conflictos de horario y estados
+    │   ├── pruebaManejoService.js    # agenda, conflictos de horario y estados
+    │   ├── notificacionService.js     # HU12: registro, dedup e intentos de correo
+    │   └── plantillasCorreo.js        # HU12: textos de los correos (texto plano)
     ├── repositories/         # ÚNICO lugar que habla con DynamoDB
     │   ├── usuarioRepository.js
     │   ├── vehiculoRepository.js
@@ -105,7 +109,8 @@ backend/
     │   ├── cotizacionRepository.js
     │   ├── reservaRepository.js
     │   ├── ventaRepository.js
-    │   └── pruebaManejoRepository.js
+    │   ├── pruebaManejoRepository.js
+    │   └── notificacionRepository.js
     ├── validation/           # Esquemas Zod + helper `validate`
     │   ├── usuarioSchemas.js
     │   ├── clienteSchemas.js
@@ -116,7 +121,8 @@ backend/
     │   ├── cotizacionSchemas.js
     │   ├── reservaSchemas.js
     │   ├── ventaSchemas.js
-    │   └── pruebaManejoSchemas.js    # horario 08:00–18:00 en pasos de 15 min
+    │   ├── pruebaManejoSchemas.js    # horario 08:00–18:00 en pasos de 15 min
+    │   └── notificacionSchemas.js    # HU12: tipos, estados y MAX_INTENTOS
     ├── errors/               # Jerarquía de errores y manejador central
     │   ├── AppError.js
     │   └── errorHandler.js
@@ -324,6 +330,7 @@ Variables relacionadas con la base de datos y archivos:
 | `RESERVAS_TABLE_NAME` | Tabla de reservas (HU09). |
 | `VENTAS_TABLE_NAME` | Tabla de ventas (HU10). |
 | `PRUEBAS_MANEJO_TABLE_NAME` | Tabla de pruebas de manejo (HU11). |
+| `NOTIFICACIONES_TABLE_NAME` | Tabla de notificaciones por correo (HU12). |
 | `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías y documentos. |
 
 ### Modo de capacidad y región
@@ -343,9 +350,9 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí nueve tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
-`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas`, `Ventas` y
-`PruebasManejo`. Cada una tiene
+Con DynamoDB definí diez tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas`, `Ventas`,
+`PruebasManejo` y `Notificaciones`. Cada una tiene
 su propia clave primaria y, cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
 `vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
@@ -354,9 +361,11 @@ duplicados, en `Cotizaciones` usé `cliente-index` (historial por cliente) y `nu
 (unicidad del número), en `Reservas` usé `vehiculo-index` (detectar reservas activas de una
 unidad), `cliente-index` (historial por cliente) y `numero-index` (unicidad del número), en
 `Ventas` usé `vehiculo-index` (control de doble venta), `cliente-index` (historial por cliente)
-y `numero-index` (unicidad del número), y en `PruebasManejo` usé `vehiculo-index`
+y `numero-index` (unicidad del número), en `PruebasManejo` usé `vehiculo-index`
 (consulta la agenda por vehículo para detectar solapes), `cliente-index` (historial por
-cliente) y `numero-index` (unicidad del número).
+cliente) y `numero-index` (unicidad del número), y en `Notificaciones` (HU12) usé
+`recurso-index` (historial de correos de una operación), con la clave primaria compuesta
+por evento + destinatario como anti-duplicados.
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -566,6 +575,36 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > prueba no modifica el vehículo; solo exige que esté `disponible` o `reservado` y
 > publicado.
 
+### Tabla `Notificaciones` (HU12)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `eventoId` (PK) | string | Clave única `tipo:recursoId:evento:destinatario`; el `Put` condicional (`attribute_not_exists`) garantiza un solo registro por evento + destinatario |
+| `tipo` | string | `reserva` \| `cotizacion` \| `prueba_manejo` \| `venta` |
+| `evento` | string | `reserva_alta`, `cotizacion_envio`, `prueba_confirmada`, `venta_confirmada`, … |
+| `recursoId` | string | GSI `recurso-index` (+ `createdAt`); historial de correos de una operación |
+| `numero` | string | Número del documento (RES/COT/PRB/VTA) |
+| `destinatario` | string \| null | Correo del cliente/contacto; `null` si la operación no tenía correo |
+| `destinatarioNombre` | string \| null | Nombre para el saludo |
+| `asunto` / `cuerpo` | string | Mensaje redactado por `plantillasCorreo` (texto plano, sin VIN ni contraseñas) |
+| `estado` | string | `pendiente` \| `intentado` \| `fallido` \| `omitido` |
+| `intentos` / `maxIntentos` | number | Reintentos controlados (máximo 5; el 6.º responde `409`) |
+| `ultimoResultado` / `ultimoIntentoAt` | string | Último intento registrado |
+| `historial` | list&lt;objeto&gt; | `{ fecha, resultado, detalle? }` |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Transporte `mailto:` (decisión de diseño).** La HU12 original planteaba Amazon SES,
+> pero SES cobra por mensaje y el proyecto está limitado a la **capa gratuita** (ver
+> [`../Rules/aws.md`](../Rules/aws.md)). Por eso los servicios de negocio (reserva,
+> cotización, prueba y venta) registran la notificación con el mensaje ya redactado y el
+> endpoint de envío devuelve el enlace `mailto:`, que el frontend abre en el cliente de
+> correo del usuario. **Anti-duplicados:** la PK única + `Put` condicional impiden que el
+> mismo evento al mismo destinatario se registre dos veces; los reenvíos reutilizan el
+> registro y solo incrementan `intentos` (máximo 5). **Sin romper el negocio:** el
+> registro se hace con `registrarSinFallo`, de modo que un fallo al guardar la
+> notificación nunca revierte la operación comercial. Si la operación no tenía correo
+> válido, la notificación se crea en estado `omitido` y `enviar` responde `400`.
+
 ### Relación entre tablas (sin claves foráneas)
 
 DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convención:
@@ -584,6 +623,9 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
 - `PruebasManejo.vehiculoId` → `Vehiculos.vehiculoId` (con snapshot) y
   `PruebasManejo.clienteId` → `ClientesComerciales.clienteId`; en las solicitudes anónimas
   el `clienteId` queda como `'anonimo'` y `cliente` como `null`.
+- `Notificaciones.recursoId` → identificador de la operación que originó el correo
+  (`reservaId`, `cotizacionId`, `pruebaId` o `ventaId`); no guarda snapshot porque el
+  mensaje se redacta al momento del evento.
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
 `movimientoService` verifica que el repuesto exista antes de registrar el movimiento),
@@ -893,11 +935,33 @@ this.pruebasManejoTable.addGlobalSecondaryIndex({
 > `fechaHora` como clave de ordenación para que la agenda de un vehículo quede ordenada
 > cronológicamente y el servicio pueda filtrar las ventanas solapadas con un `Query`.
 
+En la HU12 agregué la tabla `Notificaciones`, con la clave primaria compuesta por evento
+(anti-duplicados) y un índice por recurso (historial de correos de una operación):
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU12: nueva tabla + índice)
+this.notificacionesTable = new dynamodb.Table(this, 'NotificacionesTable', {
+  partitionKey: { name: 'eventoId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.notificacionesTable.addGlobalSecondaryIndex({
+  indexName: 'recurso-index',
+  partitionKey: { name: 'recursoId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+```
+
+> La PK `eventoId` es una cadena única `tipo:recursoId:evento:destinatario`; el `Put`
+> condicional (`attribute_not_exists`) con esa clave es lo que evita el envío duplicado
+> de un mismo evento, sin necesidad de transacciones.
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10, `PruebasManejoTable` HU11) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10, `PruebasManejoTable` HU11, `NotificacionesTable` HU12) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
 | `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
@@ -1302,7 +1366,7 @@ verbos HTTP según la acción y respuestas JSON. El prefijo general es `/api`.
 
 ### Referencia completa de endpoints
 
-Tabla consolidada con **todos** los endpoints de la API (46 en total). La columna
+Tabla consolidada con **todos** los endpoints de la API (50 en total). La columna
 *Autenticación* indica lo que exige cada ruta y *Cuerpo / Query* los datos que recibe.
 
 | Método | Ruta | Autenticación | Cuerpo / Query | Descripción |
@@ -1338,6 +1402,7 @@ Tabla consolidada con **todos** los endpoints de la API (46 en total). La column
 | `POST` | `/api/cotizaciones` | admin/vendedor | `{ clienteId, vehiculoIds[], descuentoPorcentaje?, observaciones?, vigenciaDias? }` | Generar cotización (número único, `201`) |
 | `GET` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | — | Obtener una cotización |
 | `PATCH` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | `{ descuentoPorcentaje?, observaciones?, estado? }` | Actualizar cotización |
+| `POST` | `/api/cotizaciones/:cotizacionId/enviar-correo` | admin/vendedor | — | Envío solicitado por el vendedor: registra el intento (HU12) y devuelve `mailto:` |
 | `GET` | `/api/reservas` | admin/vendedor | query `?clienteId=&vehiculoId=&estado=` | Listar reservas |
 | `POST` | `/api/reservas` | admin/vendedor | `{ clienteId, vehiculoId, condiciones?, monto?, vigenciaDias? }` | Registrar reserva (aparta vehículo, `201`) |
 | `GET` | `/api/reservas/:reservaId` | admin/vendedor | — | Obtener una reserva |
@@ -1353,6 +1418,9 @@ Tabla consolidada con **todos** los endpoints de la API (46 en total). La column
 | `POST` | `/api/pruebas-man/:pruebaId/reprogramar` | admin/vendedor | `{ fechaHora, duracionMinutos?, observaciones? }` | Cambia horario conservando el estado |
 | `POST` | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | `{ motivo? }` | `pendiente`/`confirmada` → `cancelada` |
 | `POST` | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | `{ observaciones? }` | `confirmada` → `realizada` |
+| `GET` | `/api/notificaciones` | admin/vendedor | query `?tipo=&estado=&recursoId=` | Listar notificaciones (HU12) |
+| `GET` | `/api/notificaciones/:eventoId` | admin/vendedor | — | Obtener una notificación con su historial |
+| `POST` | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | — | Registrar el intento (máx. 5) y devolver el enlace `mailto:` |
 
 > **Autorización en dos niveles.** Todas las rutas protegidas pasan primero por
 > `requireAuth` (token JWT obligatorio) y, cuando aplica, por `requireRole(...)`. En el
@@ -1422,6 +1490,7 @@ Tabla consolidada con **todos** los endpoints de la API (46 en total). La column
 | `POST` | `/api/cotizaciones` | admin/vendedor | Generar cotización (número único, `201`) |
 | `GET` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Obtener una cotización |
 | `PATCH` | `/api/cotizaciones/:cotizacionId` | admin/vendedor | Actualizar descuento, observaciones o estado |
+| `POST` | `/api/cotizaciones/:cotizacionId/enviar-correo` | admin/vendedor | Envío solicitado por el vendedor (HU12): registra intento y devuelve `mailto:` |
 
 **Reservas (HU09)**
 
@@ -1453,6 +1522,21 @@ Tabla consolidada con **todos** los endpoints de la API (46 en total). La column
 | `POST` | `/api/pruebas-man/:pruebaId/cancelar` | admin/vendedor | Cancelar (libera el horario) |
 | `POST` | `/api/pruebas-man/:pruebaId/realizar` | admin/vendedor | Marcar realizada (`confirmada` → `realizada`) |
 
+**Notificaciones por correo (HU12)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `GET` | `/api/notificaciones` | admin/vendedor | Listar notificaciones (`?tipo=&estado=&recursoId=`) |
+| `GET` | `/api/notificaciones/:eventoId` | admin/vendedor | Obtener una notificación + historial de intentos |
+| `POST` | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | Registrar el intento (máx. 5, anti-duplicados) y devolver `mailto:` |
+
+> **Transporte `mailto:` (HU12).** La HU12 original planteaba Amazon SES, que cobra por
+> mensaje; como el proyecto se limita a la **capa gratuita**, el envío se resuelve con un
+> enlace `mailto:` que el frontend abre en el cliente de correo del usuario. El backend
+> redacta el mensaje (`plantillasCorreo`), registra el intento en la tabla
+> `Notificaciones` (máximo 5; el 6.º responde `409`) y el frontend descarga el PDF (en el
+> caso de cotizaciones) y abre el correo para que el usuario lo adjunte.
+
 > **Token opcional (`optionalAuth`).** Solo el `POST /api/pruebas-man` usa este middleware:
 > si la petición trae `Authorization`, se verifica el JWT y el `clienteId` enviado por el
 > staff se vincula a la solicitud; si no trae token (visitante desde el catálogo), la prueba
@@ -1462,15 +1546,16 @@ Tabla consolidada con **todos** los endpoints de la API (46 en total). La column
 ### Parámetros (path, query y cuerpos)
 
 - **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId`, `:cotizacionId`,
-  `:reservaId`, `:ventaId` y `:pruebaId` identifican el
-  recurso a
+  `:reservaId`, `:ventaId`, `:pruebaId` y `:eventoId` identifican el
+ recurso a
   consultar o modificar.
 - **Query strings:** `GET /api/movimientos` acepta filtros opcionales
   (`?repuestoId=<uuid>` y `?tipo=entrada|salida`) y `GET /api/cotizaciones` acepta
   `?clienteId=<uuid>` y `?estado=<pendiente|aceptada|rechazada|vencida>`; `GET /api/reservas`
   acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`,
-  `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`, y `GET /api/pruebas-man` acepta
-  `?clienteId=`, `?vehiculoId=` y `?estado=<pendiente|confirmada|realizada|cancelada>`. Los
+  `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`, `GET /api/pruebas-man` acepta
+  `?clienteId=`, `?vehiculoId=` y `?estado=<pendiente|confirmada|realizada|cancelada>`, y
+  `GET /api/notificaciones` acepta `?tipo=`, `?estado=` y `?recursoId=`. Los
   demás listados
   no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
@@ -1684,6 +1769,7 @@ COTIZACIONES_TABLE_NAME=Cotizaciones
 RESERVAS_TABLE_NAME=Reservas
 VENTAS_TABLE_NAME=Ventas
 PRUEBAS_MANEJO_TABLE_NAME=PruebasManejo
+NOTIFICACIONES_TABLE_NAME=Notificaciones
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1742,6 +1828,9 @@ el recurso.
 | Listar / ver pruebas de manejo | `GET /api/pruebas-man` · `/api/pruebas-man/{id}` (`?clienteId=&vehiculoId=&estado=`) | admin/vendedor |
 | Confirmar / reprogramar prueba | `POST /api/pruebas-man/{id}/confirmar` · `/reprogramar` | admin/vendedor |
 | Cancelar / realizar prueba | `POST /api/pruebas-man/{id}/cancelar` · `/realizar` | admin/vendedor |
+| Solicitar envío de correo de cotización | `POST /api/cotizaciones/{id}/enviar-correo` | admin/vendedor |
+| Listar / ver notificaciones | `GET /api/notificaciones` · `/api/notificaciones/{eventoId}` (`?tipo=&estado=&recursoId=`) | admin/vendedor |
+| Reintentar envío de notificación | `POST /api/notificaciones/{eventoId}/enviar` | admin/vendedor |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1837,6 +1926,19 @@ curl -X POST http://localhost:3000/api/pruebas-man/<uuid>/confirmar \
 curl -X POST http://localhost:3000/api/pruebas-man/<uuid>/realizar \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"observaciones":"Cliente conforme con el equipo."}'
+
+# 19) Solicitar el envío del correo de una cotización (HU12) — registra el intento
+#     y devuelve { mailto } con el enlace mailto: para abrir el gestor de correo
+curl -X POST http://localhost:3000/api/cotizaciones/<uuid>/enviar-correo \
+  -H "Authorization: Bearer $TOKEN"
+
+# 20) Listar notificaciones (HU12), con filtros opcionales
+curl "http://localhost:3000/api/notificaciones?tipo=cotizacion&estado=pendiente" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 21) Reintentar el envío de una notificación (máximo 5 intentos; el 6.º responde 409)
+curl -X POST http://localhost:3000/api/notificaciones/<eventoId>/enviar \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1860,6 +1962,7 @@ curl -X POST http://localhost:3000/api/pruebas-man/<uuid>/realizar \
 | HU09 | Reservas de vehículos | Implementada (backend verificado end-to-end) |
 | HU10 | Ventas de vehículos | Implementada (backend verificado end-to-end) |
 | HU11 | Pruebas de manejo | Implementada (backend verificado end-to-end: 46/46 aserciones) |
+| HU12 | Notificaciones por correo | Implementada (backend verificado end-to-end: 34/34 aserciones; transporte `mailto:`, sin SES) |
 
 ---
 

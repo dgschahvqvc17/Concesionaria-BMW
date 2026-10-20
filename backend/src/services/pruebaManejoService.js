@@ -2,6 +2,8 @@ const { NotFoundError, ConflictError } = require('../errors/AppError');
 const pruebaManejoRepository = require('../repositories/pruebaManejoRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
+const notificacionService = require('./notificacionService');
+const { registrarSinFallo } = notificacionService;
 const { DURACION_DEFECTO } = require('../validation/pruebaManejoSchemas');
 
 /** Estados del vehículo que permiten agendar una prueba de manejo (HU11). */
@@ -103,7 +105,7 @@ async function createPrueba(datos, actor, roles = []) {
   const secuencia = await pruebaManejoRepository.siguienteSecuencia(anio);
   const numero = `PRB-${anio}-${String(secuencia).padStart(6, '0')}`;
 
-  return pruebaManejoRepository.save({
+  const creada = await pruebaManejoRepository.save({
     numero,
     vehiculoId: vehiculo.vehiculoId,
     vehiculo: resumenVehiculo(vehiculo),
@@ -121,6 +123,9 @@ async function createPrueba(datos, actor, roles = []) {
     createdAt: creadaEn,
     updatedAt: creadaEn,
   });
+
+  await registrarSinFallo(() => notificacionService.notificarPrueba(creada, 'prueba_solicitada'));
+  return creada;
 }
 
 async function listPruebas({ clienteId, vehiculoId, estado } = {}) {
@@ -155,11 +160,14 @@ async function confirmarPrueba(pruebaId, datos = {}, actor = {}) {
   const prueba = await getPrueba(pruebaId);
   assertEstado(prueba, ['pendiente'], 'confirmar');
 
-  return pruebaManejoRepository.update(pruebaId, {
+  const actualizada = await pruebaManejoRepository.update(pruebaId, {
     estado: 'confirmada',
     observaciones: datos.observaciones ?? prueba.observaciones,
     historial: [...(prueba.historial ?? []), entradaHistorial('confirmada', actor)],
   });
+
+  await registrarSinFallo(() => notificacionService.notificarPrueba(actualizada, 'prueba_confirmada'));
+  return actualizada;
 }
 
 async function reprogramarPrueba(pruebaId, datos, actor = {}) {
@@ -169,7 +177,7 @@ async function reprogramarPrueba(pruebaId, datos, actor = {}) {
   const duracion = datos.duracionMinutos ?? prueba.duracionMinutos;
   await assertSinConflicto(prueba.vehiculoId, datos.fechaHora, duracion, pruebaId);
 
-  return pruebaManejoRepository.update(pruebaId, {
+  const actualizada = await pruebaManejoRepository.update(pruebaId, {
     fechaHora: datos.fechaHora,
     duracionMinutos: duracion,
     observaciones: datos.observaciones ?? prueba.observaciones,
@@ -178,26 +186,32 @@ async function reprogramarPrueba(pruebaId, datos, actor = {}) {
       entradaHistorial(prueba.estado, actor, { motivo: `Reprogramada a ${formatoFecha(datos.fechaHora)}` }),
     ],
   });
+
+  await registrarSinFallo(() => notificacionService.notificarPrueba(actualizada, 'prueba_reprogramada'));
+  return actualizada;
 }
 
 async function cancelarPrueba(pruebaId, datos = {}, actor = {}) {
   const prueba = await getPrueba(pruebaId);
   assertEstado(prueba, ESTADOS_PRUEBA_OCUPADOS, 'cancelar');
 
-  return pruebaManejoRepository.update(pruebaId, {
+  const actualizada = await pruebaManejoRepository.update(pruebaId, {
     estado: 'cancelada',
     historial: [
       ...(prueba.historial ?? []),
       entradaHistorial('cancelada', actor, datos.motivo ? { motivo: datos.motivo } : {}),
     ],
   });
+
+  await registrarSinFallo(() => notificacionService.notificarPrueba(actualizada, 'prueba_cancelada'));
+  return actualizada;
 }
 
 async function realizarPrueba(pruebaId, datos = {}, actor = {}) {
   const prueba = await getPrueba(pruebaId);
   assertEstado(prueba, ['confirmada'], 'realizar');
 
-  return pruebaManejoRepository.update(pruebaId, {
+  const actualizada = await pruebaManejoRepository.update(pruebaId, {
     estado: 'realizada',
     observaciones: datos.observaciones ?? prueba.observaciones,
     historial: [
@@ -205,6 +219,9 @@ async function realizarPrueba(pruebaId, datos = {}, actor = {}) {
       entradaHistorial('realizada', actor, datos.observaciones ? { observaciones: datos.observaciones } : {}),
     ],
   });
+
+  await registrarSinFallo(() => notificacionService.notificarPrueba(actualizada, 'prueba_realizada'));
+  return actualizada;
 }
 
 module.exports = {

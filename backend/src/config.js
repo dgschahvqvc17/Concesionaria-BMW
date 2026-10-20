@@ -14,6 +14,7 @@ const config = {
   reservasTableName: process.env.RESERVAS_TABLE_NAME || 'Reservas',
   ventasTableName: process.env.VENTAS_TABLE_NAME || 'Ventas',
   pruebasManejoTableName: process.env.PRUEBAS_MANEJO_TABLE_NAME || 'PruebasManejo',
+  notificacionesTableName: process.env.NOTIFICACIONES_TABLE_NAME || 'Notificaciones',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };

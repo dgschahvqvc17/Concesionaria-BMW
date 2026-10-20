@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
 import { descargarVentaPdf } from '@/lib/ventaPdf';
 import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import type { Venta } from '@/types/venta';
@@ -114,6 +115,8 @@ export function VentaDetalleDialog({ open, onOpenChange, venta }: VentaDetalleDi
               Descargar comprobante
             </Button>
           </div>
+
+          <NotificacionesRecurso recursoId={venta.ventaId} />
         </div>
 
         <DialogFooter>

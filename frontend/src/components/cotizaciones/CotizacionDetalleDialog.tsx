@@ -16,8 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
 import { getErrorMessage } from '@/lib/api';
-import { abrirCorreoCotizacion } from '@/lib/cotizacionEmail';
 import { descargarCotizacionPdf } from '@/lib/cotizacionPdf';
 import {
   DESCUENTO_MAXIMO,
@@ -34,15 +34,18 @@ interface CotizacionDetalleDialogProps {
   onOpenChange: (open: boolean) => void;
   cotizacion: Cotizacion | null;
   onSubmit: (input: UpdateCotizacionInput) => Promise<void>;
+  /** Registra el intento de envío y abre el cliente de correo (HU12). */
+  onEnviarCorreo?: () => Promise<void>;
   loading?: boolean;
 }
 
-/** Detalle de una cotización: consulta, cambio de estado, PDF y correo (HU08). */
+/** Detalle de una cotización: consulta, cambio de estado, PDF y correo (HU08 + HU12). */
 export function CotizacionDetalleDialog({
   open,
   onOpenChange,
   cotizacion,
   onSubmit,
+  onEnviarCorreo,
   loading,
 }: CotizacionDetalleDialogProps) {
   const [descuento, setDescuento] = useState('0');
@@ -85,10 +88,15 @@ export function CotizacionDetalleDialog({
     toast.success('PDF de la cotización generado.');
   };
 
-  const enviarCorreo = () => {
+  const enviarCorreo = async () => {
     descargarCotizacionPdf(cotizacion);
-    abrirCorreoCotizacion(cotizacion);
-    toast.info('Se abrió tu cliente de correo. Adjunta el PDF descargado antes de enviar.');
+    if (!onEnviarCorreo) return;
+    try {
+      await onEnviarCorreo();
+      toast.info('Se abrió tu cliente de correo. Adjunta el PDF descargado antes de enviar.');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return (
@@ -205,6 +213,8 @@ export function CotizacionDetalleDialog({
               </div>
             )
           )}
+
+          <NotificacionesRecurso recursoId={cotizacion.cotizacionId} />
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -212,7 +222,7 @@ export function CotizacionDetalleDialog({
             <Download className="h-4 w-4" aria-hidden="true" />
             Descargar PDF
           </Button>
-          <Button onClick={enviarCorreo}>
+          <Button onClick={() => void enviarCorreo()} disabled={!onEnviarCorreo}>
             <Mail className="h-4 w-4" aria-hidden="true" />
             Enviar por correo
           </Button>

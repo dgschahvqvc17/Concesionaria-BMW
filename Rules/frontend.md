@@ -28,6 +28,7 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # vehículos y repuestos (tablas, formularios, filtros, movimientos, archivos)
 │   ├── layout/             # AppLayout (sidebar), PageHeader
+│   ├── notificaciones/      # NotificacionesTable, NotificacionDetalleDialog, NotificacionesRecurso (HU12)
 │   ├── pruebasManejo/      # PruebaManejoFormDialog, PruebasManejoTable, PruebaManejoDetalleDialog (HU11)
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
@@ -35,11 +36,11 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, cotizacionEmail, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion
 ```
 
 ### Flujo de datos
@@ -169,9 +170,11 @@ degradado BMW).
   `disponible`/`reservado`.
 - **PDF**: `lib/cotizacionPdf.ts` genera el documento con **jsPDF** (dependencia del
   frontend, sin costo en AWS) y lo descarga como `Cotizacion-<numero>.pdf`.
-- **Correo**: `lib/cotizacionEmail.ts` arma un enlace `mailto:` con destinatario, asunto y
-  cuerpo redactados (el usuario adjunta el PDF). Evita AWS SES para no salir de la capa
-  gratuita.
+- **Correo (HU08 + HU12)**: el botón «Enviar por correo» llama a
+  `notificacionesService.enviarCotizacion` (`POST .../enviar-correo`), que registra el
+  intento en el backend y devuelve el enlace `mailto:` con el mensaje redactado; el
+  frontend descarga el PDF y abre el gestor de correo del usuario (el usuario adjunta
+  el PDF). Evita AWS SES para no salir de la capa gratuita.
 - `lib/cotizaciones.ts`: estados, etiquetas/estilos y `calcularImportes`
   (descuento máximo 20%, espejo del backend).
 
@@ -230,6 +233,22 @@ degradado BMW).
   `aValorLocal`).
 - La ficha del cliente (`ClienteComercialDetallePage`) incluye una tarjeta con sus pruebas
   y el botón «Nueva solicitud».
+
+## Notificaciones por correo (HU12)
+
+- `pages/notificaciones/NotificacionesPage` + `components/notificaciones/`
+  (`NotificacionesTable`, `NotificacionDetalleDialog`, `NotificacionesRecurso`).
+  Ruta `/notificaciones` (admin/vendedor, ítem «Correos» en la navegación).
+- Datos: `services/notificaciones.ts` + `hooks/useNotificaciones.ts` (filtros
+  `tipo`/`estado`/`recursoId`, `enviar(eventoId)` que devuelve el enlace `mailto:`).
+- `lib/notificaciones.ts`: tipos/estados con etiquetas y estilos, etiquetas de eventos
+  (`EVENTO_NOTIFICACION_LABELS`) y `abrirMailto`.
+- `NotificacionesRecurso`: sección compacta reutilizable que muestra los correos de una
+  operación; se inserta en los diálogos de detalle de cotización, reserva, prueba de
+  manejo y venta, con botón «Enviar» para notificaciones pendientes/intentadas.
+- El transporte es `mailto:` (decisión de diseño sin SES, ver `Rules/aws.md`): el backend
+  redacta el mensaje, registra el intento (máx. 5, anti-duplicados) y el frontend abre el
+  cliente de correo del usuario.
 
 ## Acceso a la API
 

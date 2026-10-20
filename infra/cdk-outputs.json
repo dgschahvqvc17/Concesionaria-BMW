@@ -19,6 +19,7 @@
     "ReservasTableName": "ConcesionariaBmwRepuestosStack-ReservasTableCC690889-MGXN6EH7JVDO",
     "VentasTableName": "ConcesionariaBmwRepuestosStack-VentasTable349F3B53-KNNHN5Y8P2KD",
     "PruebasManejoTableName": "ConcesionariaBmwRepuestosStack-PruebasManejoTable408BA070-G6GSTLCEPXL1",
+    "NotificacionesTableName": "ConcesionariaBmwRepuestosStack-NotificacionesTable2194FF57-10GC28B8YTNUM",
     "Region": "us-east-2"
   }
 }

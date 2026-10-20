@@ -2,6 +2,8 @@ const { NotFoundError, ConflictError } = require('../errors/AppError');
 const cotizacionRepository = require('../repositories/cotizacionRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
+const notificacionService = require('./notificacionService');
+const { registrarSinFallo } = notificacionService;
 const { DESCUENTO_MAXIMO } = require('../validation/cotizacionSchemas');
 
 /** Días de vigencia por defecto de una cotización (HU08). */
@@ -154,7 +156,24 @@ async function updateCotizacion(cotizacionId, datos) {
     updates.total = total;
   }
 
-  return cotizacionRepository.update(cotizacionId, updates);
+  const actualizada = await cotizacionRepository.update(cotizacionId, updates);
+
+  if (updates.estado === 'aceptada' || updates.estado === 'rechazada') {
+    await registrarSinFallo(() => notificacionService.notificarCotizacion(actualizada, `cotizacion_${updates.estado}`));
+  }
+
+  return actualizada;
+}
+
+/**
+ * Envío de la cotización solicitado por el vendedor (HU12): asegura el
+ * registro de la notificación (dedup por evento) e intenta el envío.
+ */
+async function enviarCorreo(cotizacionId, actor = {}) {
+  const cotizacion = await getCotizacion(cotizacionId);
+  const { notificacion } = await notificacionService.notificarCotizacion(cotizacion, 'cotizacion_envio');
+  const resultado = await notificacionService.enviar(notificacion.eventoId, actor);
+  return resultado;
 }
 
 module.exports = {
@@ -162,6 +181,7 @@ module.exports = {
   listCotizaciones,
   getCotizacion,
   updateCotizacion,
+  enviarCorreo,
   DESCUENTO_MAXIMO,
   VIGENCIA_DIAS_DEFECTO,
 };
