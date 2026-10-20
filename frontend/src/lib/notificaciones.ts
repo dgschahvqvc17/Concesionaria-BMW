@@ -1,12 +1,13 @@
 import type { EstadoNotificacion, TipoNotificacion } from '@/types/notificacion';
 
-export const TIPOS_NOTIFICACION: TipoNotificacion[] = ['reserva', 'cotizacion', 'prueba_manejo', 'venta'];
+export const TIPOS_NOTIFICACION: TipoNotificacion[] = ['reserva', 'cotizacion', 'prueba_manejo', 'venta', 'cita_taller'];
 
 export const TIPO_NOTIFICACION_LABELS: Record<TipoNotificacion, string> = {
   reserva: 'Reserva',
   cotizacion: 'Cotización',
   prueba_manejo: 'Prueba de manejo',
   venta: 'Venta',
+  cita_taller: 'Cita del taller',
 };
 
 export const ESTADOS_NOTIFICACION: EstadoNotificacion[] = ['pendiente', 'intentado', 'fallido', 'omitido'];
@@ -40,6 +41,11 @@ export const EVENTO_NOTIFICACION_LABELS: Record<string, string> = {
   prueba_realizada: 'Prueba realizada',
   venta_confirmada: 'Venta confirmada',
   venta_confirmada_vendedor: 'Venta registrada (aviso interno)',
+  cita_solicitada: 'Cita solicitada',
+  cita_confirmada: 'Cita confirmada',
+  cita_reprogramada: 'Cita reprogramada',
+  cita_cancelada: 'Cita cancelada',
+  cita_finalizada: 'Cita finalizada',
 };
 
 export function eventoLabel(evento: string): string {

@@ -22,6 +22,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, AuthBrandPanel, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
+│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13)
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
@@ -36,11 +37,11 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller
 ```
 
 ### Flujo de datos
@@ -249,6 +250,30 @@ degradado BMW).
 - El transporte es `mailto:` (decisión de diseño sin SES, ver `Rules/aws.md`): el backend
   redacta el mensaje, registra el intento (máx. 5, anti-duplicados) y el frontend abre el
   cliente de correo del usuario.
+
+## Citas del taller (HU13)
+
+- `pages/citasTaller/CitasTallerPage` + `components/citasTaller/` (`CitasTallerTable`,
+  `CitaTallerFormDialog`, `CitaTallerDetalleDialog`).
+  Ruta `/citas` bajo `<ProtectedRoute roles={['admin', 'jefe_taller']}>` (ítem «Taller»
+  en la navegación, icono `Wrench`, en `components/layout/AppLayout.tsx`).
+- Datos: `services/citasTaller.ts` (`citasTallerService.list/get/create/confirmar/
+  reprogramar/iniciar/finalizar/cancelar`) + `hooks/useCitasTaller.ts` (filtros
+  `clienteId`/`vehiculoId`/`estado`/`fechaDesde`/`fechaHasta`).
+- `CitaTallerFormDialog`: selecciona vehículo, cliente comercial, tipo de servicio y
+  fecha/hora; valida con `validarFechaCita` (fecha futura, 08:00–18:00, pasos de 15 min
+  y duración 15–480, espejo del backend).
+- `CitaTallerDetalleDialog`: snapshot del vehículo/cliente, agenda (`fechaHora` +
+  duración), historial de estados, las acciones según estado y la sección
+  **`NotificacionesRecurso`** con los correos del evento.
+- `lib/citasTaller.ts`: `ESTADOS_CITA` con etiquetas/estilos
+  (`solicitada`/`confirmada`/`en_atencion`/`finalizada`/`cancelada`),
+  `TIPOS_SERVICIO` labels, horario de atención (08:00–18:00, paso 15 min), guards
+  `puedeConfirmarse`/`puedeReprogramarse`/`puedeCancelarse`/`puedeIniciarse`/
+  `puedeFinalizarse` y `validarFechaCita` (espejo del backend).
+- `lib/notificaciones.ts` y `types/notificacion.ts` ampliados con el tipo
+  `cita_taller` y las etiquetas de eventos `cita_*` («Cita solicitada», «Cita
+  confirmada», «Cita reprogramada», «Cita cancelada», «Cita finalizada»).
 
 ## Acceso a la API
 

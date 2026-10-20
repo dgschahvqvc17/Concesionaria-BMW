@@ -10,7 +10,8 @@ La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), 
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
 gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
 la generación de cotizaciones (HU08), las reservas de vehículos (HU09), las ventas de
-vehículos (HU10), las pruebas de manejo (HU11) y las notificaciones por correo (HU12).
+vehículos (HU10), las pruebas de manejo (HU11), las notificaciones por correo (HU12) y las
+citas del taller (HU13).
 
 ## Índice
 
@@ -33,6 +34,7 @@ vehículos (HU10), las pruebas de manejo (HU11) y las notificaciones por correo 
 17. [Ventas de vehículos (HU10)](#17-ventas-de-vehículos-hu10)
 18. [Pruebas de manejo (HU11)](#18-pruebas-de-manejo-hu11)
 19. [Notificaciones por correo (HU12)](#19-notificaciones-por-correo-hu12)
+20. [Citas del taller (HU13)](#20-citas-del-taller-hu13)
 
 ---
 
@@ -119,6 +121,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # CatalogoCard, CatalogoFiltros, CatalogoLayout, CatalogoShell, VehiculoGaleria
+│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13)
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
@@ -133,13 +136,13 @@ frontend/src/
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts, notificaciones.ts
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts, notificaciones.ts, citasTaller.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11), notificaciones/ (HU12)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts, notificacion.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11), notificaciones/ (HU12), citasTaller/ (HU13)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts, notificacion.ts, citaTaller.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -164,6 +167,7 @@ conservar la accesibilidad.
 | `ReservaFormDialog` / `ReservaDetalleDialog` | `components/reservas` | Registro y gestión de reservas (HU09): apartado del vehículo, historial, cancelación y conversión en venta. |
 | `VentaFormDialog` / `VentaDetalleDialog` | `components/ventas` | Registro y detalle de ventas (HU10): cálculo de importes, snapshot de cliente/vehículo y comprobante PDF. |
 | `PruebaManejoFormDialog` / `PruebasManejoTable` / `PruebaManejoDetalleDialog` | `components/pruebasManejo` | Solicitud y gestión de pruebas de manejo (HU11): agenda 08:00–18:00 en pasos de 15 min, snapshot de vehículo/cliente, historial de estados y acciones (confirmar, reprogramar, cancelar, realizar). |
+| `CitaTallerFormDialog` / `CitasTallerTable` / `CitaTallerDetalleDialog` | `components/citasTaller` | Gestión de citas del taller (HU13): agenda 08:00–18:00 en pasos de 15 min, snapshots de vehículo/cliente, historial, transiciones (confirmar, reprogramar, iniciar, finalizar, cancelar) y notificaciones del recurso. |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -283,6 +287,7 @@ comparte entre páginas sin repetir código.
 | `/ventas` | `VentasPage` | `admin`, `vendedor` (HU10). |
 | `/pruebas-man` | `PruebasManejoPage` | `admin`, `vendedor` (HU11). |
 | `/notificaciones` | `NotificacionesPage` | `admin`, `vendedor` (HU12). |
+| `/citas` | `CitasTallerPage` | `admin`, `jefe_taller` (HU13). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -706,6 +711,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `ventas.ts` | `list/get/create` | `/api/ventas` | Sí (`admin`/`vendedor`) | Ventas de vehículos (HU10). |
 | `pruebasManejo.ts` | `list/get/create/solicitar/confirmar/reprogramar/cancelar/realizar` | `/api/pruebas-man` | `create` (staff) y `solicitar` (**público**, token opcional); resto `admin`/`vendedor` | Pruebas de manejo (HU11). |
 | `notificaciones.ts` | `list/get/enviar/enviarCotizacion` | `/api/notificaciones`, `/api/cotizaciones/:id/enviar-correo` | Sí (`admin`/`vendedor`) | Notificaciones por correo (HU12). |
+| `citasTaller.ts` | `list/get/create/confirmar/reprogramar/iniciar/finalizar/cancelar` | `/api/citas-taller` | Sí (`admin`/`jefe_taller`) | Citas del taller (HU13). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -856,7 +862,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU11:
+Recorrí los flujos principales alineados a HU01–HU13:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -876,6 +882,7 @@ Recorrí los flujos principales alineados a HU01–HU11:
 | HU10 | Ventas de vehículos | `/ventas` (solo `admin`/`vendedor`) → nueva venta (cliente + vehículo vendible + descuento ≤ 20%); detalle → comprobante PDF. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/ventas/`, `services/ventas.ts`, `lib/ventaPdf.ts` |
 | HU11 | Pruebas de manejo | `/pruebas-man` (solo `admin`/`vendedor`) → listado con filtros, nueva solicitud, detalle con historial y acciones (confirmar/reprogramar/cancelar/realizar); solicitud pública desde el detalle del vehículo y desde la ficha del cliente. | **OK** (backend e2e: 46/46 aserciones — `201`/`409`/`400`/`404`/`200`/`401`; UI con build limpio). | Código: `pages/pruebasManejo/`, `components/pruebasManejo/`, `services/pruebasManejo.ts`, `lib/pruebasManejo.ts` |
 | HU12 | Notificaciones por correo | `/notificaciones` (solo `admin`/`vendedor`) → listado con filtros, detalle con historial de intentos y botón «Enviar» (reintento); secciones reutilizables en los detalles de cotización/reserva/prueba/venta; envío de cotización con descarga de PDF + `mailto:`. | **OK** (backend e2e: 34/34 aserciones — `200`/`400`/`401`/`404`/`409`; UI con build limpio). | Código: `pages/notificaciones/`, `components/notificaciones/`, `services/notificaciones.ts`, `lib/notificaciones.ts` |
+| HU13 | Citas del taller | `/citas` (solo `admin`/`jefe_taller`) → listado con búsqueda y filtro de estado, nueva cita (vehículo + cliente + tipo de servicio + fecha validada), detalle con historial, transiciones (confirmar/reprogramar/iniciar/finalizar/cancelar) y notificaciones del recurso. | **OK** (backend e2e: 42/42 aserciones — `201`/`200`/`400`/`401`/`404`/`409`; UI con build limpio). | Código: `pages/citasTaller/`, `components/citasTaller/`, `services/citasTaller.ts`, `lib/citasTaller.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1535,6 +1542,119 @@ con `toast.error(getErrorMessage(err))`.
   permitidos + 6.º (`409`), notificación `omitido` (`400` al enviar), filtros por
   tipo/estado, notificación inexistente (`404`) y venta que genera dos notificaciones
   (cliente + vendedor).
+
+---
+
+## 20. Citas del taller (HU13)
+
+La HU13 permite a `admin` y `jefe_taller` **administrar la agenda del taller**: registrar
+una cita sobre cualquier vehículo del inventario (también los ya vendidos), confirmarla,
+reprogramarla, iniciar la atención, finalizarla o cancelarla. La agenda respeta el horario de
+atención **08:00–18:00** en pasos de **15 minutos**, con duración de 15 a 480 minutos (por
+defecto 60), y el backend rechaza con `409` cualquier ventana solapada del mismo vehículo en
+estado `solicitada`/`confirmada`/`en_atencion`. La ruta `/citas` es la única entrada al módulo
+y no tiene solicitud pública (a diferencia de las pruebas de manejo).
+
+**Archivos**
+
+```text
+├── pages/citasTaller/CitasTallerPage.tsx          # listado + filtros + diálogos
+├── components/citasTaller/
+│   ├── CitaTallerFormDialog.tsx                   # alta (vehículo, cliente, servicio, fecha)
+│   ├── CitasTallerTable.tsx                       # tabla con número, horario y estado
+│   └── CitaTallerDetalleDialog.tsx                # datos, historial, transiciones y correos
+├── services/citasTaller.ts
+├── hooks/useCitasTaller.ts
+├── lib/citasTaller.ts                             # estados, labels, guards y agenda (espejo backend)
+└── types/citaTaller.ts
+```
+
+**Servicio**
+
+```typescript
+// services/citasTaller.ts (extracto)
+list: (filtro?: CitasFiltro) => apiRequest<CitasResponse>(`/api/citas-taller${queryString(filtro)}`),
+get: (citaId) => apiRequest<CitaResponse>(`/api/citas-taller/${citaId}`),
+create: (input) => apiRequest<CitaResponse>('/api/citas-taller', { method: 'POST', body: input }),
+confirmar: (citaId, input) => apiRequest(/* POST .../:id/confirmar */),
+reprogramar: (citaId, input) => apiRequest(/* POST .../:id/reprogramar */),
+iniciar: (citaId, input) => apiRequest(/* POST .../:id/iniciar */),
+finalizar: (citaId, input) => apiRequest(/* POST .../:id/finalizar */),
+cancelar: (citaId, input) => apiRequest(/* POST .../:id/cancelar */),
+```
+
+`CitasFiltro` acepta `clienteId`, `vehiculoId`, `estado`, `fechaDesde` y `fechaHasta` (los
+mismos query params que el backend). `useCitasTaller` expone `citas/loading/error`, la acción
+`recargar` y las mutaciones `crear`, `confirmar`, `reprogramar`, `iniciar`, `finalizar` y
+`cancelar`; tras cada mutación recarga el listado y ordena las citas por `fechaHora`
+**ascendente** (la agenda, no el histórico).
+
+**Página `/citas`**
+
+- `PageHeader` con el *eyebrow* «Taller» y el botón «Nueva cita» (deshabilitado mientras
+  cargan los vehículos o los clientes).
+- Búsqueda libre por número, cliente o vehículo y filtro por estado con las cinco etiquetas
+  de `ESTADO_CITA_LABELS`: **Solicitada**, **Confirmada**, **En atención**, **Finalizada** y
+  **Cancelada** (badges con `ESTADO_CITA_STYLES`).
+- Estados vacío y de error con `Alert` y botón «Reintentar»; la tabla
+  (`CitasTallerTable`) muestra número, cliente, vehículo, servicio, fecha, ventana horaria
+  (`rangoHorario`) y estado, con la acción «Ver».
+
+**Formulario (`CitaTallerFormDialog`)**
+
+React Hook Form + Zod con selectores de **vehículo** (`useVehiculos`) y de **cliente
+comercial** (`useClientesComerciales`, obligatorio), **tipo de servicio**
+(`mantenimiento`/`reparacion`/`diagnostico`/`revision`/`otro`), `fechaHora` en
+`datetime-local` validada con `validarFechaCita` (futuro, 08:00–18:00 y paso de 15 minutos),
+`duracionMinutos` (15–480) y `observaciones` (≤ 1000). Los errores que devuelve el backend
+(`details` de `VALIDATION_ERROR`) se reasignan al campo correspondiente con `RUTAS_SERVIDOR`
+y `getFieldErrors`.
+
+**Detalle y acciones (`CitaTallerDetalleDialog`)**
+
+- Tarjetas con los snapshots de vehículo y cliente, tipo de servicio, número
+  `CIT-AAAA-######`, ventana que ocupa y el `historial` de estados (usuario, fecha, motivo y
+  observaciones).
+- Transiciones en línea según el estado (doble validación con los guards `puedeConfirmarse`,
+  `puedeReprogramarse`, `puedeIniciarse`, `puedeFinalizarse` y `puedeCancelarse`):
+  **confirmar** (`solicitada`), **reprogramar** (`solicitada`/`confirmada`, con nueva fecha),
+  **iniciar** (`confirmada`), **finalizar** (`en_atencion`) y **cancelar**
+  (`solicitada`/`confirmada`, con motivo ≤ 500).
+- Embebe `NotificacionesRecurso` con `recursoId = cita.citaId`, para ver y reintentar los
+  correos de la cita (tipo `cita_taller`, eventos `cita_solicitada`, `cita_confirmada`,
+  `cita_reprogramada`, `cita_cancelada` y `cita_finalizada`) sin salir del detalle.
+
+**Reglas de negocio (espejo del backend)**
+
+- `lib/citasTaller.ts` define `ESTADOS_CITA`, `ESTADO_CITA_LABELS`/`_STYLES`,
+  `TIPOS_SERVICIO`/`TIPO_SERVICIO_LABELS`, las constantes de agenda (`HORARIO_INICIO`,
+  `HORARIO_FIN`, `PASO_MINUTOS`, `DURACION_DEFECTO`/`MIN`/`MAX`) y los helpers
+  `finDeCita`, `formatFechaHora`, `formatHora`, `rangoHorario`, `fechaHoraPorDefecto`,
+  `aIsoLocal`/`aValorLocal` y `validarFechaCita`.
+- El índice `cita_taller` y las etiquetas `cita_*` viven en `lib/notificaciones.ts` y
+  `types/notificacion.ts`, junto a los tipos de la HU12.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/citas` queda bajo `<ProtectedRoute roles={['admin', 'jefe_taller']} />`.
+- En `AppLayout.tsx`, el ítem «Taller» (icono `Wrench`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (cita solapada del mismo vehículo o transición de estado no permitida), `400`
+(fecha pasada, fuera del horario o sin paso de 15 minutos, rango de fechas invertido),
+`404` (vehículo o cliente inexistente) y `401` (listado sin token) llegan como `ApiError` y
+se muestran con `toast.error(getErrorMessage(err))` o, cuando son de validación, se
+reasignan al campo correspondiente.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end (42/42 aserciones): alta (`201`, número `CIT-AAAA-######`),
+  solape del mismo vehículo (`409`), fecha fuera de horario/paso (`400`), vehículo o cliente
+  inexistente (`404`), listado sin token (`401`) y con filtros (`200`), transiciones
+  (confirmar/reprogramar/iniciar/finalizar/cancelar `200` con historial) y sus combinaciones
+  inválidas (`409`), más el registro de notificaciones `cita_taller` con `registrarSinFallo`.
 
 ---
 

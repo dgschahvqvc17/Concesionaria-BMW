@@ -1,4 +1,4 @@
-export type TipoNotificacion = 'reserva' | 'cotizacion' | 'prueba_manejo' | 'venta';
+export type TipoNotificacion = 'reserva' | 'cotizacion' | 'prueba_manejo' | 'venta' | 'cita_taller';
 
 export type EstadoNotificacion = 'pendiente' | 'intentado' | 'fallido' | 'omitido';
 

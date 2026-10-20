@@ -33,6 +33,7 @@ function createApp() {
   app.use('/api/ventas', require('./routes/ventaRoutes'));
   app.use('/api/pruebas-man', require('./routes/pruebaManejoRoutes'));
   app.use('/api/notificaciones', require('./routes/notificacionRoutes'));
+  app.use('/api/citas-taller', require('./routes/citaTallerRoutes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

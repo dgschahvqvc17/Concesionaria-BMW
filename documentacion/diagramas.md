@@ -30,6 +30,7 @@ cualquier editor compatible.
 | 13 | Registro de venta de vehículo (HU10) | Secuencia |
 | 14 | Prueba de manejo: solicitud y gestión (HU11) | Secuencia |
 | 15 | Notificaciones por correo (HU12) | Secuencia |
+| 16 | Citas del taller (HU13) | Secuencia |
 
 ---
 
@@ -54,7 +55,7 @@ package "Backend Node.js + Express 5" {
   component "config\n(.env)" as config
 }
 
-database "Amazon DynamoDB\n(10 tablas + GSIs)" as ddb
+database "Amazon DynamoDB\n(11 tablas + GSIs)" as ddb
 cloud "Amazon S3\n(bucket privado)" as s3
 cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
 
@@ -100,6 +101,7 @@ cloud "AWS us-east-2" {
     database "Ventas" as t8
     database "PruebasManejo" as t9
     database "Notificaciones" as t10
+    database "CitasTaller" as t11
   }
   cloud "Amazon S3\n(bucket privado)" as s3
   cloud "Amazon Cognito\n(User Pool + grupos)" as cognito
@@ -155,6 +157,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Registrar ventas (HU10)" as UC_ventas
   usecase "Solicitar y gestionar pruebas de manejo (HU11)" as UC_pruebas
   usecase "Consultar y reenviar notificaciones (HU12)" as UC_notificaciones
+  usecase "Gestionar citas del taller (HU13)" as UC_citas_taller
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -172,6 +175,7 @@ jefe --> UC_login
 jefe --> UC_consultar
 jefe --> UC_repuestos
 jefe --> UC_movimientos
+jefe --> UC_citas_taller
 
 vendedor --> UC_login
 vendedor --> UC_vehiculos
@@ -196,6 +200,7 @@ admin --> UC_reservas
 admin --> UC_ventas
 admin --> UC_pruebas
 admin --> UC_notificaciones
+admin --> UC_citas_taller
 admin --> UC_usuarios
 @enduml
 ```
@@ -209,7 +214,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (10 tablas)
+title Modelo de datos — DynamoDB (11 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -390,6 +395,24 @@ entity "Notificaciones" as notificaciones {
   updatedAt : string
 }
 
+entity "CitasTaller" as citas {
+  * citaId <<PK>> : string
+  --
+  numero <<GSI numero-index>> : string
+  vehiculoId <<GSI vehiculo-index>> : string
+  vehiculo : object
+  clienteId <<GSI cliente-index>> : string
+  cliente : object
+  tipoServicio : string
+  fechaHora : string
+  duracionMinutos : number
+  estado : string
+  observaciones : string
+  historial : list<object>
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
@@ -408,6 +431,9 @@ reservas ||..o{ notificaciones : "genera correo"
 cotizaciones ||..o{ notificaciones : "genera correo"
 pruebas ||..o{ notificaciones : "genera correo"
 ventas ||..o{ notificaciones : "genera correo"
+vehiculos ||..o{ citas : "recibe servicio"
+clientes ||..o{ citas : "agenda"
+citas ||..o{ notificaciones : "genera correo"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -911,6 +937,104 @@ note right of be
   registrarSinFallo: un fallo al registrar
   la notificacion nunca revierte la operacion.
   Dedup: PK unica + Put condicional.
+end note
+@enduml
+```
+
+---
+
+## Diagrama 16 — Citas del taller (HU13)
+
+```plantuml
+@startuml
+title Secuencia — Citas del taller (HU13)
+skinparam shadowing false
+
+actor "Jefe de taller" as jefe
+participant "Frontend\n/citas" as fe
+participant "API\n/api/citas-taller" as api
+participant "citaTaller\nController" as ctrl
+participant "citaTaller\nService" as svc
+participant "citaTaller\nRepository" as repo
+database "DynamoDB\nCitasTaller" as db
+database "DynamoDB\nVehiculos/Clientes" as db2
+database "DynamoDB\nNotificaciones" as ddb
+
+group Alta de una cita
+  jefe -> fe : /citas "Nueva cita"\n(vehiculo, cliente, tipoServicio, fecha)
+  fe -> api : POST /api/citas-taller\n(Bearer admin/jefe_taller)
+  api -> ctrl : asyncHandler(create)
+  ctrl -> ctrl : validate(createCitaTallerSchema)
+  ctrl -> svc : createCita(datos, actor)
+  svc -> db2 : GetCommand vehiculo / cliente
+  alt Vehiculo o cliente inexistente
+    db2 --> svc : no existe
+    svc --> api : 404 NOT FOUND
+  else Recursos ok
+    db2 --> svc : vehiculo + cliente (snapshots)
+    svc -> repo : findByVehiculo (GSI vehiculo-index)
+    repo -> db : Query (citas del vehiculo)
+    db --> repo : agenda
+    repo --> svc : citas
+    svc -> svc : valida fecha futura 08:00-18:00,\npaso 15 min y duracion 15-480
+    alt Ventana solapada (solicitada/confirmada/en_atencion)
+      svc --> api : 409 CONFLICT (cita en conflicto)
+    else Horario libre
+      svc -> repo : siguienteSecuencia(anio)
+      repo -> db : UpdateItem ADD secuencia#<año> (numero unico)
+      db --> repo : secuencia
+      repo --> svc : CIT-AAAA-######
+      svc -> repo : save (citaId UUID, estado=solicitada,\nsnapshots, historial)
+      repo -> db : PutCommand
+      db --> repo : OK
+      svc -> ddb : notificarCita 'cita_solicitada'\nregistrarSinFallo (dedup eventoId)
+      ddb --> svc : pendiente (un fallo no revierte el alta)
+      svc --> api : cita
+      api --> fe : 201 { message, cita }
+      fe --> jefe : Confirmacion + badge "solicitada"
+    end
+  end
+end
+
+group Gestion de la cita (confirmar, iniciar, finalizar, reprogramar, cancelar)
+  jefe -> fe : Detalle de la cita "Confirmar"
+  fe -> api : POST /api/citas-taller/:citaId/confirmar\n(Bearer admin/jefe_taller)
+  api -> ctrl : asyncHandler(confirmar)
+  ctrl -> svc : confirmarCita(citaId, datos, actor)
+  svc -> repo : findById (GetCommand)
+  repo -> db : GetCommand cita
+  db --> repo : cita
+  repo --> svc : cita
+  alt Estado distinto de "solicitada"
+    svc --> api : 409 CONFLICT (transicion invalida)
+  else Transicion valida
+    svc -> repo : update (estado=confirmada + historial)
+    repo -> db : UpdateCommand
+    db --> repo : OK
+    svc -> ddb : notificarCita 'cita_confirmada'\nregistrarSinFallo
+    ddb --> svc : pendiente
+    svc --> api : cita actualizada
+    api --> fe : 200 { message, cita }
+    fe --> jefe : Estado actualizado + toast
+  end
+end
+
+note right of svc
+  Reprogramar conserva el estado y revalida
+  horario y solapes; iniciar pasa
+  confirmada -> en_atencion (sin notificacion);
+  finalizar en_atencion -> finalizada;
+  cancelar solicitada/confirmada -> cancelada
+  con motivo (<= 500). Cualquier otra
+  combinacion responde 409 (assertEstado).
+end note
+
+note bottom of ddb
+  Tipo cita_taller, destinatario = email del
+  cliente (snapshot), transporte mailto: sin
+  Amazon SES (capa gratuita).
+  registrarSinFallo: un fallo al notificar
+  nunca revierte la operacion del taller.
 end note
 @enduml
 ```

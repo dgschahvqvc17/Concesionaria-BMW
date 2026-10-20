@@ -21,6 +21,7 @@ import { ReservasPage } from '@/pages/reservas/ReservasPage';
 import { VentasPage } from '@/pages/ventas/VentasPage';
 import { PruebasManejoPage } from '@/pages/pruebasManejo/PruebasManejoPage';
 import { NotificacionesPage } from '@/pages/notificaciones/NotificacionesPage';
+import { CitasTallerPage } from '@/pages/citasTaller/CitasTallerPage';
 
 export function App() {
   return (
@@ -63,6 +64,11 @@ export function App() {
               {/* Gestión de usuarios: solo administradores. */}
               <Route element={<ProtectedRoute roles={['admin']} />}>
                 <Route path="/usuarios" element={<UsersPage />} />
+              </Route>
+
+              {/* Citas del taller (HU13): jefes de taller y administradores. */}
+              <Route element={<ProtectedRoute roles={['admin', 'jefe_taller']} />}>
+                <Route path="/citas" element={<CitasTallerPage />} />
               </Route>
             </Route>
           </Route>
