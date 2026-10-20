@@ -16,6 +16,9 @@ import { Construct } from 'constructs';
  *
  * HU09 - Reservas: tabla `Reservas` (índices por vehículo para detectar reservas
  * activas, por cliente para el historial y por número de reserva).
+ *
+ * HU10 - Ventas: tabla `Ventas` (índices por vehículo, por cliente y por número
+ * de operación para el historial de ventas).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -23,6 +26,7 @@ export class RepuestosStack extends cdk.Stack {
   public readonly clientesComercialesTable: dynamodb.Table;
   public readonly cotizacionesTable: dynamodb.Table;
   public readonly reservasTable: dynamodb.Table;
+  public readonly ventasTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -123,6 +127,34 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU10: Ventas. PK = ventaId (UUID). GSI por cliente, por vehículo (control de que
+    // una unidad solo se vendió una vez) y por número (número único).
+    this.ventasTable = new dynamodb.Table(this, 'VentasTable', {
+      partitionKey: { name: 'ventaId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.ventasTable.addGlobalSecondaryIndex({
+      indexName: 'cliente-index',
+      partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.ventasTable.addGlobalSecondaryIndex({
+      indexName: 'vehiculo-index',
+      partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.ventasTable.addGlobalSecondaryIndex({
+      indexName: 'numero-index',
+      partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -145,6 +177,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ReservasTableName', {
       value: this.reservasTable.tableName,
       description: 'Nombre de la tabla DynamoDB de reservas (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'VentasTableName', {
+      value: this.ventasTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de ventas (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,

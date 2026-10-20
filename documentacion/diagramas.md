@@ -27,6 +27,7 @@ cualquier editor compatible.
 | 10 | Seguimiento comercial de clientes (HU07) | Secuencia |
 | 11 | Generación de cotización (HU08) | Secuencia |
 | 12 | Reserva de vehículo y conversión en venta (HU09) | Secuencia |
+| 13 | Registro de venta de vehículo (HU10) | Secuencia |
 
 ---
 
@@ -146,6 +147,7 @@ rectangle "Sistema Concesionaria BMW" {
   usecase "Gestionar clientes comerciales (HU07)" as UC_clientes
   usecase "Generar cotizaciones (HU08)" as UC_cotizaciones
   usecase "Gestionar reservas (HU09)" as UC_reservas
+  usecase "Registrar ventas (HU10)" as UC_ventas
   usecase "Gestionar usuarios y roles (HU02)" as UC_usuarios
 }
 
@@ -170,6 +172,7 @@ vendedor --> UC_movimientos
 vendedor --> UC_clientes
 vendedor --> UC_cotizaciones
 vendedor --> UC_reservas
+vendedor --> UC_ventas
 
 admin --> UC_login
 admin --> UC_vehiculos
@@ -179,6 +182,7 @@ admin --> UC_movimientos
 admin --> UC_clientes
 admin --> UC_cotizaciones
 admin --> UC_reservas
+admin --> UC_ventas
 admin --> UC_usuarios
 @enduml
 ```
@@ -192,7 +196,7 @@ admin --> UC_usuarios
 
 ```plantuml
 @startuml
-title Modelo de datos — DynamoDB (7 tablas)
+title Modelo de datos — DynamoDB (8 tablas)
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
@@ -313,6 +317,26 @@ entity "Reservas" as reservas {
   updatedAt : string
 }
 
+entity "Ventas" as ventas {
+  * ventaId <<PK>> : string
+  --
+  numero <<GSI numero-index>> : string
+  clienteId <<GSI cliente-index>> : string
+  cliente : object
+  vehiculoId <<GSI vehiculo-index>> : string
+  vehiculo : object
+  reservaId : string
+  numeroReserva : string
+  precioLista : number
+  descuentoPorcentaje : number
+  descuentoMonto : number
+  precioFinal : number
+  observaciones : string
+  fechaVenta : string
+  createdAt : string
+  updatedAt : string
+}
+
 usuarios ||..o{ movimientos : "crea"
 usuarios ||..o{ vehiculos : "registra"
 movimientos }o..|| repuestos : "afecta"
@@ -322,6 +346,9 @@ clientes ||..o{ cotizaciones : "recibe"
 vehiculos ||..o{ cotizaciones : "se cotiza"
 clientes ||..o{ reservas : "reserva"
 vehiculos ||..o{ reservas : "se reserva"
+clientes ||..o{ ventas : "compra"
+vehiculos ||..o{ ventas : "se vende"
+reservas ||..o{ ventas : "origina"
 
 note bottom of usuarios
   UserId = claim "sub" de Cognito.
@@ -646,6 +673,56 @@ be -> db : UpdateItem estado (historial)\n+ vehiculo disponible | vendido
 db --> be : OK
 be --> fe : 200 { message, reserva }
 fe --> v : Estado actualizado (vehículo liberado o vendido)
+@enduml
+```
+
+---
+
+## Diagrama 13 — Registro de venta de vehículo (HU10)
+
+```plantuml
+@startuml
+title Secuencia — Registrar venta (HU10)
+skinparam shadowing false
+
+actor Vendedor as v
+participant "Frontend\n(React)" as fe
+participant "Backend\n(Express)" as be
+database "DynamoDB\nVentas" as db
+database "DynamoDB\nVehiculos/Clientes/Reservas" as db2
+
+v -> fe : Selecciona cliente, vehículo y descuento
+fe -> be : POST /api/ventas\n(Bearer token admin/vendedor)
+be -> be : validate(createVentaSchema)\n(descuento <= 20%, fecha no futura)
+be -> db2 : GetCommand cliente + vehiculo
+alt Vehículo no vendible / cliente inexistente / ya vendido
+  db2 --> be : vendido / no_disponible / ya vendido / no existe
+  be --> fe : 409 CONFLICT / 404 NOT FOUND
+  fe --> v : Toast de error
+else Datos válidos
+  be -> be : Verifica de nuevo la disponibilidad\n(disponible o reservado con reserva vigente)
+  be -> db2 : UpdateItem estado=vendido\nConditionExpression estado=<leído>
+  alt Condición no cumplida (otra venta ganó)
+    db2 --> be : ConditionalCheckFailed
+    be --> fe : 409 CONFLICT
+  else Condición cumplida
+    db2 --> be : vehiculo vendido
+    be -> db : UpdateItem ADD secuencia#<año> (número único)
+    db --> be : secuencia
+    be -> be : precioFinal = precioLista - descuentoMonto\nnumero = VTA-AAAA-######
+    be -> db : PutCommand (ventaId = UUID, snapshot)
+    db --> be : OK
+    opt Venta sobre unidad reservada
+      be -> db2 : UpdateItem reserva estado=convertida (ventaNumero)
+    end
+    be --> fe : 201 { message, venta }
+    fe --> v : Venta en el historial
+  end
+end
+
+v -> fe : Ver comprobante
+fe -> fe : jsPDF genera Comprobante-VTA-AAAA-######.pdf
+fe --> v : PDF descargado
 @enduml
 ```
 

@@ -318,15 +318,17 @@ versiona `.env.example`**; los valores reales nunca se suben (regla de `AGENTS.m
 
 ## 5. Modelo de datos y tablas de DynamoDB
 
-Con DynamoDB definí siete tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
-`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones` y `Reservas`. Cada una tiene
+Con DynamoDB definí ocho tablas: `Usuarios`, `Vehiculos`, `Repuestos`,
+`MovimientosInventario`, `ClientesComerciales`, `Cotizaciones`, `Reservas` y `Ventas`. Cada una tiene
 su propia clave primaria y, cuando necesitaba
 buscar por otro campo, le agregué un índice secundario (GSI): `email-index` para el correo,
 `vin-index` para el VIN y `codigo-index`/`repuesto-index` para los repuestos y su historial;
 en `ClientesComerciales` usé `email-index` y `documento-index` para buscar y evitar
 duplicados, en `Cotizaciones` usé `cliente-index` (historial por cliente) y `numero-index`
-(unicidad del número), y en `Reservas` usé `vehiculo-index` (detectar reservas activas de una
-unidad), `cliente-index` (historial por cliente) y `numero-index` (unicidad del número).
+(unicidad del número), en `Reservas` usé `vehiculo-index` (detectar reservas activas de una
+unidad), `cliente-index` (historial por cliente) y `numero-index` (unicidad del número), y en
+`Ventas` usé `vehiculo-index` (control de doble venta), `cliente-index` (historial por cliente)
+y `numero-index` (unicidad del número).
 Como DynamoDB es *schemaless*, cada ítem guarda solo los atributos que necesita y no hay
 claves foráneas ni un esquema rígido; las relaciones las manejo por convención (por
 ejemplo, `MovimientosInventario.repuestoId` apunta a `Repuestos.repuestoId`). Por eso la
@@ -475,6 +477,35 @@ primaria** y, cuando hace falta, **índices secundarios (GSI)**.
 > reserva `activa` cuya `fechaVencimiento` ya pasó se responde como `vencida` y, al detectarlo,
 > la unidad vuelve a `disponible` y se registra la entrada en el `historial`.
 
+### Tabla `Ventas` (HU10)
+
+| Atributo | Tipo | Rol |
+| --- | --- | --- |
+| `ventaId` | string (UUID) | **PK** (también guarda la partición `secuencia#<año>`) |
+| `numero` | string | GSI `numero-index`; formato `VTA-AAAA-######` (único) |
+| `clienteId` | string | GSI `cliente-index` (+ `createdAt`); historial por cliente |
+| `cliente` | objeto | Snapshot: `{ clienteId, nombres, apellidos, documento, email, telefono }` |
+| `vehiculoId` | string | GSI `vehiculo-index` (+ `createdAt`); control de doble venta |
+| `vehiculo` | objeto | Snapshot: `{ vehiculoId, marca, modelo, version, anio, vin, precio }` |
+| `reservaId` / `numeroReserva` | string | Opcionales: reserva vigente que originó la venta |
+| `precioLista` | number | Precio vigente del vehículo al vender |
+| `descuentoPorcentaje` | number | Descuento autorizado (0–20) |
+| `descuentoMonto` | number | Descuento calculado |
+| `precioFinal` | number | `precioLista - descuentoMonto` |
+| `observaciones` | string | Opcional (≤ 1000 caracteres) |
+| `fechaVenta` | string (ISO) | Fecha de la operación (no puede ser futura) |
+| `createdBy` / `createdByName` | string | Autor de la operación (sub / nombre del token) |
+| `createdAt` / `updatedAt` | string (ISO) | Auditoría |
+
+> **Verificación previa y apartado atómico:** antes de confirmar, el servicio vuelve a leer el
+> vehículo y exige estado `disponible` o `reservado` con reserva vigente; luego lo pasa a
+> `vendido` con un update condicional (`estado = <estado_leído>` como `ConditionExpression`).
+> Si otro proceso vendió la unidad primero, la operación falla con `409`, así **un mismo
+> vehículo no puede quedar en dos operaciones activas**. **Numeración atómica:** igual que en
+> cotizaciones y reservas, el contador se reserva con `ADD` sobre la partición `secuencia#<año>`.
+> **Vínculo con reservas:** si la unidad estaba reservada, la venta guarda `reservaId`/
+> `numeroReserva` y la reserva pasa a `convertida` con el número de venta.
+
 ### Relación entre tablas (sin claves foráneas)
 
 DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convención:
@@ -488,6 +519,8 @@ DynamoDB **no tiene claves foráneas**. Las relaciones se modelan por convenció
   `Cotizaciones.items[].vehiculoId` → `Vehiculos.vehiculoId` (guardando además un snapshot).
 - `Reservas.clienteId` → `ClientesComerciales.clienteId` y `Reservas.vehiculoId` →
   `Vehiculos.vehiculoId` (guardando además un snapshot).
+- `Ventas.clienteId` → `ClientesComerciales.clienteId`, `Ventas.vehiculoId` →
+  `Vehiculos.vehiculoId` y `Ventas.reservaId` → `Reservas.reservaId` (con snapshots).
 
 La integridad referencial se garantiza **en la capa de servicios** (por ejemplo,
 `movimientoService` verifica que el repuesto exista antes de registrar el movimiento),
@@ -735,11 +768,40 @@ this.reservasTable.addGlobalSecondaryIndex({
 });
 ```
 
+En la HU10 agregué la tabla `Ventas`, con un índice por vehículo (control de doble venta),
+otro por cliente (historial) y otro por número (unicidad):
+
+```typescript
+// infra/lib/repuestos-stack.ts (HU10: nueva tabla + índices)
+this.ventasTable = new dynamodb.Table(this, 'VentasTable', {
+  partitionKey: { name: 'ventaId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // capa gratuita
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
+});
+
+this.ventasTable.addGlobalSecondaryIndex({
+  indexName: 'vehiculo-index',
+  partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+
+this.ventasTable.addGlobalSecondaryIndex({
+  indexName: 'cliente-index',
+  partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+});
+
+this.ventasTable.addGlobalSecondaryIndex({
+  indexName: 'numero-index',
+  partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+});
+```
+
 ### 7.3 Equivalencia "migración" → "cambio de infraestructura"
 
 | Concepto relacional | Equivalente en este proyecto |
 | --- | --- |
-| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09) |
+| `CREATE TABLE` | Recurso `Table` en CDK (p. ej. `ClientesComercialesTable` HU07, `CotizacionesTable` HU08, `ReservasTable` HU09, `VentasTable` HU10) |
 | `CREATE INDEX` | `table.addGlobalSecondaryIndex({ indexName: 'vin-index', ... })` |
 | `ALTER TABLE ADD COLUMN` | Agregar el atributo al esquema Zod (sin tocar la BD) |
 | `DROP/DELETE` | `RemovalPolicy.DESTROY` (entorno de práctica) o `cdk destroy` |
@@ -1223,16 +1285,25 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
 | `POST` | `/api/reservas/:reservaId/cancelar` | admin/vendedor | Cancelar reserva y liberar vehículo |
 | `POST` | `/api/reservas/:reservaId/convertir` | admin/vendedor | Convertir en venta (vehículo `vendido`) |
 
+**Ventas (HU10)**
+
+| Método | Endpoint | Acceso | Descripción |
+| --- | --- | --- | --- |
+| `GET` | `/api/ventas` | admin/vendedor | Historial de ventas (`?clienteId=&vehiculoId=`) |
+| `POST` | `/api/ventas` | admin/vendedor | Registrar venta (número único, vehículo `vendido`, `201`) |
+| `GET` | `/api/ventas/:ventaId` | admin/vendedor | Obtener el detalle de una venta |
+
 ### Parámetros (path, query y cuerpos)
 
-- **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId`, `:cotizacionId` y
-  `:reservaId` identifican el
+- **Path params:** `:vehiculoId`, `:userId`, `:repuestoId`, `:clienteId`, `:cotizacionId`,
+  `:reservaId` y `:ventaId` identifican el
   recurso a
   consultar o modificar.
 - **Query strings:** `GET /api/movimientos` acepta filtros opcionales
   (`?repuestoId=<uuid>` y `?tipo=entrada|salida`) y `GET /api/cotizaciones` acepta
   `?clienteId=<uuid>` y `?estado=<pendiente|aceptada|rechazada|vencida>`; `GET /api/reservas`
-  acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`. Los
+  acepta `?clienteId=`, `?vehiculoId=` y `?estado=<activa|cancelada|vencida|convertida>`, y
+  `GET /api/ventas` acepta `?clienteId=` y `?vehiculoId=`. Los
   demás listados
   no reciben filtros y devuelven la colección completa junto con `total`.
 - **Cuerpos (JSON):** siempre validados con Zod (punto 9). Los más relevantes:
@@ -1249,6 +1320,8 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
   - `POST /api/reservas` → `{ clienteId, vehiculoId, condiciones?, monto?, vigenciaDias? }`
     (el backend aparta el vehículo y genera el número); `POST .../cancelar` → `{ motivo? }`;
     `POST .../convertir` → `{ observaciones? }` (deja el vehículo `vendido`).
+  - `POST /api/ventas` → `{ clienteId, vehiculoId, descuentoPorcentaje?, observaciones?, reservaId?, fechaVenta? }`
+    (el backend verifica la disponibilidad, aparta la unidad, calcula los importes y genera el número).
   - `PATCH /api/repuestos/:repuestoId` **no** acepta `cantidad`: el stock solo cambia por
     movimientos.
 
@@ -1261,7 +1334,7 @@ Tabla consolidada con **todos** los endpoints de la API (27 en total). La column
   borrado es de archivos en S3 cuando se quitan del recurso.
 - **Filtros por query string**: `GET /api/movimientos?repuestoId=...&tipo=...`.
 - **Respuestas de listado** siempre incluyen `total` junto a la colección (`vehiculos`,
-  `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`, `reservas`).
+  `repuestos`, `usuarios`, `movimientos`, `clientes`, `cotizaciones`, `reservas`, `ventas`).
 
 ---
 
@@ -1397,7 +1470,7 @@ curl http://localhost:3000/info
 | Rol | Descripción |
 | --- | --- |
 | `admin` | Acceso total; gestiona usuarios/personal. |
-| `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08) y reservas (HU09). |
+| `vendedor` | Gestiona vehículos, repuestos, movimientos, clientes comerciales (HU07), cotizaciones (HU08), reservas (HU09) y ventas (HU10). |
 | `jefe_taller` | Gestiona repuestos y movimientos. |
 | `mecanico` | Consulta inventario (rol por defecto). |
 | `cliente` | Se autorregistra; accede al catálogo. |
@@ -1433,6 +1506,7 @@ MOVIMIENTOS_TABLE_NAME=MovimientosInventario
 CLIENTES_COMERCIALES_TABLE_NAME=ClientesComerciales
 COTIZACIONES_TABLE_NAME=Cotizaciones
 RESERVAS_TABLE_NAME=Reservas
+VENTAS_TABLE_NAME=Ventas
 FOTOS_BUCKET_NAME=nombre-del-bucket
 CORS_ORIGIN=http://localhost:5173
 ```
@@ -1484,6 +1558,8 @@ permisos, está en el punto 11). URL base: `http://localhost:3000` (configurable
 | Listar / ver reservas | `GET /api/reservas` · `/api/reservas/{id}` | admin/vendedor |
 | Registrar reserva | `POST /api/reservas` | admin/vendedor |
 | Cancelar / convertir reserva | `POST /api/reservas/{id}/cancelar` · `/convertir` | admin/vendedor |
+| Historial / detalle de ventas | `GET /api/ventas` · `/api/ventas/{id}` | admin/vendedor |
+| Registrar venta | `POST /api/ventas` | admin/vendedor |
 
 ### 13.8 Ejemplos de peticiones (cURL)
 
@@ -1558,6 +1634,15 @@ curl -X POST http://localhost:3000/api/reservas/<uuid>/convertir \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"observaciones":"Venta cerrada con financiamiento"}'
+
+# 15) Registrar una venta (verifica disponibilidad y responde 201)
+curl -X POST http://localhost:3000/api/ventas \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"clienteId":"<uuid>","vehiculoId":"<uuid-vehiculo>","descuentoPorcentaje":5,"observaciones":"Entrega en showroom"}'
+
+# 16) Historial de ventas (filtra por cliente o vehículo)
+curl "http://localhost:3000/api/ventas?clienteId=<uuid>" -H "Authorization: Bearer $TOKEN"
 ```
 
 > **Windows PowerShell:** usa `curl.exe` (no el alias `curl` de `Invoke-WebRequest`) y
@@ -1579,6 +1664,7 @@ curl -X POST http://localhost:3000/api/reservas/<uuid>/convertir \
 | HU07 | Seguimiento comercial de clientes | Implementada (backend verificado end-to-end) |
 | HU08 | Cotizaciones | Implementada (backend verificado end-to-end) |
 | HU09 | Reservas de vehículos | Implementada (backend verificado end-to-end) |
+| HU10 | Ventas de vehículos | Implementada (backend verificado end-to-end) |
 
 ---
 

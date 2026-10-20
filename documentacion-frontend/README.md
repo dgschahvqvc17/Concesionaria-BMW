@@ -9,7 +9,8 @@ mantuvo dentro de la **capa gratuita de AWS**.
 La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), el inventario
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
 gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
-la generación de cotizaciones (HU08) y las reservas de vehículos (HU09).
+la generación de cotizaciones (HU08), las reservas de vehículos (HU09) y las ventas de
+vehículos (HU10).
 
 ## Índice
 
@@ -29,6 +30,7 @@ la generación de cotizaciones (HU08) y las reservas de vehículos (HU09).
 14. [Seguimiento comercial (HU07)](#14-seguimiento-comercial-hu07)
 15. [Cotizaciones (HU08)](#15-cotizaciones-hu08)
 16. [Reservas de vehículos (HU09)](#16-reservas-de-vehículos-hu09)
+17. [Ventas de vehículos (HU10)](#17-ventas-de-vehículos-hu10)
 
 ---
 
@@ -122,17 +124,18 @@ frontend/src/
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
 │   ├── layout/             # AppLayout, PageHeader
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
+│   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
 │   ├── ui/                 # Primitivos shadcn/ui
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts, ventas.ts, ventaPdf.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -155,6 +158,7 @@ conservar la accesibilidad.
 | `ClienteComercialFormDialog` | `components/clientesComerciales` | Alta de clientes comerciales con validación Zod (HU07). |
 | `CotizacionFormDialog` / `CotizacionDetalleDialog` | `components/cotizaciones` | Generación y gestión de cotizaciones (HU08): snapshot de precios, descuento ≤ 20% y PDF/correo. |
 | `ReservaFormDialog` / `ReservaDetalleDialog` | `components/reservas` | Registro y gestión de reservas (HU09): apartado del vehículo, historial, cancelación y conversión en venta. |
+| `VentaFormDialog` / `VentaDetalleDialog` | `components/ventas` | Registro y detalle de ventas (HU10): cálculo de importes, snapshot de cliente/vehículo y comprobante PDF. |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -271,6 +275,7 @@ comparte entre páginas sin repetir código.
 | `/clientes-comerciales/:clienteId` | `ClienteComercialDetallePage` | `admin`, `vendedor`. |
 | `/cotizaciones` | `CotizacionesPage` | `admin`, `vendedor` (HU08). |
 | `/reservas` | `ReservasPage` | `admin`, `vendedor` (HU09). |
+| `/ventas` | `VentasPage` | `admin`, `vendedor` (HU10). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -691,6 +696,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `clientesComerciales.ts` | `list/get/create/update/addConsulta` | `/api/clientes-comerciales` | Sí (`admin`/`vendedor`) | Seguimiento comercial (HU07). |
 | `cotizaciones.ts` | `list/get/create/update` | `/api/cotizaciones` | Sí (`admin`/`vendedor`) | Cotizaciones (HU08). |
 | `reservas.ts` | `list/get/create/cancelar/convertir` | `/api/reservas` | Sí (`admin`/`vendedor`) | Reservas de vehículos (HU09). |
+| `ventas.ts` | `list/get/create` | `/api/ventas` | Sí (`admin`/`vendedor`) | Ventas de vehículos (HU10). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -841,7 +847,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU09:
+Recorrí los flujos principales alineados a HU01–HU10:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -858,6 +864,7 @@ Recorrí los flujos principales alineados a HU01–HU09:
 | HU07 | Seguimiento comercial | `/clientes-comerciales` (solo `admin`/`vendedor`) → listado + alta con Zod; detalle → registrar consulta e historial. | **OK** (backend e2e: `201`/`409`/`400`/`200`; UI con build limpio). | Código: `pages/clientesComerciales/`, `services/clientesComerciales.ts` |
 | HU08 | Cotizaciones | `/cotizaciones` (solo `admin`/`vendedor`) → nueva cotización (cliente + vehículos + descuento); detalle → aceptar/rechazar, descargar PDF y enviar por correo. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/cotizaciones/`, `services/cotizaciones.ts`, `lib/cotizacionPdf.ts` |
 | HU09 | Reservas de vehículos | `/reservas` (solo `admin`/`vendedor`) → nueva reserva (cliente + vehículo disponible); detalle → cancelar (libera unidad) o convertir en venta. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/reservas/`, `services/reservas.ts`, `lib/reservas.ts` |
+| HU10 | Ventas de vehículos | `/ventas` (solo `admin`/`vendedor`) → nueva venta (cliente + vehículo vendible + descuento ≤ 20%); detalle → comprobante PDF. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/ventas/`, `services/ventas.ts`, `lib/ventaPdf.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1231,6 +1238,82 @@ y `404` (cliente/vehículo/reserva inexistente) llegan como `ApiError` y se mues
   cancelar (`200`, vehículo liberado), convertir (`200`, vehículo `vendido`), reserva ya
   gestionada (`409`), cliente/vehículo inexistente (`404`), fecha pasada (`400`) y vencimiento
   derivado que libera la unidad.
+
+---
+
+## 17. Ventas de vehículos (HU10)
+
+La HU10 permite a `admin` y `vendedor` **registrar la venta** de un vehículo vendible
+(`disponible` o `reservado` con reserva vigente) a un cliente comercial, con un descuento
+autorizado **≤ 20 %**, y consultar el historial con su **comprobante en PDF**.
+
+**Archivos**
+
+```text
+├── pages/ventas/VentasPage.tsx
+├── components/ventas/
+│   ├── VentaFormDialog.tsx             # alta con cálculo de importes
+│   ├── VentasTable.tsx                 # listado con número, cliente, vehículo e importes
+│   └── VentaDetalleDialog.tsx          # snapshot, importes y comprobante PDF
+├── services/ventas.ts
+├── hooks/useVentas.ts
+├── lib/ventas.ts                       # DESCUENTO_MAXIMO, estados y `calcularImportes`
+├── lib/ventaPdf.ts                     # generación del comprobante con jsPDF
+└── types/venta.ts
+```
+
+**Servicio**
+
+```typescript
+// services/ventas.ts (extracto)
+list: (filtro?: VentasFiltro) => apiRequest<VentasResponse>(`/api/ventas${queryString(filtro)}`),
+get: (ventaId: string) => apiRequest<VentaResponse>(`/api/ventas/${ventaId}`),
+create: (input: CreateVentaInput) =>
+  apiRequest<VentaResponse>('/api/ventas', { method: 'POST', body: input }),
+```
+
+`useVentas` acepta un filtro `{ clienteId?, vehiculoId? }`, expone `ventas/loading/error` y la
+acción `crear` (que recarga la lista tras registrar). El listado se ordena por `fechaVenta`
+descendente.
+
+**Formulario**
+
+`VentaFormDialog` usa React Hook Form + Zod. Solo ofrece clientes comerciales y vehículos
+vendibles (`esVendible`), muestra el **precio de lista** vigente y calcula en vivo el
+`descuentoMonto` y el `precioFinal` con `calcularImportes` (descuento máximo 20 %, coherente
+con el backend). `observaciones` y `fechaVenta` son opcionales (la fecha no puede ser futura).
+
+**Detalle y acciones**
+
+- `VentaDetalleDialog` muestra el snapshot del cliente y del vehículo, `precioLista`,
+  `descuentoPorcentaje`/`descuentoMonto`, `precioFinal`, la fecha de venta, las observaciones
+  y el autor de la operación.
+- Permite **descargar el comprobante** con `descargarVentaPdf` → `Comprobante-VTA-AAAA-######.pdf`
+  (jsPDF, en el cliente, sin servicios de pago).
+
+**Historial por cliente (HU07 → HU10)**
+
+`ClienteComercialDetallePage` añade una tarjeta «Ventas» alimentada por `useVentas({ clienteId })`,
+con número, vehículo, importe y fecha, y un botón para descargar cada comprobante.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/ventas` queda bajo `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Ventas» (icono `ReceiptText`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (vehículo no vendible o ya vendido por otra venta), `400` (validación / descuento
+mayor al 20 % / fecha futura) y `404` (cliente/vehículo/venta inexistente) llegan como
+`ApiError` y se muestran con `toast.error`.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end: crear (`201`, `VTA-AAAA-######`), doble venta (`409`),
+  descuento > 20 % (`400`), cliente/vehículo inexistente (`404`), vehículo no vendible
+  (`409`), fecha futura (`400`), venta sobre reserva vigente (`201`, reserva → `convertida`),
+  historial con filtros (`200`) y detalle (`200`).
 
 ---
 

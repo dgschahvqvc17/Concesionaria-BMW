@@ -12,11 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
 import { useCotizaciones } from '@/hooks/useCotizaciones';
 import { useReservas } from '@/hooks/useReservas';
+import { useVentas } from '@/hooks/useVentas';
 import { getErrorMessage } from '@/lib/api';
 import { abrirCorreoConsulta } from '@/lib/consultaEmail';
 import { descargarCotizacionPdf } from '@/lib/cotizacionPdf';
 import { ESTADO_COTIZACION_LABELS, ESTADO_COTIZACION_STYLES } from '@/lib/cotizaciones';
 import { ESTADO_RESERVA_LABELS, ESTADO_RESERVA_STYLES } from '@/lib/reservas';
+import { descargarVentaPdf } from '@/lib/ventaPdf';
 import { formatFecha, formatPrecio } from '@/lib/repuestos';
 import { clientesComercialesService } from '@/services/clientesComerciales';
 import type { ClienteComercial } from '@/types/clienteComercial';
@@ -27,6 +29,7 @@ export function ClienteComercialDetallePage() {
   const { agregarConsulta, recargar } = useClientesComerciales();
   const { cotizaciones, loading: cargandoCotizaciones } = useCotizaciones({ clienteId });
   const { reservas, loading: cargandoReservas } = useReservas({ clienteId });
+  const { ventas, loading: cargandoVentas } = useVentas({ clienteId });
   const [cliente, setCliente] = useState<ClienteComercial | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -168,6 +171,35 @@ export function ClienteComercialDetallePage() {
                   <Badge className={ESTADO_RESERVA_STYLES[reserva.estado]}>
                     {ESTADO_RESERVA_LABELS[reserva.estado]}
                   </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Ventas</CardTitle></CardHeader>
+        <CardContent>
+          {cargandoVentas ? (
+            <p className="text-sm text-muted-foreground">Cargando ventas…</p>
+          ) : ventas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin ventas registradas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {ventas.map((venta) => (
+                <li key={venta.ventaId} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">
+                      {venta.numero} · {venta.vehiculo.marca} {venta.vehiculo.modelo}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatFecha(venta.fechaVenta)} · {formatPrecio(venta.precioFinal)}
+                      {venta.numeroReserva ? ` · ${venta.numeroReserva}` : ''}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => descargarVentaPdf(venta)}>
+                    Comprobante
+                  </Button>
                 </li>
               ))}
             </ul>

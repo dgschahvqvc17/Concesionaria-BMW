@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Package,
+  ReceiptText,
   Users,
   X,
   type LucideIcon,
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/clientes-comerciales', label: 'Clientes', icon: Contact, roles: ['admin', 'vendedor'] },
   { to: '/cotizaciones', label: 'Cotizaciones', icon: FileText, roles: ['admin', 'vendedor'] },
   { to: '/reservas', label: 'Reservas', icon: CalendarCheck, roles: ['admin', 'vendedor'] },
+  { to: '/ventas', label: 'Ventas', icon: ReceiptText, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
 

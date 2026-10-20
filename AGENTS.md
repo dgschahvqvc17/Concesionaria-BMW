@@ -49,8 +49,9 @@ cd infra; npx tsc --noEmit
   (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
-  HU07 seguimiento comercial de clientes, HU08 cotizaciones y HU09 reservas de vehículos
-  (HU01–HU06 verificadas end-to-end; HU07, HU08 y HU09 con backend verificado e2e y
+  HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos y
+  HU10 ventas de vehículos
+  (HU01–HU06 verificadas end-to-end; HU07–HU10 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -70,6 +71,16 @@ cd infra; npx tsc --noEmit
   condicional atómico. Estados `activa`/`cancelada`/`vencida`/`convertida` (vencida se deriva
   de `fechaVencimiento` y libera la unidad); convertir en venta deja el vehículo `vendido`.
   `condiciones`, `monto` opcional, vigencia por defecto 30 días e historial de estados.
+- Ventas (HU10): tabla `Ventas` (GSIs `vehiculo-index`, `cliente-index` y `numero-index`;
+  número único `VTA-AAAA-######` reservado de forma atómica); rutas `/api/ventas`
+  (solo `admin`/`vendedor`) con `POST /`, `GET /` y `GET /:ventaId`. Solo se venden vehículos
+  `disponible` o `reservado` con reserva vigente (409 en conflicto); al confirmar se
+  reverifica la disponibilidad y se aparta la unidad con un update condicional atómico
+  (`estado → vendido`), impidiendo vender la misma unidad dos veces. Snapshot de cliente y
+  vehículo, descuento autorizado ≤ 20%, `precioLista`/`descuentoMonto`/`precioFinal`,
+  fecha de venta (no futura), observaciones y autor de la operación. Si la unidad estaba
+  reservada, la venta se vincula y la reserva pasa a `convertida`. El comprobante se genera
+  en el frontend con **jsPDF**.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.
