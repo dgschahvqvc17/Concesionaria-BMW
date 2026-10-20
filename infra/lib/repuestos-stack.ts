@@ -19,6 +19,10 @@ import { Construct } from 'constructs';
  *
  * HU10 - Ventas: tabla `Ventas` (índices por vehículo, por cliente y por número
  * de operación para el historial de ventas).
+ *
+ * HU11 - Pruebas de manejo: tabla `PruebasManejo` (índice por vehículo + fecha
+ * para detectar conflictos de horario, por cliente para el historial y por
+ * número de solicitud).
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -27,6 +31,7 @@ export class RepuestosStack extends cdk.Stack {
   public readonly cotizacionesTable: dynamodb.Table;
   public readonly reservasTable: dynamodb.Table;
   public readonly ventasTable: dynamodb.Table;
+  public readonly pruebasManejoTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -155,6 +160,35 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // HU11: Pruebas de manejo. PK = pruebaId (UUID). GSI por vehículo + fechaHora
+    // para consultar los solapes de horario de una unidad, GSI por cliente
+    // (historial; "anonimo" para solicitudes públicas) y GSI por número.
+    this.pruebasManejoTable = new dynamodb.Table(this, 'PruebasManejoTable', {
+      partitionKey: { name: 'pruebaId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.pruebasManejoTable.addGlobalSecondaryIndex({
+      indexName: 'vehiculo-index',
+      partitionKey: { name: 'vehiculoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.pruebasManejoTable.addGlobalSecondaryIndex({
+      indexName: 'cliente-index',
+      partitionKey: { name: 'clienteId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.pruebasManejoTable.addGlobalSecondaryIndex({
+      indexName: 'numero-index',
+      partitionKey: { name: 'numero', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // ------------------------------------------------------------------
     // Outputs
     // ------------------------------------------------------------------
@@ -181,6 +215,10 @@ export class RepuestosStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VentasTableName', {
       value: this.ventasTable.tableName,
       description: 'Nombre de la tabla DynamoDB de ventas (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'PruebasManejoTableName', {
+      value: this.pruebasManejoTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de pruebas de manejo (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,

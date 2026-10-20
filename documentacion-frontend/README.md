@@ -9,8 +9,8 @@ mantuvo dentro de la **capa gratuita de AWS**.
 La aplicación cubre el login con roles (HU01), la gestión de usuarios (HU02), el inventario
 de vehículos (HU03), el inventario de repuestos (HU04), el catálogo web público (HU05), la
 gestión de fotografías y documentos (HU06), el seguimiento comercial de clientes (HU07),
-la generación de cotizaciones (HU08), las reservas de vehículos (HU09) y las ventas de
-vehículos (HU10).
+la generación de cotizaciones (HU08), las reservas de vehículos (HU09), las ventas de
+vehículos (HU10) y las pruebas de manejo (HU11).
 
 ## Índice
 
@@ -31,6 +31,7 @@ vehículos (HU10).
 15. [Cotizaciones (HU08)](#15-cotizaciones-hu08)
 16. [Reservas de vehículos (HU09)](#16-reservas-de-vehículos-hu09)
 17. [Ventas de vehículos (HU10)](#17-ventas-de-vehículos-hu10)
+18. [Pruebas de manejo (HU11)](#18-pruebas-de-manejo-hu11)
 
 ---
 
@@ -123,19 +124,20 @@ frontend/src/
 │   ├── dashboard/          # InfoTile
 │   ├── inventory/          # VehiculoFormDialog, PhotoUploader, DocumentosUploader, tables, filtros, MovimientoDialog
 │   ├── layout/             # AppLayout, PageHeader
+│   ├── pruebasManejo/      # PruebaManejoFormDialog, PruebasManejoTable, PruebaManejoDetalleDialog (HU11)
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
 │   ├── ui/                 # Primitivos shadcn/ui
 │   ├── users/              # UserFormDialog, UsersTable
 │   └── ProtectedRoute.tsx  # Guard de rutas (auth + roles)
 ├── context/                # AuthContext
-├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas
-├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts, ventas.ts, ventaPdf.ts
+├── hooks/                  # useVehiculos, useRepuestos, useMovimientos, useUsuarios, useCatalogo, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo
+├── lib/                    # api.ts, amplify.ts, archivos.ts, roles.ts, vehiculos.ts, utils.ts, cotizaciones.ts, cotizacionPdf.ts, cotizacionEmail.ts, reservas.ts, ventas.ts, ventaPdf.ts, pruebasManejo.ts
 ├── pages/                  # LoginPage, CatalogoPage, VehiculoDetallePage, DashboardPage,
 │                           # InventoryPage, RepuestosPage, UsersPage, UnauthorizedPage,
-│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10)
-├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas
-└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts
+│                           # clientesComerciales/ (listado y detalle, HU07), cotizaciones/ (HU08), reservas/ (HU09), ventas/ (HU10), pruebasManejo/ (HU11)
+├── services/               # vehiculos, repuestos, movimientos, usuarios, catalogo, clientes, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo
+└── types/                  # vehiculo.ts, catalogo.ts, repuesto.ts, usuario.ts, clienteComercial.ts, cotizacion.ts, reserva.ts, venta.ts, pruebaManejo.ts
 ```
 
 **Primitivos de `components/ui`** (shadcn/ui): `button`, `input`, `label`, `select`,
@@ -159,6 +161,7 @@ conservar la accesibilidad.
 | `CotizacionFormDialog` / `CotizacionDetalleDialog` | `components/cotizaciones` | Generación y gestión de cotizaciones (HU08): snapshot de precios, descuento ≤ 20% y PDF/correo. |
 | `ReservaFormDialog` / `ReservaDetalleDialog` | `components/reservas` | Registro y gestión de reservas (HU09): apartado del vehículo, historial, cancelación y conversión en venta. |
 | `VentaFormDialog` / `VentaDetalleDialog` | `components/ventas` | Registro y detalle de ventas (HU10): cálculo de importes, snapshot de cliente/vehículo y comprobante PDF. |
+| `PruebaManejoFormDialog` / `PruebasManejoTable` / `PruebaManejoDetalleDialog` | `components/pruebasManejo` | Solicitud y gestión de pruebas de manejo (HU11): agenda 08:00–18:00 en pasos de 15 min, snapshot de vehículo/cliente, historial de estados y acciones (confirmar, reprogramar, cancelar, realizar). |
 | `MovimientoDialog` | `components/inventory` | Registro de entradas/salidas de repuestos. |
 | `ConfirmDialog` | `components/common` | Confirmación reutilizable de acciones destructivas. |
 
@@ -276,6 +279,7 @@ comparte entre páginas sin repetir código.
 | `/cotizaciones` | `CotizacionesPage` | `admin`, `vendedor` (HU08). |
 | `/reservas` | `ReservasPage` | `admin`, `vendedor` (HU09). |
 | `/ventas` | `VentasPage` | `admin`, `vendedor` (HU10). |
+| `/pruebas-man` | `PruebasManejoPage` | `admin`, `vendedor` (HU11). |
 | `/usuarios` | `UsersPage` | Solo `admin`. |
 | `/no-autorizado` | `UnauthorizedPage` | Autenticado (acceso denegado). |
 | `/` | → `/dashboard` | Redirección. |
@@ -697,6 +701,7 @@ Cada módulo de `services/` traduce operaciones de UI a llamadas REST, pasando s
 | `cotizaciones.ts` | `list/get/create/update` | `/api/cotizaciones` | Sí (`admin`/`vendedor`) | Cotizaciones (HU08). |
 | `reservas.ts` | `list/get/create/cancelar/convertir` | `/api/reservas` | Sí (`admin`/`vendedor`) | Reservas de vehículos (HU09). |
 | `ventas.ts` | `list/get/create` | `/api/ventas` | Sí (`admin`/`vendedor`) | Ventas de vehículos (HU10). |
+| `pruebasManejo.ts` | `list/get/create/solicitar/confirmar/reprogramar/cancelar/realizar` | `/api/pruebas-man` | `create` (staff) y `solicitar` (**público**, token opcional); resto `admin`/`vendedor` | Pruebas de manejo (HU11). |
 
 ### 11.5 Flujo end-to-end con evidencia (subida a S3)
 
@@ -847,7 +852,7 @@ coherencia entre `types/`, `services/`, `hooks/`, `pages` y `components`.
 
 ### 13.2 Pruebas funcionales manuales (criterios de aceptación por HU)
 
-Recorrí los flujos principales alineados a HU01–HU10:
+Recorrí los flujos principales alineados a HU01–HU11:
 
 | HU | Flujo | Pasos | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
@@ -865,6 +870,7 @@ Recorrí los flujos principales alineados a HU01–HU10:
 | HU08 | Cotizaciones | `/cotizaciones` (solo `admin`/`vendedor`) → nueva cotización (cliente + vehículos + descuento); detalle → aceptar/rechazar, descargar PDF y enviar por correo. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/cotizaciones/`, `services/cotizaciones.ts`, `lib/cotizacionPdf.ts` |
 | HU09 | Reservas de vehículos | `/reservas` (solo `admin`/`vendedor`) → nueva reserva (cliente + vehículo disponible); detalle → cancelar (libera unidad) o convertir en venta. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/reservas/`, `services/reservas.ts`, `lib/reservas.ts` |
 | HU10 | Ventas de vehículos | `/ventas` (solo `admin`/`vendedor`) → nueva venta (cliente + vehículo vendible + descuento ≤ 20%); detalle → comprobante PDF. | **OK** (backend e2e: `201`/`409`/`400`/`404`/`200`; UI con build limpio). | Código: `pages/ventas/`, `services/ventas.ts`, `lib/ventaPdf.ts` |
+| HU11 | Pruebas de manejo | `/pruebas-man` (solo `admin`/`vendedor`) → listado con filtros, nueva solicitud, detalle con historial y acciones (confirmar/reprogramar/cancelar/realizar); solicitud pública desde el detalle del vehículo y desde la ficha del cliente. | **OK** (backend e2e: 46/46 aserciones — `201`/`409`/`400`/`404`/`200`/`401`; UI con build limpio). | Código: `pages/pruebasManejo/`, `components/pruebasManejo/`, `services/pruebasManejo.ts`, `lib/pruebasManejo.ts` |
 
 ### 13.3 Pruebas E2E con Playwright (automatizadas)
 
@@ -1314,6 +1320,121 @@ mayor al 20 % / fecha futura) y `404` (cliente/vehículo/venta inexistente) lleg
   descuento > 20 % (`400`), cliente/vehículo inexistente (`404`), vehículo no vendible
   (`409`), fecha futura (`400`), venta sobre reserva vigente (`201`, reserva → `convertida`),
   historial con filtros (`200`) y detalle (`200`).
+
+---
+
+## 18. Pruebas de manejo (HU11)
+
+La HU11 permite **agendar pruebas de manejo** sobre un vehículo publicado y
+`disponible`/`reservado`. Hay dos frentes: la **solicitud** (puede hacerla un visitante desde
+el detalle del vehículo del catálogo, un cliente con sesión o el personal) y la **gestión**
+(solo `admin` y `vendedor`: confirmar, reprogramar, cancelar y marcar realizada). La agenda
+respeta el horario de atención **08:00–18:00** en pasos de **15 minutos**, con duración de
+15 a 180 minutos (por defecto 60), y el backend rechaza con `409` cualquier ventana solapada
+del mismo vehículo.
+
+**Archivos**
+
+```text
+├── pages/pruebasManejo/PruebasManejoPage.tsx     # listado + filtros + diálogos
+├── components/pruebasManejo/
+│   ├── PruebaManejoFormDialog.tsx                # solicitud (agnóstico del actor)
+│   ├── PruebasManejoTable.tsx                    # tabla con estado, horario y acciones
+│   └── PruebaManejoDetalleDialog.tsx             # snapshot, historial y transiciones
+├── services/pruebasManejo.ts
+├── hooks/usePruebasManejo.ts
+├── lib/pruebasManejo.ts                          # reglas de agenda y estados (espejo backend)
+└── types/pruebaManejo.ts
+```
+
+**Servicio**
+
+```typescript
+// services/pruebasManejo.ts (extracto)
+list: (filtro?: PruebasFiltro) => apiRequest<PruebasResponse>(`/api/pruebas-man${queryString(filtro)}`),
+get: (pruebaId: string) => apiRequest<PruebaResponse>(`/api/pruebas-man/${pruebaId}`),
+create: (input: CreatePruebaManejoInput) =>         // staff autenticado
+  apiRequest<PruebaResponse>('/api/pruebas-man', { method: 'POST', body: input }),
+solicitar: (input: CreatePruebaManejoInput) =>      // público (sin token)
+  publicRequest<PruebaResponse>('/api/pruebas-man', { method: 'POST', body: input }),
+confirmar: (pruebaId, obs) => apiRequest(/* POST .../:id/confirmar */),
+reprogramar: (pruebaId, datos) => apiRequest(/* POST .../:id/reprogramar */),
+cancelar: (pruebaId, motivo) => apiRequest(/* POST .../:id/cancelar */),
+realizar: (pruebaId, obs) => apiRequest(/* POST .../:id/realizar */),
+```
+
+`create` y `solicitar` apuntan al mismo endpoint: la diferencia es el transporte (`apiRequest`
+envía el Bearer si hay sesión; `publicRequest` no lo exige), y el backend decide el `origen`
+(`catalogo`/`cliente`/`interno`) según el token recibido. `usePruebasManejo` acepta
+`{ clienteId?, vehiculoId?, estado? }`, expone `pruebas/loading/error` y la acción `crear`,
+y ordena el listado por `fechaHora` **ascendente** (la agenda, no el histórico).
+
+**Formulario (solicitud)**
+
+`PruebaManejoFormDialog` usa React Hook Form + Zod y es **agnóstico del actor**: recibe
+`vehiculos`, un `vehiculoFijo?` (detalle del vehículo), `clientes?` (si se pasa, muestra el
+selector de cliente) y un `clienteFijo?` (ficha del cliente). El campo `contacto`
+(`nombre`, `telefono`, `email?`) es obligatorio incluso sin cliente, se prellena desde el
+cliente cuando aplica, y `fechaHora` usa un `datetime-local` validado con
+`validarFechaPrueba` (futura, dentro del horario y alineada al paso de 15 min). Solo se
+envía `clienteId` si el formulario lo resuelve, sin importar que `clientes` esté definido.
+
+**Reglas de agenda (`lib/pruebasManejo.ts`)**
+
+- Constantes espejo del backend: `HORARIO_INICIO`, `HORARIO_FIN`, `PASO_MINUTOS`,
+  `DURACION_DEFECTO`/`MIN`/`MAX`.
+- `esVehiculoParaPrueba` filtra vehículos publicados y `disponible`/`reservado` (botón del
+  catálogo y selector de vehículos).
+- `puedeConfirmarse`/`puedeReprogramarse`/`puedeCancelarse`/`puedeRealizarse` concentran las
+  transiciones de estado permitidas; `PruebaManejoDetalleDialog` las usa para habilitar cada
+  acción (el backend vuelve a validar).
+- `fechaHoraPorDefecto`, `aIsoLocal`/`aValorLocal`, `formatFechaHora`, `formatHora` y
+  `rangoHorario` manejan la conversión entre ISO (API) y `datetime-local` (input).
+
+**Detalle y acciones**
+
+- `PruebaManejoDetalleDialog` muestra el snapshot del vehículo y del contacto, el estado con
+  su color (`ESTADO_PRUEBA_STYLES`), el origen, la ventana que ocupa y el `historial` de
+  estados con usuario, fecha y motivo.
+- Las acciones se ofrecen según el estado (doble validación: aquí y en el backend):
+  **confirmar** (`pendiente`), **realizar** (`confirmada`, con observaciones), **reprogramar**
+  (`pendiente`/`confirmada`, con `datetime-local` + duración) y **cancelar**
+  (`pendiente`/`confirmada`, con motivo).
+
+**Puntos de entrada**
+
+- `VehiculoDetallePage` (catálogo público) muestra el botón «Solicitar prueba de manejo»
+  cuando `esVehiculoParaPrueba(vehiculo)` y envía la solicitud con `solicitar` (sin token).
+- `ClienteComercialDetallePage` suma una tarjeta «Pruebas de manejo» alimentada por
+  `usePruebasManejo({ clienteId })`, con el botón «Nueva solicitud» que abre el diálogo con
+  `clienteFijo`.
+- `PruebasManejoPage` reúne la búsqueda libre (número, solicitante o vehículo), el filtro por
+  estado, el botón «Nueva solicitud», la tabla y los diálogos de formulario y detalle.
+
+**Acceso por rol (doble barrera)**
+
+- En `App.tsx`, la ruta `/pruebas-man` queda bajo `<ProtectedRoute roles={['admin', 'vendedor']} />`.
+- En `AppLayout.tsx`, el ítem «Pruebas» (icono `Gauge`) usa los mismos roles.
+
+**Errores del servidor**
+
+Los `409` (horario solapado con otra prueba del mismo vehículo, transición de estado no
+permitida, vehículo no publicado o no disponible), `400` (fecha pasada, fuera del horario o
+sin paso de 15 minutos, contacto incompleto), `404` (vehículo o prueba inexistente) y `401`
+(listado sin token) llegan como `ApiError` y se muestran con `toast.error` o, cuando son de
+validación, se reasignan al campo correspondiente con `setError`.
+
+**Verificación**
+
+- `npm run build` (`tsc -b && vite build`): **0 errores**.
+- Backend verificado end-to-end (46/46 aserciones): solicitud pública sin token (`201`,
+  número `PRB-AAAA-######`, `origen: catalogo`, `clienteId: anonimo`), solape del mismo
+  vehículo (`409`), fecha pasada / fuera de horario / sin paso de 15 min / contacto
+  incompleto (`400`), vehículo inexistente (`404`), vehículo no disponible o despublicado
+  (`409`), listado sin token (`401`) y con filtros por vehículo/estado/cliente (`200`),
+  registro por vendedor con `clienteId` (`201`, `origen: interno`), transiciones
+  (confirmar/realizar/cancelar/reprogramar `200` con historial) y sus repeticiones o
+  combinaciones inválidas (`409`/`404`).
 
 ---
 

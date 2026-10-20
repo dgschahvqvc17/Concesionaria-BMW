@@ -27,7 +27,7 @@ new InventarioStack(app, 'ConcesionariaBmwInventarioStack', {
 new RepuestosStack(app, 'ConcesionariaBmwRepuestosStack', {
   env,
   description:
-    'HU04/HU07/HU08/HU09/HU10 - Repuestos, movimientos, clientes comerciales, cotizaciones, reservas y ventas (tablas DynamoDB).',
+    'HU04/HU07/HU08/HU09/HU10/HU11 - Repuestos, movimientos, clientes comerciales, cotizaciones, reservas, ventas y pruebas de manejo (tablas DynamoDB).',
 });
 
 app.synth();

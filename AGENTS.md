@@ -49,9 +49,9 @@ cd infra; npx tsc --noEmit
   (`POST /api/clientes/registro`); el administrador gestiona solo al personal y no crea clientes.
 - HU01 login, HU02 usuarios/roles, HU03 inventario de vehículos, HU04 inventario de repuestos,
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
-  HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos y
-  HU10 ventas de vehículos
-  (HU01–HU06 verificadas end-to-end; HU07–HU10 con backend verificado e2e y
+  HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
+  HU10 ventas de vehículos y HU11 pruebas de manejo
+  (HU01–HU06 verificadas end-to-end; HU07–HU11 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -81,6 +81,17 @@ cd infra; npx tsc --noEmit
   fecha de venta (no futura), observaciones y autor de la operación. Si la unidad estaba
   reservada, la venta se vincula y la reserva pasa a `convertida`. El comprobante se genera
   en el frontend con **jsPDF**.
+- Pruebas de manejo (HU11): tabla `PruebasManejo` (GSIs `vehiculo-index` con `fechaHora`,
+  `cliente-index` y `numero-index`; número único `PRB-AAAA-######` reservado de forma atómica);
+  rutas `/api/pruebas-man` con `POST /` **público con token opcional** (`optionalAuth`, solicitud
+  desde el catálogo) y el resto solo `admin`/`vendedor`. Conflictos = mismo vehículo + ventanas
+  solapadas (409); horario de atención 08:00–18:00 en pasos de 15 min, duración 15–180 min
+  (defecto 60), vehículos `disponible`/`reservado` publicados. Estados
+  `pendiente`/`confirmada`/`realizada`/`cancelada` con transiciones confirmar, reprogramar
+  (conserva estado + historial), cancelar y realizar. Snapshot de vehículo y `contacto`;
+  en solicitudes públicas el `clienteId` se ignora (`'anonimo'`). Frontend: página
+  `/pruebas-man` (admin/vendedor), diálogo reutilizable desde el detalle del vehículo
+  (público) y la ficha del cliente.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

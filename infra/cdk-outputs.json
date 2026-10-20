@@ -6,6 +6,11 @@
     "Region": "us-east-2",
     "UserPoolArn": "arn:aws:cognito-idp:us-east-2:591015654164:userpool/us-east-2_lXmTlesoj"
   },
+  "ConcesionariaBmwInventarioStack": {
+    "VehiculosTableName": "ConcesionariaBmwInventarioStack-VehiculosTableCF842E6B-NN5O45556C8Q",
+    "FotosBucketName": "concesionariabmwinventari-fotosvehiculosbucketbda8-4rlocqprcfn4",
+    "Region": "us-east-2"
+  },
   "ConcesionariaBmwRepuestosStack": {
     "RepuestosTableName": "ConcesionariaBmwRepuestosStack-RepuestosTable03F7C7F8-1LE5CSFD1GTNJ",
     "MovimientosTableName": "ConcesionariaBmwRepuestosStack-MovimientosTableDDEDD203-EQN7AVQE50ZO",
@@ -13,6 +18,7 @@
     "CotizacionesTableName": "ConcesionariaBmwRepuestosStack-CotizacionesTable9C14E5CF-1QDRYEMOF3GX8",
     "ReservasTableName": "ConcesionariaBmwRepuestosStack-ReservasTableCC690889-MGXN6EH7JVDO",
     "VentasTableName": "ConcesionariaBmwRepuestosStack-VentasTable349F3B53-KNNHN5Y8P2KD",
+    "PruebasManejoTableName": "ConcesionariaBmwRepuestosStack-PruebasManejoTable408BA070-G6GSTLCEPXL1",
     "Region": "us-east-2"
   }
 }

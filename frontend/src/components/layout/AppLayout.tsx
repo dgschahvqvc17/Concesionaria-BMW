@@ -6,6 +6,7 @@ import {
   CarFront,
   Contact,
   FileText,
+  Gauge,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/cotizaciones', label: 'Cotizaciones', icon: FileText, roles: ['admin', 'vendedor'] },
   { to: '/reservas', label: 'Reservas', icon: CalendarCheck, roles: ['admin', 'vendedor'] },
   { to: '/ventas', label: 'Ventas', icon: ReceiptText, roles: ['admin', 'vendedor'] },
+  { to: '/pruebas-man', label: 'Pruebas', icon: Gauge, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
 

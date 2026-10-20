@@ -31,6 +31,7 @@ function createApp() {
   app.use('/api/cotizaciones', require('./routes/cotizacionRoutes'));
   app.use('/api/reservas', require('./routes/reservaRoutes'));
   app.use('/api/ventas', require('./routes/ventaRoutes'));
+  app.use('/api/pruebas-man', require('./routes/pruebaManejoRoutes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
