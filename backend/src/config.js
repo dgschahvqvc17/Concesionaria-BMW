@@ -16,6 +16,7 @@ const config = {
   pruebasManejoTableName: process.env.PRUEBAS_MANEJO_TABLE_NAME || 'PruebasManejo',
   notificacionesTableName: process.env.NOTIFICACIONES_TABLE_NAME || 'Notificaciones',
   citasTallerTableName: process.env.CITAS_TALLER_TABLE_NAME || 'CitasTaller',
+  auditoriaTableName: process.env.AUDITORIA_TABLE_NAME || 'Auditoria',
   fotosBucketName: process.env.FOTOS_BUCKET_NAME,
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };

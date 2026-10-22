@@ -15,6 +15,7 @@ import {
   Menu,
   Package,
   ReceiptText,
+  ShieldCheck,
   Users,
   Wrench,
   X,
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/citas', label: 'Taller', icon: Wrench, roles: ['admin', 'jefe_taller', 'mecanico'] },
   { to: '/historial-servicios', label: 'Historial', icon: History, roles: ['admin', 'jefe_taller', 'vendedor'] },
   { to: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin', 'vendedor'] },
+  { to: '/auditoria', label: 'Auditoría', icon: ShieldCheck, roles: ['admin'] },
   { to: '/notificaciones', label: 'Correos', icon: Mail, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];

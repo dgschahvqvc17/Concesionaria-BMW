@@ -35,6 +35,7 @@ function createApp() {
   app.use('/api/notificaciones', require('./routes/notificacionRoutes'));
   app.use('/api/citas-taller', require('./routes/citaTallerRoutes'));
   app.use('/api/reportes', require('./routes/reporteRoutes'));
+  app.use('/api/auditoria', require('./routes/auditoriaRoutes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
