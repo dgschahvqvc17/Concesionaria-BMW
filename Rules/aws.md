@@ -64,7 +64,9 @@ infra/
 │   ├── auth-stack.ts           # Cognito + DynamoDB (Usuarios)
 │   ├── inventario-stack.ts     # DynamoDB (Vehiculos) + S3 (FotosVehiculosBucket)
 │   └── repuestos-stack.ts      # DynamoDB (Repuestos + MovimientosInventario + ClientesComerciales + Cotizaciones + Reservas + Ventas + PruebasManejo + Notificaciones + CitasTaller)
-└── scripts/create-user.mjs     # Alta de usuarios de prueba (Cognito + grupo)
+└── scripts/
+    ├── create-user.mjs           # Alta de usuarios de prueba (Cognito + grupo)
+    └── seed-vehiculos.mjs        # Carga de catálogo de vehículos BMW (API)
 ```
 
 ### Stack 1 — `ConcesionariaBmwAuthStack` (HU01/HU02)
@@ -169,6 +171,7 @@ npm run synth               # generar plantillas CloudFormation
 npm run deploy              # cdk deploy --require-approval never
 npm run destroy             # eliminar las stacks
 npm run create-user         # alta de usuario (ver variables abajo)
+npm run seed-vehiculos      # carga de catálogo de vehículos (ver variables abajo)
 ```
 
 Alta de usuario de prueba:
@@ -177,6 +180,22 @@ Alta de usuario de prueba:
 # PowerShell
 $env:USER_POOL_ID="us-east-2_XXXX"; $env:EMAIL="admin@bmw.com"; $env:PASSWORD="Passw0rd123"; $env:ROLE="admin"; $env:NAME="Admin Demo"; npm run create-user
 ```
+
+Carga de catálogo de vehículos (requiere el backend levantado en el puerto 3000):
+
+```bash
+# PowerShell
+$env:API_URL="http://localhost:3000"; $env:USER_POOL_ID="us-east-2_XXXX"; `
+$env:CLIENT_ID="xxxxxxxx"; $env:EMAIL="admin@bmw.com"; $env:PASSWORD="Passw0rd123"; npm run seed-vehiculos
+```
+
+- Registra **20 vehículos nuevos** (`condicion: nuevo`) y **10 usados** (`condicion: seminuevo`,
+  que es el único valor de usado que admite el modelo) con modelos reales de BMW.
+- Los alta por la API (`POST /api/vehiculos`), no escribe en DynamoDB directo: así pasan
+  por la validación, el control de VIN duplicado y la auditoría (HU18).
+- Es **idempotente**: omite los vehículos cuyo VIN ya está registrado.
+- Variables opcionales: `SOLO_NUEVOS=1` o `SOLO_USADOS=1` para cargas parciales.
+- Las imágenes no se cargan (`fotos: []`); se añaden después desde la interfaz (HU06).
 
 ## Reglas al tocar la infraestructura
 
