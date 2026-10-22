@@ -22,7 +22,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, AuthBrandPanel, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
-│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13/HU14), TallerAvancesPanel (HU15)
+│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13/HU14), TallerAvancesPanel (HU15), HistorialServiciosTable, HistorialServicioDetalleDialog (HU16)
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
@@ -37,9 +37,9 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos, useHistorialServicios
 ├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, ...
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, citasTaller/HistorialServiciosPage, ...
 ├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller (llamadas a la API)
 └── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller
 ```
@@ -251,7 +251,7 @@ degradado BMW).
   redacta el mensaje, registra el intento (máx. 5, anti-duplicados) y el frontend abre el
   cliente de correo del usuario.
 
-## Citas del taller (HU13), asignación de trabajos a mecánicos (HU14) y registro de mantenimiento (HU15)
+## Citas del taller (HU13), asignación de trabajos a mecánicos (HU14), registro de mantenimiento (HU15) e historial de servicios (HU16)
 
 - `pages/citasTaller/CitasTallerPage` + `components/citasTaller/` (`CitasTallerTable`,
   `CitaTallerFormDialog`, `CitaTallerDetalleDialog`, `TallerAvancesPanel`).
@@ -302,6 +302,18 @@ degradado BMW).
   `cita_taller` y las etiquetas de eventos `cita_*` («Cita solicitada», «Cita
   confirmada», «Cita reprogramada», «Cita cancelada», «Cita finalizada», «Cita
   asignada», «Cita reasignada»).
+- **Historial de servicios (HU16)**: `pages/citasTaller/HistorialServiciosPage` +
+  `components/citasTaller/HistorialServiciosTable` y
+  `components/citasTaller/HistorialServicioDetalleDialog` (detalle de solo lectura).
+  Ruta `/historial-servicios` bajo
+  `<ProtectedRoute roles={['admin', 'jefe_taller', 'vendedor']}>` (ítem «Historial»,
+  icono `History`, en `AppLayout.tsx` con los mismos roles). El usuario busca por **VIN**
+  y ve el resumen del vehículo (`vehiculo`) con la tabla de servicios (número, fecha de
+  atención, tipo, responsable, nº de repuestos y estado) y el detalle de cada uno.
+  Datos: `services/citasTaller.ts` (`historial` y `historialPorVehiculo`) +
+  `hooks/useHistorialServicios.ts` (estado `historial`/`loading`/`error`/`buscado` y
+  acciones `buscar`/`limpiar`). `types/citaTaller.ts` ampliado con
+  `HistorialVehiculoResumen`, `HistorialServicios` y `BuscarHistorialInput`.
 
 ## Acceso a la API
 

@@ -5,7 +5,8 @@ usuarios con roles, autorregistro de clientes, administración de usuarios, inve
 vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
 comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
 gestión de pruebas de manejo, citas del taller (HU13) con asignación de trabajos a
-mecánicos (HU14), registro de mantenimiento y reparaciones (HU15) y notificaciones por
+mecánicos (HU14), registro de mantenimiento y reparaciones (HU15), consulta del historial
+de servicios de los vehículos (HU16) y notificaciones por
 correo (HU12, con transporte `mailto:` para mantenerse en la capa gratuita).
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
@@ -43,6 +44,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU13** | Citas del taller: agenda interna (admin/jefe_taller) con horario 08:00–18:00, sin solapes por vehículo, transiciones de estado, numeración única y notificaciones por correo (`mailto:`). | Implementada (backend verificado e2e) |
 | **HU14** | Asignar trabajos de mantenimiento y reparación a los mecánicos: orden de trabajo con mecánico responsable, fecha de asignación, reasignación e historial de cambios, control de carga de trabajo y bloqueo de mecánicos inactivos. | Implementada (backend verificado e2e) |
 | **HU15** | Registrar mantenimiento y reparaciones: el mecánico asignado documenta diagnóstico, tareas, repuestos utilizados (descuenta existencias vía movimiento de salida), observaciones técnicas y archivos; fechas reales de inicio y fin. | Implementada (backend verificado e2e) |
+| **HU16** | Consultar el historial de servicios de los vehículos: búsqueda por VIN (admin/jefe_taller/vendedor), listado de servicios con fechas, tipo, diagnóstico, responsable y repuestos, y detalle de solo lectura. | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y

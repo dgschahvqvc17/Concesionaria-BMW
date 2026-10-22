@@ -22,6 +22,7 @@ import { VentasPage } from '@/pages/ventas/VentasPage';
 import { PruebasManejoPage } from '@/pages/pruebasManejo/PruebasManejoPage';
 import { NotificacionesPage } from '@/pages/notificaciones/NotificacionesPage';
 import { CitasTallerPage } from '@/pages/citasTaller/CitasTallerPage';
+import { HistorialServiciosPage } from '@/pages/citasTaller/HistorialServiciosPage';
 
 export function App() {
   return (
@@ -69,6 +70,11 @@ export function App() {
               {/* Citas y órdenes de trabajo (HU13 + HU14): jefe de taller, admin y mecánicos. */}
               <Route element={<ProtectedRoute roles={['admin', 'jefe_taller', 'mecanico']} />}>
                 <Route path="/citas" element={<CitasTallerPage />} />
+              </Route>
+
+              {/* Historial de servicios por vehículo (HU16): jefe de taller, admin y vendedores. */}
+              <Route element={<ProtectedRoute roles={['admin', 'jefe_taller', 'vendedor']} />}>
+                <Route path="/historial-servicios" element={<HistorialServiciosPage />} />
               </Route>
             </Route>
           </Route>

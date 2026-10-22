@@ -9,6 +9,7 @@ const {
   registrarAvanceSchema,
   presignArchivoTallerSchema,
   listCitasQuerySchema,
+  buscarHistorialQuerySchema,
   validate,
 } = require('../validation/citaTallerSchemas');
 const citaTallerService = require('../services/citaTallerService');
@@ -107,6 +108,19 @@ const presignArchivo = asyncHandler(async (req, res) => {
   res.json(archivo);
 });
 
+/** GET /api/citas-taller/historial?vin=&vehiculoId= */
+const historial = asyncHandler(async (req, res) => {
+  const { vin, vehiculoId } = validate(buscarHistorialQuerySchema, req.query);
+  const resultado = await citaTallerService.resolverVehiculoHistorial({ vin, vehiculoId });
+  res.json(resultado);
+});
+
+/** GET /api/citas-taller/historial/:vehiculoId */
+const historialPorVehiculo = asyncHandler(async (req, res) => {
+  const resultado = await citaTallerService.historialVehiculo(req.params.vehiculoId);
+  res.json(resultado);
+});
+
 module.exports = {
   list,
   getOne,
@@ -119,4 +133,6 @@ module.exports = {
   asignar,
   registrarAvance,
   presignArchivo,
+  historial,
+  historialPorVehiculo,
 };

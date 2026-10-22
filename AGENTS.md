@@ -51,10 +51,10 @@ cd infra; npx tsc --noEmit
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
   HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo,
-  HU13 citas del taller, HU14 asignación de trabajos a mecánicos y HU15 registro de
-  mantenimiento y reparaciones
+  HU13 citas del taller, HU14 asignación de trabajos a mecánicos, HU15 registro de
+  mantenimiento y reparaciones y HU16 consulta del historial de servicios de los vehículos
   (Sprint 3 = "Taller y administración")
-  (HU01–HU06 verificadas end-to-end; HU07–HU15 con backend verificado e2e y
+  (HU01–HU06 verificadas end-to-end; HU07–HU16 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -139,6 +139,16 @@ cd infra; npx tsc --noEmit
   repuesto no existe y 409 si no hay existencias). El mecánico asignado puede `iniciar`
   (`confirmada→en_atencion`) y `finalizar` (`en_atencion→finalizada`) su propia orden.
   Frontend: `TallerAvancesPanel` dentro del detalle de la orden en `/citas`.
+- Historial de servicios de vehículos (HU16): sin tabla ni infraestructura nueva; reutiliza
+  `CitasTaller` y el GSI `vehiculo-index` de HU13. `GET /api/citas-taller/historial?vin=`
+  (o `?vehiculoId=`) y `GET /api/citas-taller/historial/:vehiculoId` (solo
+  `admin`/`jefe_taller`/`vendedor`, 403 para `mecanico`); resuelve el vehículo por VIN exacto
+  (`vehiculoRepository.findByVin`, GSI `vin-index`, 404 si no existe). Devuelve el resumen del
+  vehículo (`vehiculo`) y `servicios[]` (ordenados por fecha descendente) con número, tipo,
+  fechas reales, diagnóstico, tareas, repuestos, observaciones, responsable (snapshot
+  `mecanico`) y estado; **excluye** citas `solicitada`/`cancelada`. Frontend: ruta
+  `/historial-servicios` (admin/jefe_taller/vendedor, ítem «Historial») con buscador por VIN,
+  tabla de servicios y detalle de solo lectura.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

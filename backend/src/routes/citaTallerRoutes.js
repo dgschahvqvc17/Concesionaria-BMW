@@ -10,6 +10,17 @@ const puedeGestionar = requireRole('admin', 'jefe_taller');
 const puedeConsultar = requireRole('admin', 'jefe_taller', 'mecanico');
 /** Documentar avances: el mecánico asignado o un gestor (HU15). */
 const puedeDocumentar = requireRole('admin', 'jefe_taller', 'mecanico');
+/** Consultar el historial de servicios de un vehículo (HU16). */
+const puedeConsultarHistorial = requireRole('admin', 'jefe_taller', 'vendedor');
+
+// Historial de servicios (HU16): debe declararse antes de `/:citaId`.
+router.get('/historial', requireAuth, puedeConsultarHistorial, citaTallerController.historial);
+router.get(
+  '/historial/:vehiculoId',
+  requireAuth,
+  puedeConsultarHistorial,
+  citaTallerController.historialPorVehiculo
+);
 
 router.get('/', requireAuth, puedeConsultar, citaTallerController.list);
 router.get('/:citaId', requireAuth, puedeConsultar, citaTallerController.getOne);
