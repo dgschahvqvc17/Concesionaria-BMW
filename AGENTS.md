@@ -52,9 +52,10 @@ cd infra; npx tsc --noEmit
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
   HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo,
   HU13 citas del taller, HU14 asignación de trabajos a mecánicos, HU15 registro de
-  mantenimiento y reparaciones y HU16 consulta del historial de servicios de los vehículos
+  mantenimiento y reparaciones, HU16 consulta del historial de servicios de los vehículos
+  y HU17 consulta de reportes de gestión
   (Sprint 3 = "Taller y administración")
-  (HU01–HU06 verificadas end-to-end; HU07–HU16 con backend verificado e2e y
+  (HU01–HU06 verificadas end-to-end; HU07–HU17 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -149,6 +150,17 @@ cd infra; npx tsc --noEmit
   `mecanico`) y estado; **excluye** citas `solicitada`/`cancelada`. Frontend: ruta
   `/historial-servicios` (admin/jefe_taller/vendedor, ítem «Historial») con buscador por VIN,
   tabla de servicios y detalle de solo lectura.
+- Reportes de gestión (HU17): sin tabla ni infraestructura nueva; `GET /api/reportes` (resumen
+  consolidado) y `GET /api/reportes/:tipo` (`inventario`/`ventas`/`cotizaciones`/`clientes`/
+  `taller`/`repuestos`), solo `admin`/`vendedor` (403 al resto). Filtro opcional
+  `?fechaDesde=&fechaHasta=` (ISO-8601, 400 si están mal formadas o invertidas) aplicable a
+  ventas/cotizaciones/taller. Agrega con los repositorios existentes (`listAll`): inventario
+  por estado + valor, ventas (totales, ticket, serie mensual), cotizaciones por estado,
+  taller (estados, tipos, órdenes finalizadas, repuestos consumidos), repuestos (valor y
+  existencias bajas) y clientes por `estadoSeguimiento`. Gráficos **SVG propios** en el
+  frontend (sin dependencias). **No se usa Amazon QuickSight** (carece de capa gratuita).
+  Frontend: ruta `/reportes` (admin/vendedor, ítem «Reportes») con KPIs, filtro de fechas y
+  gráficos de barras/dona.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

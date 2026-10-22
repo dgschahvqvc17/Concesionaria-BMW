@@ -31,17 +31,18 @@ frontend/src/
 │   ├── layout/             # AppLayout (sidebar), PageHeader
 │   ├── notificaciones/      # NotificacionesTable, NotificacionDetalleDialog, NotificacionesRecurso (HU12)
 │   ├── pruebasManejo/      # PruebaManejoFormDialog, PruebasManejoTable, PruebaManejoDetalleDialog (HU11)
+│   ├── reportes/           # BarChart, DonutChart, KpiCard (gráficos SVG propios, HU17)
 │   ├── reservas/           # ReservaFormDialog, ReservasTable, ReservaDetalleDialog (HU09)
 │   ├── ventas/             # VentaFormDialog, VentasTable, VentaDetalleDialog (HU10)
 │   ├── ui/                 # Primitivos shadcn/ui (button, input, textarea, card, table, ...)
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos, useHistorialServicios
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, citasTaller/HistorialServiciosPage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos, useHistorialServicios, useReportes
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, reportes, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, citasTaller/HistorialServiciosPage, reportes/ReportesPage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller, reportes (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller, reporte
 ```
 
 ### Flujo de datos
@@ -314,6 +315,19 @@ degradado BMW).
   `hooks/useHistorialServicios.ts` (estado `historial`/`loading`/`error`/`buscado` y
   acciones `buscar`/`limpiar`). `types/citaTaller.ts` ampliado con
   `HistorialVehiculoResumen`, `HistorialServicios` y `BuscarHistorialInput`.
+- **Reportes de gestión (HU17)**: `pages/reportes/ReportesPage`, ruta `/reportes` bajo
+  `<ProtectedRoute roles={['admin', 'vendedor']}>` (ítem «Reportes», icono `BarChart3`, en
+  `AppLayout.tsx` con los mismos roles). Muestra tarjetas KPI (ventas del período, valor del
+  inventario, órdenes finalizadas…), un **filtro por rango de fechas** (`<input type="date">`,
+  convertido a ISO-8601 con `fechaIngresadaAInput`) y los bloques de inventario, ventas,
+  cotizaciones, taller, clientes y repuestos (tabla de existencias bajas). Los **gráficos son
+  SVG propios sin dependencias** (`components/reportes/BarChart`, `DonutChart`) más
+  `components/reportes/KpiCard`; **no** se usa Amazon QuickSight (carece de capa gratuita).
+  Datos: `services/reportes.ts` (`resumen`) + `hooks/useReportes.ts`
+  (`reporte`/`loading`/`error`/`recargar`) + `lib/reportes.ts` (etiquetas, serie para
+  gráficos y `etiquetaMes`). `types/reporte.ts` define `ReporteResumen` y los bloques
+  (`ReporteInventario`, `ReporteVentas`, `ReporteCotizaciones`, `ReporteTaller`,
+  `ReporteRepuestos`, `ReporteClientes`).
 
 ## Acceso a la API
 

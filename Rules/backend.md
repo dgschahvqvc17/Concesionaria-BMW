@@ -49,10 +49,10 @@ backend/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
     ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15/HU16)
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15/HU16)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15/HU16), ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15/HU16), ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15/HU16)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15/HU16), reporteService (HU17)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15/HU16), reporteController (HU17), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15/HU16), reporteRoutes (HU17), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15/HU16), reporteSchemas.js (HU17)
     └── utils/asyncHandler.js
 ```
 
@@ -526,6 +526,35 @@ Reglas de negocio (HU16 — historial de servicios de los vehículos):
 - **Solo servicios ya atendidos**: se excluyen las citas en estado `solicitada` y
   `cancelada` (`esServicio`).
 
+Reglas de negocio (HU17 — reportes de gestión):
+- Módulo de **solo lectura** que agrega la información ya existente (inventario, ventas,
+  cotizaciones, taller, repuestos y clientes) **sin tablas ni infraestructura nueva**. Dos
+  endpoints, ambos solo `admin`/`vendedor` (gerencia); el resto de roles recibe
+  `403 Forbidden`:
+  - `GET /api/reportes`: resumen consolidado (`resumen`) con los seis bloques, `generadoEn`
+    y el `periodo` aplicado.
+  - `GET /api/reportes/:tipo`: un bloque concreto (`porTipo`); `tipo` ∈
+    `inventario`/`ventas`/`cotizaciones`/`clientes`/`taller`/`repuestos`. `tipo` inválido
+    → `400`.
+- **Filtro por período opcional** `?fechaDesde=&fechaHasta=` (ISO-8601, `400` si están mal
+  formadas o si `fechaDesde > fechaHasta`); aplica a ventas, cotizaciones y taller; el
+  inventario, los repuestos y los clientes son acumulados.
+- Agregados por bloque (cálculos en `reporteService`, sin tocar la base):
+  - `inventario`: `total` y `porEstado` (`disponible`/`reservado`/`vendido`/`no_disponible`)
+    más `valorInventario` (suma de `precio` de las unidades `disponible`/`reservado`).
+  - `ventas`: `total`, `totalLista`, `totalDescuento`, `totalFinal`, `ticketPromedio` y
+    `porMes[]` (`{ mes, cantidad, importe }`, clave `AAAA-MM`) según `fechaVenta`.
+  - `cotizaciones`: `total`, `porEstado` (estado derivado con la vigencia de HU08, incluye
+    `vencida`) e `importeTotal` de las `pendiente`/`aceptada`.
+  - `taller`: `total`, `porEstado`, `porTipo`, `ordenesFinalizadas` y `repuestosConsumidos`
+    (suma de `repuestosUtilizados` de las órdenes analizadas).
+  - `repuestos`: `total`, `valorInventario` (Σ `cantidad` × `precio`) y `bajos[]` (existencia
+    ≤ `cantidadMinima`, ordenados ascendentemente).
+  - `clientes`: `total` y `porEstado` según `estadoSeguimiento`.
+- Reutiliza los repositorios existentes (`listAll`) y **no** persiste nada. La
+  representación gráfica (barras/dona) es responsabilidad del frontend; **no se usó Amazon
+  QuickSight** (carece de capa gratuita, ver `Rules/aws.md`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -594,6 +623,8 @@ Reglas de negocio (HU16 — historial de servicios de los vehículos):
 | POST | `/api/citas-taller/:citaId/asignar` | admin/jefe_taller | Asignar o reasignar el mecánico responsable (HU14) |
 | POST | `/api/citas-taller/:citaId/avances` | admin/jefe_taller/mecanico | Registrar avance: diagnóstico, tareas, repuestos (descuenta), observaciones y archivos (HU15) |
 | POST | `/api/citas-taller/:citaId/archivos/presign` | admin/jefe_taller/mecanico | URL prefirmada de archivo técnico (`taller_foto`/`taller_documento`, HU15) |
+| GET | `/api/reportes` | admin/vendedor | Resumen consolidado de reportes (`?fechaDesde=&fechaHasta=`, HU17) |
+| GET | `/api/reportes/:tipo` | admin/vendedor | Reporte por tipo: `inventario`/`ventas`/`cotizaciones`/`clientes`/`taller`/`repuestos` (HU17) |
 
 ## Variables de entorno
 

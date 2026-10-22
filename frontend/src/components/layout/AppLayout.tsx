@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
+  BarChart3,
   CalendarCheck,
   Car,
   CarFront,
@@ -50,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/pruebas-man', label: 'Pruebas', icon: Gauge, roles: ['admin', 'vendedor'] },
   { to: '/citas', label: 'Taller', icon: Wrench, roles: ['admin', 'jefe_taller', 'mecanico'] },
   { to: '/historial-servicios', label: 'Historial', icon: History, roles: ['admin', 'jefe_taller', 'vendedor'] },
+  { to: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin', 'vendedor'] },
   { to: '/notificaciones', label: 'Correos', icon: Mail, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];
