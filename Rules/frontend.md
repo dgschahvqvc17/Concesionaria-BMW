@@ -38,11 +38,11 @@ frontend/src/
 │   ├── users/              # UsersTable, UserFormDialog
 │   └── ProtectedRoute.tsx  # Guardas de sesión/rol
 ├── context/AuthContext.tsx # Estado de sesión
-├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos, useHistorialServicios, useReportes
-├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, reportes, utils
-├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, citasTaller/HistorialServiciosPage, reportes/ReportesPage, ...
-├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller, reportes (llamadas a la API)
-└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller, reporte
+├── hooks/                  # useUsuarios, useVehiculos, useCatalogo, useRepuestos, useMovimientos, useClientesComerciales, useCotizaciones, useReservas, useVentas, usePruebasManejo, useNotificaciones, useCitasTaller, useMecanicos, useHistorialServicios, useReportes, useAuditoria
+├── lib/                    # api, amplify, brand, roles, vehiculos, catalogo, archivos, cotizaciones, cotizacionPdf, consultaEmail, reservas, ventas, ventaPdf, pruebasManejo, notificaciones, citasTaller, reportes, auditoria, utils
+├── pages/                  # LoginPage, DashboardPage, InventoryPage, CatalogoPage, VehiculoDetallePage, pruebasManejo/PruebasManejoPage, notificaciones/NotificacionesPage, citasTaller/CitasTallerPage, citasTaller/HistorialServiciosPage, reportes/ReportesPage, auditoria/AuditoriaPage, ...
+├── services/               # usuarios, vehiculos, catalogo, repuestos, movimientos, clientesComerciales, cotizaciones, reservas, ventas, pruebasManejo, notificaciones, citasTaller, reportes, auditoria (llamadas a la API)
+└── types/                  # usuario, vehiculo, repuesto, clienteComercial, cotizacion, reserva, venta, pruebaManejo, notificacion, citaTaller, reporte, auditoria
 ```
 
 ### Flujo de datos
@@ -328,6 +328,18 @@ degradado BMW).
   gráficos y `etiquetaMes`). `types/reporte.ts` define `ReporteResumen` y los bloques
   (`ReporteInventario`, `ReporteVentas`, `ReporteCotizaciones`, `ReporteTaller`,
   `ReporteRepuestos`, `ReporteClientes`).
+- **Auditoría del sistema (HU18)**: `pages/auditoria/AuditoriaPage`, ruta `/auditoria` bajo
+  `<ProtectedRoute roles={['admin']}>` (ítem «Auditoría», icono `ShieldCheck`, en
+  `AppLayout.tsx` solo para `admin`). Presenta la **tabla de eventos** en modo **solo
+  lectura** (fecha/hora, usuario responsable, acción, tipo de operación, registro
+  afectado, descripción e IP) y un panel de **filtros**: usuario (ID), tipo de operación
+  (`Select`), tipo de recurso, ID del registro y rango de fechas (`fechaDesde`/`fechaHasta`
+  convertidos a ISO-8601 con `fechaAuditoriaAInput`). No hay acciones de edición ni
+  borrado: el usuario común no puede alterar los registros.
+  Datos: `services/auditoria.ts` (`list`) + `hooks/useAuditoria.ts`
+  (`eventos`/`total`/`loading`/`error`/`recargar`) + `lib/auditoria.ts`
+  (`TIPO_AUDITORIA_LABELS`, `TIPOS_AUDITORIA_FILTRO`). `types/auditoria.ts` define
+  `EventoAuditoria`, `FiltroAuditoria` y `AuditoriaResponse`.
 
 ## Acceso a la API
 

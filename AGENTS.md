@@ -52,8 +52,8 @@ cd infra; npx tsc --noEmit
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
   HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo,
   HU13 citas del taller, HU14 asignación de trabajos a mecánicos, HU15 registro de
-  mantenimiento y reparaciones, HU16 consulta del historial de servicios de los vehículos
-  y HU17 consulta de reportes de gestión
+  mantenimiento y reparaciones, HU16 consulta del historial de servicios de los vehículos,
+  HU17 consulta de reportes de gestión y HU18 consulta de la actividad del sistema
   (Sprint 3 = "Taller y administración")
   (HU01–HU06 verificadas end-to-end; HU07–HU17 con backend verificado e2e y
   frontend compilando).
@@ -161,6 +161,17 @@ cd infra; npx tsc --noEmit
   frontend (sin dependencias). **No se usa Amazon QuickSight** (carece de capa gratuita).
   Frontend: ruta `/reportes` (admin/vendedor, ítem «Reportes») con KPIs, filtro de fechas y
   gráficos de barras/dona.
+- Actividad del sistema (HU18): tabla `Auditoria` (GSIs `fecha-index`, `usuario-index`,
+  `tipo-index` y `recurso-index`; `PAY_PER_REQUEST` + `RemovalPolicy.DESTROY`, solo capa
+  gratuita); rutas `/api/auditoria` con `GET /` **solo `admin`** (403 al resto) y **sin
+  endpoints de escritura** (los registros son inmutables: no se pueden alterar ni eliminar).
+  Cada evento guarda `eventoId`, `fecha`/`fechaHora`, el usuario responsable (`usuarioId`,
+  `usuarioNombre`, `usuarioEmail`, `roles`), `accion`, `tipo` de operación, el registro
+  afectado (`recursoTipo`, `recursoId`), `descripcion`, `ip`, `userAgent` y `metadata`.
+  Filtros: `usuarioId`, `tipo`, `recursoTipo`, `recursoId`, `fechaDesde`/`fechaHasta`
+  (400 si están mal formadas o invertidas). El registro nunca revierte la operación
+  principal. Frontend: ruta `/auditoria` (solo admin, ítem «Auditoría») con tabla de solo
+  lectura y filtros por usuario, tipo, recurso y fecha.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

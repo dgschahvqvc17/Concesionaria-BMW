@@ -248,6 +248,13 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    this.citasTallerTable.addGlobalSecondaryIndex({
+      indexName: 'mecanico-index',
+      partitionKey: { name: 'mecanicoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // HU18: Auditoría del sistema. Solo lectura para consulta; registros inmutables.
     this.auditoriaTable = new dynamodb.Table(this, 'AuditoriaTable', {
       partitionKey: { name: 'eventoId', type: dynamodb.AttributeType.STRING },
