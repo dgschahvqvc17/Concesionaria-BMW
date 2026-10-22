@@ -49,6 +49,38 @@ export interface CitaAsignacion {
   observaciones?: string;
 }
 
+/** Tarea de mantenimiento o reparación registrada en la orden (HU15). */
+export interface TareaAvance {
+  descripcion: string;
+  realizada: boolean;
+  fecha: string;
+  usuario?: string | null;
+}
+
+/** Repuesto consumido en la orden con su cantidad y precio vigente (HU15). */
+export interface RepuestoUtilizado {
+  repuestoId: string;
+  codigo: string;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  cantidadResultante?: number | null;
+}
+
+export type CategoriaArchivoTaller = 'taller_foto' | 'taller_documento';
+
+/** Archivo técnico adjunto a la orden (foto o documento) (HU15). */
+export interface ArchivoTaller {
+  key: string;
+  nombre: string;
+  categoria?: CategoriaArchivoTaller;
+  contentType?: string;
+  size?: number;
+  uploadedAt?: string;
+  uploadedBy?: string | null;
+  url?: string;
+}
+
 export interface CitaTaller {
   citaId: string;
   numero: string;
@@ -64,6 +96,14 @@ export interface CitaTaller {
   mecanico?: CitaMecanico | null;
   asignadoAt?: string | null;
   asignaciones?: CitaAsignacion[];
+  diagnostico?: string;
+  tareas?: TareaAvance[];
+  repuestosUtilizados?: RepuestoUtilizado[];
+  observacionesTecnicas?: string;
+  archivos?: ArchivoTaller[];
+  fechaInicioReal?: string | null;
+  fechaFinReal?: string | null;
+  ultimoAvanceAt?: string | null;
   observaciones?: string;
   historial?: CitaHistorial[];
   createdBy?: string | null;
@@ -112,6 +152,32 @@ export interface CancelarCitaInput {
 export interface AsignarCitaInput {
   mecanicoId: string;
   observaciones?: string;
+}
+
+/** Tarea enviada al registrar un avance (HU15). */
+export interface TareaAvanceInput {
+  descripcion: string;
+  realizada?: boolean;
+}
+
+/** Repuesto consumido enviado al registrar un avance (HU15). */
+export interface RepuestoUtilizadoInput {
+  repuestoId: string;
+  cantidad: number;
+}
+
+export interface ArchivoTallerInput {
+  key: string;
+  nombre: string;
+}
+
+/** Registro de avances del mantenimiento o reparación (HU15). */
+export interface RegistrarAvanceInput {
+  diagnostico?: string;
+  tareas?: TareaAvanceInput[];
+  repuestosUtilizados?: RepuestoUtilizadoInput[];
+  observacionesTecnicas?: string;
+  archivos?: ArchivoTallerInput[];
 }
 
 export interface CitasResponse {

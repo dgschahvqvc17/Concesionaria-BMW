@@ -15,32 +15,46 @@ const s3 = new S3Client({ region: config.awsRegion });
 
 const URL_EXPIRATION_SECONDS = 3600;
 
-/** Categorías de archivo gestionadas por el sistema (HU06). */
-const CATEGORIAS_ARCHIVO = ['foto', 'documento'];
+/** Categorías de archivo gestionadas por el sistema (HU06 + taller HU15). */
+const CATEGORIAS_ARCHIVO = ['foto', 'documento', 'taller_foto', 'taller_documento'];
+
+const FORMATOS_FOTO = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+const FORMATOS_DOCUMENTO = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'text/plain': 'txt',
+};
 
 /** Reglas de formato, tamaño y prefijo por categoría. */
 const REGLAS_ARCHIVO = {
   foto: {
     prefijo: 'vehiculos/fotos',
     maxBytes: 5 * 1024 * 1024,
-    tipos: {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/webp': 'webp',
-      'image/gif': 'gif',
-    },
+    tipos: FORMATOS_FOTO,
   },
   documento: {
     prefijo: 'vehiculos/documentos',
     maxBytes: 10 * 1024 * 1024,
-    tipos: {
-      'application/pdf': 'pdf',
-      'application/msword': 'doc',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-      'application/vnd.ms-excel': 'xls',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-      'text/plain': 'txt',
-    },
+    tipos: FORMATOS_DOCUMENTO,
+  },
+  taller_foto: {
+    prefijo: 'taller/fotos',
+    maxBytes: 5 * 1024 * 1024,
+    tipos: FORMATOS_FOTO,
+  },
+  taller_documento: {
+    prefijo: 'taller/documentos',
+    maxBytes: 10 * 1024 * 1024,
+    tipos: FORMATOS_DOCUMENTO,
   },
 };
 

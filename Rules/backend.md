@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14)
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14), ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14), ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14)
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15)
     └── utils/asyncHandler.js
 ```
 
@@ -397,7 +397,7 @@ Reglas de negocio (HU12):
   estado `omitido` y `enviar` responde `400`.
 - Los correos nunca incluyen contraseñas ni datos internos (VIN, `createdBy`, etc.).
 
-### Tabla `CitasTaller` (RepuestosStack, HU13/HU14)
+### Tabla `CitasTaller` (RepuestosStack, HU13/HU14/HU15)
 
 | Atributo | Tipo | Notas |
 | --- | --- | --- |
@@ -418,6 +418,14 @@ Reglas de negocio (HU12):
 | `mecanico` | object \| null | snapshot `{ userId, nombre, email }` del mecánico asignado (HU14) |
 | `asignadoAt` | string | ISO-8601 de la última asignación (HU14) |
 | `asignaciones` | object[] | historial de asignaciones: `{ mecanicoId, mecanicoNombre, tipo: 'asignada'\|'reasignada', fecha, usuario?, observaciones? }` (HU14) |
+| `diagnostico` | string | diagnóstico técnico del vehículo (≤ 2000 caracteres, HU15) |
+| `tareas` | object[] | tareas registradas: `{ descripcion, realizada, fecha, usuario? }` (HU15) |
+| `repuestosUtilizados` | object[] | repuestos consumidos: `{ repuestoId, codigo, nombre, cantidad, precioUnitario, cantidadResultante }` (HU15) |
+| `observacionesTecnicas` | string | observaciones técnicas (≤ 2000 caracteres, HU15) |
+| `archivos` | object[] | archivos técnicos: `{ key, nombre, categoria: 'taller_foto'\|'taller_documento', contentType, size, uploadedAt, uploadedBy }` (HU15) |
+| `fechaInicioReal` | string | ISO-8601 real de inicio (se fija al pasar a `en_atencion`, HU15) |
+| `fechaFinReal` | string | ISO-8601 real de fin (se fija al pasar a `finalizada`, HU15) |
+| `ultimoAvanceAt` | string | ISO-8601 del último avance registrado (HU15) |
 | `createdBy`/`createdByName` | string | autor (`sub`/nombre del token) |
 | `createdAt`/`updatedAt` | string | ISO-8601 |
 
@@ -472,6 +480,33 @@ Reglas de negocio (HU14 — asignación de trabajos a mecánicos):
   en `usuarioRoutes.js` **antes** del `router.use(requireAuth, requireRole('admin'))`)
   devuelve `{ total, mecanicos }` con los usuarios de rol `mecanico` y estado `activo`
   ordenados por nombre (`usuarioService.listMecanicos`).
+
+Reglas de negocio (HU15 — registro de mantenimiento y reparaciones):
+- Reutiliza la tabla `CitasTaller` añadiendo campos de avance (sin tabla ni variables de
+  entorno nuevas). Los avances se registran con `registrarAvance` vía
+  `POST /api/citas-taller/:citaId/avances` (un solo POST aplica lo enviado).
+- **Autoría**: solo el **mecánico asignado** (`cita.mecanicoId === actor.sub`) puede
+  documentar; los gestores (`admin`/`jefe_taller`) pueden hacerlo sobre cualquier orden.
+  Cualquier otro usuario recibe `403 Forbidden` (`assertPuedeRegistrar`). El controlador
+  construye el actor como `{ ...req.auth, roles: req.authRoles }` para que la comprobación
+  de roles funcione.
+- **Estados**: los avances solo se admiten en `confirmada`/`en_atencion`
+  (`ESTADOS_CITA_AVANCE`); otros estados → `409 Conflict`. El mecánico asignado puede
+  `iniciar` (`confirmada → en_atencion`) y `finalizar` (`en_atencion → finalizada`) su
+  propia orden (también validadas con `assertPuedeRegistrar`).
+- **Fechas reales**: `fechaInicioReal` se fija al iniciar (si aún no existe) y
+  `fechaFinReal` al finalizar.
+- El cuerpo debe incluir al menos uno de: diagnóstico, tarea, repuesto, observación técnica
+  o archivo (`registrarAvanceSchema`, refine) → `400` si viene vacío.
+- **Repuestos utilizados**: cada repuesto se descuenta de inmediato registrando un
+  **movimiento de salida** atómico (`movimientoService.registrarMovimiento` + `adjustStock`,
+  HU04) con motivo «Consumo en orden de taller». `404` si el repuesto no existe y `409` si
+  no hay existencias suficientes. Se guarda snapshot con `cantidadResultante`.
+- **Archivos técnicos**: `POST /api/citas-taller/:citaId/archivos/presign` firma la subida
+  (categorías `taller_foto` → `taller/fotos` ≤ 5 MB y `taller_documento` →
+  `taller/documentos` ≤ 10 MB, reutilizando el bucket de HU06 vía `storageService`); al
+  registrar el avance se verifica en S3 con `assertArchivo`. `toResponse` expone cada
+  archivo con URL prefirmada de lectura.
 
 ## Endpoints actuales
 
@@ -533,10 +568,12 @@ Reglas de negocio (HU14 — asignación de trabajos a mecánicos):
 | POST | `/api/citas-taller` | admin/jefe_taller | Registrar cita (número único, 201) |
 | POST | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar una cita solicitada |
 | POST | `/api/citas-taller/:citaId/reprogramar` | admin/jefe_taller | Cambiar fecha/hora (revalida conflicto) |
-| POST | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller | Marcar como en atención |
-| POST | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller | Finalizar una cita en atención |
+| POST | `/api/citas-taller/:citaId/iniciar` | admin/jefe_taller/mecanico | Marcar como en atención (el `mecanico` solo su orden asignada, HU15) |
+| POST | `/api/citas-taller/:citaId/finalizar` | admin/jefe_taller/mecanico | Finalizar una cita en atención (el `mecanico` solo su orden asignada, HU15) |
 | POST | `/api/citas-taller/:citaId/cancelar` | admin/jefe_taller | Cancelar una cita (motivo opcional) |
 | POST | `/api/citas-taller/:citaId/asignar` | admin/jefe_taller | Asignar o reasignar el mecánico responsable (HU14) |
+| POST | `/api/citas-taller/:citaId/avances` | admin/jefe_taller/mecanico | Registrar avance: diagnóstico, tareas, repuestos (descuenta), observaciones y archivos (HU15) |
+| POST | `/api/citas-taller/:citaId/archivos/presign` | admin/jefe_taller/mecanico | URL prefirmada de archivo técnico (`taller_foto`/`taller_documento`, HU15) |
 
 ## Variables de entorno
 

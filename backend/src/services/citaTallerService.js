@@ -1,11 +1,14 @@
-const { NotFoundError, ConflictError } = require('../errors/AppError');
+const { NotFoundError, ConflictError, ForbiddenError } = require('../errors/AppError');
 const citaTallerRepository = require('../repositories/citaTallerRepository');
 const clienteComercialRepository = require('../repositories/clienteComercialRepository');
 const vehiculoRepository = require('../repositories/vehiculoRepository');
 const usuarioRepository = require('../repositories/usuarioRepository');
+const repuestoRepository = require('../repositories/repuestoRepository');
+const movimientoService = require('./movimientoService');
 const notificacionService = require('./notificacionService');
+const storageService = require('./storageService');
 const { registrarSinFallo } = notificacionService;
-const { DURACION_DEFECTO, TIPOS_SERVICIO } = require('../validation/citaTallerSchemas');
+const { DURACION_DEFECTO, TIPOS_SERVICIO, ESTADOS_CITA_AVANCE } = require('../validation/citaTallerSchemas');
 
 /** Citas que ocupan un horario del taller (aún no finalizadas ni canceladas). */
 const ESTADOS_CITA_OCUPADOS = ['solicitada', 'confirmada', 'en_atencion'];
@@ -108,6 +111,20 @@ function resumenMecanico(usuario) {
     userId: usuario.userId,
     nombre: usuario.nombre,
     email: usuario.email,
+  };
+}
+
+/** Añade la URL prefirmada de lectura a cada archivo técnico de la orden (HU15). */
+async function toResponse(cita) {
+  const archivos = cita.archivos ?? [];
+  return {
+    ...cita,
+    archivos: await Promise.all(
+      archivos.map(async (archivo) => ({
+        ...archivo,
+        url: await storageService.createViewUrl(archivo.key),
+      }))
+    ),
   };
 }
 
@@ -218,10 +235,12 @@ async function reprogramarCita(citaId, datos, actor = {}) {
 
 async function iniciarCita(citaId, datos = {}, actor = {}) {
   const cita = await getCita(citaId);
+  assertPuedeRegistrar(cita, actor);
   assertEstado(cita, ['confirmada'], 'iniciar la atención de');
 
   const actualizada = await citaTallerRepository.update(citaId, {
     estado: 'en_atencion',
+    fechaInicioReal: cita.fechaInicioReal ?? new Date().toISOString(),
     observaciones: datos.observaciones ?? cita.observaciones,
     historial: [
       ...(cita.historial ?? []),
@@ -234,10 +253,12 @@ async function iniciarCita(citaId, datos = {}, actor = {}) {
 
 async function finalizarCita(citaId, datos = {}, actor = {}) {
   const cita = await getCita(citaId);
+  assertPuedeRegistrar(cita, actor);
   assertEstado(cita, ['en_atencion'], 'finalizar');
 
   const actualizada = await citaTallerRepository.update(citaId, {
     estado: 'finalizada',
+    fechaFinReal: new Date().toISOString(),
     observaciones: datos.observaciones ?? cita.observaciones,
     historial: [
       ...(cita.historial ?? []),
@@ -304,6 +325,121 @@ async function asignarMecanico(citaId, datos, actor = {}) {
   return actualizada;
 }
 
+/** El jefe de taller y el administrador pueden actuar sobre cualquier orden (HU15). */
+function esGestor(actor) {
+  const roles = actor?.roles ?? [];
+  return roles.some((rol) => rol === 'admin' || rol === 'jefe_taller');
+}
+
+/**
+ * El mecánico solo documenta avances en las órdenes asignadas a su persona;
+ * el jefe de taller y el administrador pueden autorizar sobre cualquiera (HU15).
+ */
+function assertPuedeRegistrar(cita, actor) {
+  if (esGestor(actor)) return;
+  if (cita.mecanicoId !== actor?.sub) {
+    throw new ForbiddenError('Solo puede registrar avances en las órdenes asignadas a su persona.');
+  }
+}
+
+/** Autoriza la subida de archivos técnicos de una orden (HU15). */
+function assertPuedeCargarArchivos(cita, actor) {
+  assertPuedeRegistrar(cita, actor);
+}
+
+/**
+ * Descuenta las existencias de cada repuesto utilizado registrando un
+ * movimiento de salida (HU04). Si un repuesto no existe responde 404 y si
+ * no hay existencias suficientes responde 409 (`adjustStock` atómico).
+ */
+async function consumirRepuestos(repuestos, actor) {
+  const usados = [];
+  for (const item of repuestos) {
+    const repuesto = await repuestoRepository.findById(item.repuestoId);
+    if (!repuesto) throw new NotFoundError('Uno de los repuestos utilizados no existe.');
+
+    const { repuesto: actualizado } = await movimientoService.registrarMovimiento(
+      {
+        repuestoId: repuesto.repuestoId,
+        tipo: 'salida',
+        cantidad: item.cantidad,
+        motivo: 'Consumo en orden de taller',
+      },
+      actor
+    );
+
+    usados.push({
+      repuestoId: repuesto.repuestoId,
+      codigo: repuesto.codigo,
+      nombre: repuesto.nombre,
+      cantidad: item.cantidad,
+      precioUnitario: repuesto.precio,
+      cantidadResultante: actualizado?.cantidad ?? null,
+    });
+  }
+  return usados;
+}
+
+/** Verifica en S3 los archivos técnicos nuevos y guarda su metadata autoritativa. */
+async function registrarArchivosTaller(archivos, actor, ahora) {
+  const resultado = [];
+  for (const archivo of archivos ?? []) {
+    const categoria = archivo.categoria === 'taller_foto' ? 'taller_foto' : 'taller_documento';
+    const { contentType, size } = await storageService.assertArchivo(archivo.key, categoria);
+    resultado.push({
+      key: archivo.key,
+      nombre: archivo.nombre,
+      categoria,
+      contentType,
+      size,
+      uploadedAt: ahora,
+      uploadedBy: actor?.sub ?? null,
+    });
+  }
+  return resultado;
+}
+
+/**
+ * Registra el avance del mantenimiento o reparación que documenta el mecánico:
+ * diagnóstico, tareas, repuestos utilizados (descuenta existencias),
+ * observaciones técnicas y archivos (HU15). Solo el mecánico asignado o un
+ * gestor puede registrar; no se admite sobre órdenes finalizadas/canceladas.
+ */
+async function registrarAvance(citaId, datos, actor = {}) {
+  const cita = await getCita(citaId);
+  assertPuedeRegistrar(cita, actor);
+  assertEstado(cita, ESTADOS_CITA_AVANCE, 'registrar avances en');
+
+  const ahora = new Date().toISOString();
+  const repuestosNuevos = await consumirRepuestos(datos.repuestosUtilizados ?? [], actor);
+  const archivosNuevos = await registrarArchivosTaller(datos.archivos ?? [], actor, ahora);
+
+  const tareasNuevas = (datos.tareas ?? []).map((tarea) => ({
+    descripcion: tarea.descripcion,
+    realizada: tarea.realizada ?? true,
+    fecha: ahora,
+    usuario: autorNombre(actor),
+  }));
+
+  const actualizada = await citaTallerRepository.update(citaId, {
+    diagnostico: datos.diagnostico ?? cita.diagnostico,
+    observacionesTecnicas: datos.observacionesTecnicas ?? cita.observacionesTecnicas,
+    tareas: [...(cita.tareas ?? []), ...tareasNuevas],
+    repuestosUtilizados: [...(cita.repuestosUtilizados ?? []), ...repuestosNuevos],
+    archivos: [...(cita.archivos ?? []), ...archivosNuevos],
+    ultimoAvanceAt: ahora,
+  });
+
+  return actualizada;
+}
+
+/** Genera una URL prefirmada para subir un archivo técnico de la orden (HU15). */
+async function presignArchivoTaller(citaId, payload, actor = {}) {
+  const cita = await getCita(citaId);
+  assertPuedeCargarArchivos(cita, actor);
+  return storageService.createUploadUrl(payload);
+}
+
 module.exports = {
   ESTADOS_CITA_OCUPADOS,
   ESTADOS_CITA_ASIGNABLES,
@@ -317,4 +453,7 @@ module.exports = {
   finalizarCita,
   cancelarCita,
   asignarMecanico,
+  registrarAvance,
+  presignArchivoTaller,
+  toResponse,
 };

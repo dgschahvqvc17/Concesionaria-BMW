@@ -22,7 +22,7 @@ frontend/src/
 │   ├── auth/               # LoginForm, AuthBrandPanel, RegisterClienteForm
 │   ├── brand/              # BmwRoundel, MStripe
 │   ├── catalog/            # Catálogo público: CatalogoLayout, CatalogoCard, CatalogoFiltros, VehiculoGaleria
-│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13)
+│   ├── citasTaller/        # CitasTallerTable, CitaTallerFormDialog, CitaTallerDetalleDialog (HU13/HU14), TallerAvancesPanel (HU15)
 │   ├── clientesComerciales/ # ClienteComercialFormDialog (HU07)
 │   ├── common/             # ConfirmDialog
 │   ├── cotizaciones/       # CotizacionFormDialog, CotizacionesTable, CotizacionDetalleDialog (HU08)
@@ -251,38 +251,53 @@ degradado BMW).
   redacta el mensaje, registra el intento (máx. 5, anti-duplicados) y el frontend abre el
   cliente de correo del usuario.
 
-## Citas del taller (HU13) y asignación de trabajos a mecánicos (HU14)
+## Citas del taller (HU13), asignación de trabajos a mecánicos (HU14) y registro de mantenimiento (HU15)
 
 - `pages/citasTaller/CitasTallerPage` + `components/citasTaller/` (`CitasTallerTable`,
-  `CitaTallerFormDialog`, `CitaTallerDetalleDialog`).
+  `CitaTallerFormDialog`, `CitaTallerDetalleDialog`, `TallerAvancesPanel`).
   Ruta `/citas` bajo `<ProtectedRoute roles={['admin', 'jefe_taller', 'mecanico']}>`
   (ítem «Taller» en la navegación, icono `Wrench`, en `components/layout/AppLayout.tsx`,
   con los mismos roles).
 - Datos: `services/citasTaller.ts` (`citasTallerService.list/get/create/confirmar/
-  reprogramar/iniciar/finalizar/cancelar/asignar` + `listMecanicos`) +
+  reprogramar/iniciar/finalizar/cancelar/asignar/registrarAvance/presignArchivoTaller/
+  subirArchivoTaller` + `listMecanicos`) +
   `hooks/useCitasTaller.ts` (filtros `clienteId`/`vehiculoId`/`estado`/`fechaDesde`/
-  `fechaHasta`/`mecanicoId` y acción `asignar`) y `hooks/useMecanicos.ts` (HU14:
-  mecánicos activos para asignar, `GET /api/usuarios/mecanicos`).
+  `fechaHasta`/`mecanicoId` y acciones `asignar`/`registrarAvance`) y `hooks/useMecanicos.ts`
+  (HU14: mecánicos activos para asignar, `GET /api/usuarios/mecanicos`).
 - `CitaTallerFormDialog`: selecciona vehículo, cliente comercial, tipo de servicio y
   fecha/hora; valida con `validarFechaCita` (fecha futura, 08:00–18:00, pasos de 15 min
   y duración 15–480, espejo del backend).
 - `CitaTallerDetalleDialog`: snapshot del vehículo/cliente, agenda (`fechaHora` +
-  duración), historial de estados, las acciones según estado, la tarjeta del
-  **mecánico asignado** con su historial de asignaciones, la sección **«Asignar/
-  Reasignar mecánico»** (selector de mecánicos activos, HU14) y la sección
+  duración) y **fechas reales** (`fechaInicioReal`/`fechaFinReal`, HU15), historial de
+  estados, las acciones según estado, la tarjeta del **mecánico asignado** con su
+  historial de asignaciones, la sección **«Asignar/Reasignar mecánico»** (selector de
+  mecánicos activos, HU14), el **`TallerAvancesPanel`** (HU15, visible solo para el
+  mecánico asignado o los gestores, vía `puedeDocumentarOrden`) y la sección
   **`NotificacionesRecurso`** con los correos del evento.
+- `TallerAvancesPanel`: documento del mecánico con diagnóstico, observaciones técnicas,
+  tareas (lista añadible), repuestos utilizados (selector con validación de existencias y
+  aviso de stock insuficiente) y archivos técnicos (fotos/documentos subidos por presign).
+  Un único `registrarAvance` aplica lo enviado; el botón se habilita solo si hay algún
+  contenido.
 - `CitasTallerTable` incluye la columna **Mecánico**; `CitasTallerPage` carga los
-  mecánicos (`useMecanicos`), ofrece un **filtro por mecánico** y pasa `onAsignar`
-  al diálogo de detalle.
+  mecánicos (`useMecanicos`) y los repuestos (`useRepuestos`), pasa el `usuarioId`/roles
+  del usuario autenticado (`useAuth`), ofrece un **filtro por mecánico** y pasa
+  `onAsignar`/`onRegistrarAvance` al diálogo de detalle.
 - `types/citaTaller.ts` ampliado con `CitaMecanico`, `CitaAsignacion`, `Mecanico` y
-  `AsignarCitaInput` (HU14).
+  `AsignarCitaInput` (HU14); y con `TareaAvance`, `RepuestoUtilizado`, `ArchivoTaller`,
+  `CategoriaArchivoTaller`, `RegistrarAvanceInput`, `TareaAvanceInput`,
+  `RepuestoUtilizadoInput` y `ArchivoTallerInput` (HU15).
 - `lib/citasTaller.ts`: `ESTADOS_CITA` con etiquetas/estilos
   (`solicitada`/`confirmada`/`en_atencion`/`finalizada`/`cancelada`),
   `TIPOS_SERVICIO` labels, horario de atención (08:00–18:00, paso 15 min), guards
   `puedeConfirmarse`/`puedeReprogramarse`/`puedeCancelarse`/`puedeIniciarse`/
   `puedeFinalizarse` y `validarFechaCita` (espejo del backend); para HU14:
   `ESTADOS_ASIGNABLES` (`confirmada`/`en_atencion`), `puedeAsignarseMecanico`,
-  `etiquetaAsignacion` y `TIPO_ASIGNACION_LABELS` (`asignada`/`reasignada`).
+  `etiquetaAsignacion` y `TIPO_ASIGNACION_LABELS` (`asignada`/`reasignada`); para HU15:
+  `ESTADOS_EDITABLES_AVANCE`, `puedeRegistrarAvance` y `puedeDocumentarOrden`.
+- `lib/archivos.ts`: `REGLAS_ARCHIVO_TALLER` (`taller_foto`/`taller_documento`, mismas
+  reglas que fotos/documentos) y `validarArchivo`/`reglasArchivo` extendidos a las
+  categorías de taller (HU15).
 - `lib/notificaciones.ts` y `types/notificacion.ts` ampliados con el tipo
   `cita_taller` y las etiquetas de eventos `cita_*` («Cita solicitada», «Cita
   confirmada», «Cita reprogramada», «Cita cancelada», «Cita finalizada», «Cita

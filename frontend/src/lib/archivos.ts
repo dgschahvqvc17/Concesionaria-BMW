@@ -1,3 +1,4 @@
+import type { CategoriaArchivoTaller } from '@/types/citaTaller';
 import type { CategoriaArchivo } from '@/types/vehiculo';
 
 export interface ReglasArchivo {
@@ -32,6 +33,29 @@ export const REGLAS_ARCHIVO: Record<CategoriaArchivo, ReglasArchivo> = {
   },
 };
 
+/** Reglas de los archivos técnicos de las órdenes de taller (HU15). */
+export const REGLAS_ARCHIVO_TALLER: Record<CategoriaArchivoTaller, ReglasArchivo> = {
+  taller_foto: {
+    tipos: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    accept: 'image/png,image/jpeg,image/webp,image/gif',
+    maxBytes: 5 * 1024 * 1024,
+    formatos: 'JPG, PNG, WEBP o GIF',
+  },
+  taller_documento: {
+    tipos: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+    ],
+    accept: '.pdf,.doc,.docx,.xls,.xlsx,.txt',
+    maxBytes: 10 * 1024 * 1024,
+    formatos: 'PDF, Word, Excel o TXT',
+  },
+};
+
 /** Formatea un tamaño en bytes a una cadena legible (p. ej. 2.5 MB). */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -39,9 +63,19 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Devuelve las reglas de archivo de una categoría de vehículo o de taller (HU15). */
+export function reglasArchivo(categoria: CategoriaArchivo | CategoriaArchivoTaller): ReglasArchivo {
+  return categoria in REGLAS_ARCHIVO_TALLER
+    ? REGLAS_ARCHIVO_TALLER[categoria as CategoriaArchivoTaller]
+    : REGLAS_ARCHIVO[categoria as CategoriaArchivo];
+}
+
 /** Valida un archivo contra las reglas de su categoría; devuelve el error o `null`. */
-export function validarArchivo(file: File, categoria: CategoriaArchivo): string | null {
-  const reglas = REGLAS_ARCHIVO[categoria];
+export function validarArchivo(
+  file: File,
+  categoria: CategoriaArchivo | CategoriaArchivoTaller
+): string | null {
+  const reglas = reglasArchivo(categoria);
   if (!reglas.tipos.includes(file.type)) {
     return `"${file.name}" no es un archivo permitido. Formatos: ${reglas.formatos}.`;
   }

@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { NotificacionesRecurso } from '@/components/notificaciones/NotificacionesRecurso';
+import { TallerAvancesPanel } from '@/components/citasTaller/TallerAvancesPanel';
 import { getErrorMessage } from '@/lib/api';
 import {
   DURACION_DEFECTO,
@@ -32,6 +33,7 @@ import {
   puedeAsignarseMecanico,
   puedeCancelarse,
   puedeConfirmarse,
+  puedeDocumentarOrden,
   puedeFinalizarse,
   puedeIniciarse,
   puedeReprogramarse,
@@ -45,35 +47,45 @@ import type {
   CitaTaller,
   EstadoCitaInput,
   Mecanico,
+  RegistrarAvanceInput,
   ReprogramarCitaInput,
 } from '@/types/citaTaller';
+import type { Repuesto } from '@/types/repuesto';
 
 interface CitaTallerDetalleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cita: CitaTaller | null;
   mecanicos: Mecanico[];
+  repuestos: Repuesto[];
+  usuarioId?: string | null;
+  rolesUsuario?: readonly string[];
   onConfirmar: (input: EstadoCitaInput) => Promise<void>;
   onReprogramar: (input: ReprogramarCitaInput) => Promise<void>;
   onIniciar: (input: EstadoCitaInput) => Promise<void>;
   onFinalizar: (input: EstadoCitaInput) => Promise<void>;
   onCancelar: (input: CancelarCitaInput) => Promise<void>;
   onAsignar: (input: AsignarCitaInput) => Promise<void>;
+  onRegistrarAvance: (input: RegistrarAvanceInput) => Promise<void>;
   loading?: boolean;
 }
 
-/** Detalle de una cita del taller: datos, historial y acciones de gestión (HU13 + HU14). */
+/** Detalle de una cita del taller: datos, historial y acciones de gestión (HU13 + HU14 + HU15). */
 export function CitaTallerDetalleDialog({
   open,
   onOpenChange,
   cita,
   mecanicos,
+  repuestos,
+  usuarioId,
+  rolesUsuario = [],
   onConfirmar,
   onReprogramar,
   onIniciar,
   onFinalizar,
   onCancelar,
   onAsignar,
+  onRegistrarAvance,
   loading,
 }: CitaTallerDetalleDialogProps) {
   const [observaciones, setObservaciones] = useState('');
@@ -215,6 +227,16 @@ export function CitaTallerDetalleDialog({
               <p className="text-muted-foreground">
                 {formatFechaHora(cita.fechaHora)} · {rangoHorario(cita)} · {cita.duracionMinutos} min
               </p>
+              {(cita.fechaInicioReal || cita.fechaFinReal) && (
+                <div className="mt-2 space-y-1">
+                  {cita.fechaInicioReal && (
+                    <p className="text-muted-foreground">Inicio real: {formatFechaHora(cita.fechaInicioReal)}</p>
+                  )}
+                  {cita.fechaFinReal && (
+                    <p className="text-muted-foreground">Fin real: {formatFechaHora(cita.fechaFinReal)}</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="rounded-xl border border-border/60 p-4">
               <p className="mb-1 flex items-center gap-2 font-semibold">
@@ -328,6 +350,15 @@ export function CitaTallerDetalleDialog({
           )}
 
           <NotificacionesRecurso recursoId={cita.citaId} />
+
+          {puedeDocumentarOrden(cita, usuarioId, rolesUsuario) && (
+            <TallerAvancesPanel
+              cita={cita}
+              repuestos={repuestos}
+              onRegistrar={onRegistrarAvance}
+              loading={loading}
+            />
+          )}
 
           {gestionaEstados && (
             <div className="space-y-3 rounded-xl border border-border/60 p-4">
