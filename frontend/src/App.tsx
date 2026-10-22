@@ -24,6 +24,7 @@ import { NotificacionesPage } from '@/pages/notificaciones/NotificacionesPage';
 import { CitasTallerPage } from '@/pages/citasTaller/CitasTallerPage';
 import { HistorialServiciosPage } from '@/pages/citasTaller/HistorialServiciosPage';
 import { ReportesPage } from '@/pages/reportes/ReportesPage';
+import { AuditoriaPage } from '@/pages/auditoria/AuditoriaPage';
 
 export function App() {
   return (
@@ -81,6 +82,11 @@ export function App() {
               {/* Reportes de gestión (HU17): admin y vendedores. */}
               <Route element={<ProtectedRoute roles={['admin', 'vendedor']} />}>
                 <Route path="/reportes" element={<ReportesPage />} />
+              </Route>
+
+              {/* Auditoría del sistema (HU18): solo administradores. */}
+              <Route element={<ProtectedRoute roles={['admin']} />}>
+                <Route path="/auditoria" element={<AuditoriaPage />} />
               </Route>
             </Route>
           </Route>

@@ -45,14 +45,16 @@ backend/
     │   ├── middleware.js         # requireAuth, requireRole, optionalAuth
     │   └── roles.js              # USER_ROLES, normalizeRoles, primaryRole
     ├── db/dynamodb.js            # documentClient (SDK v3)
+    ├── middleware/
+    │   └── auditoriaMiddleware.js # Registro automático de escrituras (HU18)
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15/HU16)
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15/HU16), reporteService (HU17)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15/HU16), reporteController (HU17), ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15/HU16), reporteRoutes (HU17), ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15/HU16), reporteSchemas.js (HU17)
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15/HU16), auditoriaRepository (HU18)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15/HU16), reporteService (HU17), auditoriaService (HU18)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15/HU16), reporteController (HU17), auditoriaController (HU18), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15/HU16), reporteRoutes (HU17), auditoriaRoutes (HU18), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15/HU16), reporteSchemas.js (HU17), auditoriaSchemas.js (HU18)
     └── utils/asyncHandler.js
 ```
 
@@ -555,6 +557,40 @@ Reglas de negocio (HU17 — reportes de gestión):
   representación gráfica (barras/dona) es responsabilidad del frontend; **no se usó Amazon
   QuickSight** (carece de capa gratuita, ver `Rules/aws.md`).
 
+Reglas de negocio (HU18 — auditoría de la actividad del sistema):
+- Módulo de **solo lectura e inmutable**: no expone `POST`/`PATCH`/`PUT`/`DELETE`, por lo que
+  los usuarios comunes (y el propio administrador) **no pueden alterar ni eliminar** registros.
+- Un único endpoint, solo `admin` (cualquier otro rol recibe `403 Forbidden`):
+  `GET /api/auditoria` (`auditoriaController.listar`).
+- **Filtros** (query, validados con Zod en `auditoriaSchemas.js`): `usuarioId`, `tipo`,
+  `recursoTipo`, `recursoId`, `fechaDesde` y `fechaHasta` (ISO-8601; `400` si están mal
+  formadas o si `fechaDesde > fechaHasta`). Se puede filtrar por **usuario, fecha o tipo de
+  operación**, como pide la HU.
+- **Registro del evento** (`auditoriaService.registrarOperacion`): guarda `eventoId` (UUID),
+  `fecha` (`AAAA-MM`) y `fechaHora` (ISO-8601), el **usuario responsable** (`usuarioId`,
+  `usuarioNombre`, `usuarioEmail`, `roles`), la **acción** (`accion`), el **tipo de
+  operación** (`tipo`), el **registro afectado** (`recursoTipo`, `recursoId` y la clave
+  `recursoTipoId` del GSI), la `descripcion` legible, el contexto de la petición (`ip`,
+  `userAgent`) y `metadata` libre.
+- Tipos de operación (`TIPOS_OPERACION`): `auth`, `usuario`, `vehiculo`, `repuesto`,
+  `movimiento`, `cliente_comercial`, `cotizacion`, `reserva`, `venta`, `prueba_manejo`,
+  `notificacion`, `cita_taller`, `reporte`, `sistema`.
+- El registro **nunca revierte la operación principal**: `registrarOperacion` captura sus
+  propios errores (mismo criterio que `registrarSinFallo` de HU12).
+- La consulta usa `listAll` y filtra en memoria; los GSIs (`usuario-index`, `tipo-index`,
+  `recurso-index`, `fecha-index`) quedan disponibles en `auditoriaRepository` para consultas
+  dirigidas.
+- **Registro automático** (`middleware/auditoriaMiddleware.js`, montado en `app.js` antes de
+  las rutas): audita **toda operación de escritura** (`POST`/`PATCH`/`PUT`/`DELETE`) sin
+  tocar cada controlador. Deriva el tipo de recurso de la ruta (`/api/vehiculos` →
+  `vehiculo`, `/api/citas-taller` → `cita_taller`, …), la acción del método y del sufijo
+  (`crear`, `actualizar`, `confirmar`, `cancelar`, `convertir`, `asignar`, `iniciar`,
+  `finalizar`, `registrar_avance`, …) y el recurso afectado de los parámetros de ruta o de
+  la respuesta creada. Se registra al finalizar la respuesta (`res.on('finish')`), por lo
+  que nunca altera la respuesta ni el código HTTP. Las lecturas (`GET`) no se auditan.
+  Las acciones que producen otro recurso se tipifican por su resultado (`TIPO_RESULTANTE`:
+  convertir una reserva se registra como `venta`, guardando `recursoOrigen` en `metadata`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -625,6 +661,7 @@ Reglas de negocio (HU17 — reportes de gestión):
 | POST | `/api/citas-taller/:citaId/archivos/presign` | admin/jefe_taller/mecanico | URL prefirmada de archivo técnico (`taller_foto`/`taller_documento`, HU15) |
 | GET | `/api/reportes` | admin/vendedor | Resumen consolidado de reportes (`?fechaDesde=&fechaHasta=`, HU17) |
 | GET | `/api/reportes/:tipo` | admin/vendedor | Reporte por tipo: `inventario`/`ventas`/`cotizaciones`/`clientes`/`taller`/`repuestos` (HU17) |
+| GET | `/api/auditoria` | admin | Registro de actividad del sistema, solo lectura (`?usuarioId=&tipo=&recursoTipo=&recursoId=&fechaDesde=&fechaHasta=`, HU18) |
 
 ## Variables de entorno
 

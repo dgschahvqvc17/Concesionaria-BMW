@@ -31,6 +31,9 @@ import { Construct } from 'constructs';
  * HU13 - Citas del taller: tabla `CitasTaller` (índice por vehículo + fechaHora
  * para detectar solapes de agenda, por cliente para el historial, por número
  * de cita y por mecánico (HU14, carga de trabajo).
+ *
+ * HU18 - Auditoría del sistema: tabla `Auditoria` inmutable (solo lectura para consulta),
+ * con índices por fecha, usuario, tipo de operación y registro afectado.
  */
 export class RepuestosStack extends cdk.Stack {
   public readonly repuestosTable: dynamodb.Table;
@@ -42,6 +45,7 @@ export class RepuestosStack extends cdk.Stack {
   public readonly pruebasManejoTable: dynamodb.Table;
   public readonly notificacionesTable: dynamodb.Table;
   public readonly citasTallerTable: dynamodb.Table;
+  public readonly auditoriaTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -251,44 +255,48 @@ export class RepuestosStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // ------------------------------------------------------------------
-    // Outputs
-    // ------------------------------------------------------------------
-    new cdk.CfnOutput(this, 'RepuestosTableName', {
-      value: this.repuestosTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de repuestos (backend/.env)',
+    // HU18: Auditoría del sistema. Solo lectura para consulta; registros inmutables.
+    this.auditoriaTable = new dynamodb.Table(this, 'AuditoriaTable', {
+      partitionKey: { name: 'eventoId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
-    new cdk.CfnOutput(this, 'MovimientosTableName', {
-      value: this.movimientosTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de movimientos de inventario (backend/.env)',
+
+    this.auditoriaTable.addGlobalSecondaryIndex({
+      indexName: 'fecha-index',
+      partitionKey: { name: 'fecha', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
-    new cdk.CfnOutput(this, 'ClientesComercialesTableName', {
-      value: this.clientesComercialesTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de clientes comerciales (backend/.env)',
+
+    this.auditoriaTable.addGlobalSecondaryIndex({
+      indexName: 'usuario-index',
+      partitionKey: { name: 'usuarioId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
-    new cdk.CfnOutput(this, 'CotizacionesTableName', {
-      value: this.cotizacionesTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de cotizaciones (backend/.env)',
+
+    this.auditoriaTable.addGlobalSecondaryIndex({
+      indexName: 'tipo-index',
+      partitionKey: { name: 'tipo', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
-    new cdk.CfnOutput(this, 'ReservasTableName', {
-      value: this.reservasTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de reservas (backend/.env)',
+
+    this.auditoriaTable.addGlobalSecondaryIndex({
+      indexName: 'recurso-index',
+      partitionKey: { name: 'recursoTipoId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fechaHora', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
-    new cdk.CfnOutput(this, 'VentasTableName', {
-      value: this.ventasTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de ventas (backend/.env)',
-    });
-    new cdk.CfnOutput(this, 'PruebasManejoTableName', {
-      value: this.pruebasManejoTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de pruebas de manejo (backend/.env)',
-    });
-    new cdk.CfnOutput(this, 'NotificacionesTableName', {
-      value: this.notificacionesTable.tableName,
-      description: 'Nombre de la tabla DynamoDB de notificaciones (backend/.env)',
-    });
+
     new cdk.CfnOutput(this, 'CitasTallerTableName', {
       value: this.citasTallerTable.tableName,
       description: 'Nombre de la tabla DynamoDB de citas del taller (backend/.env)',
+    });
+    new cdk.CfnOutput(this, 'AuditoriaTableName', {
+      value: this.auditoriaTable.tableName,
+      description: 'Nombre de la tabla DynamoDB de auditoría (backend/.env)',
     });
     new cdk.CfnOutput(this, 'Region', {
       value: this.region,

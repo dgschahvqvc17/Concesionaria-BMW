@@ -6,7 +6,8 @@ vehículos y repuestos con fotografías y documentos, catálogo web público, se
 comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
 gestión de pruebas de manejo, citas del taller (HU13) con asignación de trabajos a
 mecánicos (HU14), registro de mantenimiento y reparaciones (HU15), consulta del historial
-de servicios de los vehículos (HU16), consulta de reportes de gestión (HU17) y notificaciones por
+de servicios de los vehículos (HU16), consulta de reportes de gestión (HU17), registro de
+la actividad del sistema (HU18, solo lectura para el administrador) y notificaciones por
 correo (HU12, con transporte `mailto:` para mantenerse en la capa gratuita).
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
@@ -46,6 +47,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU15** | Registrar mantenimiento y reparaciones: el mecánico asignado documenta diagnóstico, tareas, repuestos utilizados (descuenta existencias vía movimiento de salida), observaciones técnicas y archivos; fechas reales de inicio y fin. | Implementada (backend verificado e2e) |
 | **HU16** | Consultar el historial de servicios de los vehículos: búsqueda por VIN (admin/jefe_taller/vendedor), listado de servicios con fechas, tipo, diagnóstico, responsable y repuestos, y detalle de solo lectura. | Implementada (backend verificado e2e) |
 | **HU17** | Consultar reportes de gestión (admin/vendedor): inventario por estado y valor, ventas (totales, ticket y serie mensual), cotizaciones, taller, repuestos con existencias bajas y clientes por seguimiento, con filtro por rango de fechas y gráficos SVG propios (sin QuickSight, capa gratuita). | Implementada (backend verificado e2e) |
+| **HU18** | Consultar la actividad del sistema (solo admin): registro inmutable de las operaciones importantes con usuario responsable, acción, tipo, fecha/hora y registro afectado, con filtros por usuario, fecha y tipo de operación; sin opciones de edición ni borrado. | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y

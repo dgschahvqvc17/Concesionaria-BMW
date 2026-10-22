@@ -85,7 +85,7 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14 + HU15 + HU16 + HU17)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14 + HU15 + HU16 + HU17 + HU18)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
@@ -129,10 +129,17 @@ infra/
   y clientes) reutilizando las tablas existentes mediante `listAll`. La representación
   gráfica se hace en el frontend con **SVG propio**. **No se usa Amazon QuickSight** porque
   no dispone de capa gratuita (contradiría la regla de este documento).
+- **Tabla `Auditoria`** (HU18, DynamoDB): PK `eventoId` (UUID). GSIs `fecha-index`
+  (`fecha` + `fechaHora`), `usuario-index` (`usuarioId` + `fechaHora`), `tipo-index`
+  (`tipo` + `fechaHora`) y `recurso-index` (`recursoTipoId` + `fechaHora`, clave
+  `recursoTipo#recursoId`) para consultar la trazabilidad por usuario, fecha, tipo de
+  operación y registro afectado. `PAY_PER_REQUEST` + `RemovalPolicy.DESTROY` (capa
+  gratuita, sin capacidad provisionada). Los registros son **inmutables**: la API solo
+  expone lectura y no hay endpoint para modificar o borrar eventos.
 - Salidas: `RepuestosTableName`, `MovimientosTableName`,
   `ClientesComercialesTableName`, `CotizacionesTableName`, `ReservasTableName`,
   `VentasTableName`, `PruebasManejoTableName`, `NotificacionesTableName`,
-  `CitasTallerTableName`, `Region`.
+  `CitasTallerTableName`, `AuditoriaTableName`, `Region`.
 
 Las físicas (nombres reales) están en `infra/cdk-outputs.json` y se copian a los `.env`
 de `backend` y `frontend`.

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const { config } = require('./config');
+const { auditoriaMiddleware } = require('./middleware/auditoriaMiddleware');
 const publicRoutes = require('./routes/publicRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
@@ -19,6 +20,9 @@ function createApp() {
   app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json());
 
+  // Auditoría de la actividad del sistema (HU18): registra las operaciones de escritura.
+  app.use(auditoriaMiddleware);
+
   app.use(publicRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/usuarios', usuarioRoutes);
@@ -35,6 +39,7 @@ function createApp() {
   app.use('/api/notificaciones', require('./routes/notificacionRoutes'));
   app.use('/api/citas-taller', require('./routes/citaTallerRoutes'));
   app.use('/api/reportes', require('./routes/reporteRoutes'));
+  app.use('/api/auditoria', require('./routes/auditoriaRoutes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

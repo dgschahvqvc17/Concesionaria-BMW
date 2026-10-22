@@ -27,3 +27,7 @@ Thumbs.db
 # Ejemplos de pruebas / tarea temporal
 server-3000.http
 tmp/
+
+# Credenciales reales (no versionar)
+CREDENCIALES.md
+*.credenciales.md
