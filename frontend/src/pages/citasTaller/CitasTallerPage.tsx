@@ -14,7 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCitasTaller } from '@/hooks/useCitasTaller';
 import { useClientesComerciales } from '@/hooks/useClientesComerciales';
 import { useMecanicos } from '@/hooks/useMecanicos';
+import { useRepuestos } from '@/hooks/useRepuestos';
 import { useVehiculos } from '@/hooks/useVehiculos';
+import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/api';
 import { ESTADOS_CITA, ESTADO_CITA_LABELS } from '@/lib/citasTaller';
 import type {
@@ -24,18 +26,33 @@ import type {
   CreateCitaTallerInput,
   EstadoCita,
   EstadoCitaInput,
+  RegistrarAvanceInput,
   ReprogramarCitaInput,
 } from '@/types/citaTaller';
 
 type FiltroEstado = 'todos' | EstadoCita;
 
-/** Página de gestión de citas del taller (HU13 + HU14). */
+/** Página de gestión de citas del taller (HU13 + HU14 + HU15). */
 export function CitasTallerPage() {
-  const { citas, loading, error, recargar, crear, confirmar, reprogramar, iniciar, finalizar, cancelar, asignar } =
-    useCitasTaller();
+  const {
+    citas,
+    loading,
+    error,
+    recargar,
+    crear,
+    confirmar,
+    reprogramar,
+    iniciar,
+    finalizar,
+    cancelar,
+    asignar,
+    registrarAvance,
+  } = useCitasTaller();
   const { clientes, loading: cargandoClientes } = useClientesComerciales();
   const { vehiculos, loading: cargandoVehiculos } = useVehiculos();
   const { mecanicos } = useMecanicos();
+  const { repuestos } = useRepuestos();
+  const { user } = useAuth();
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
@@ -91,6 +108,7 @@ export function CitasTallerPage() {
   const handleFinalizar = (input: EstadoCitaInput) => conDetalle((id) => finalizar(id, input));
   const handleCancelar = (input: CancelarCitaInput) => conDetalle((id) => cancelar(id, input));
   const handleAsignar = (input: AsignarCitaInput) => conDetalle((id) => asignar(id, input));
+  const handleRegistrarAvance = (input: RegistrarAvanceInput) => conDetalle((id) => registrarAvance(id, input));
 
   const abrirDetalle = (citaId: string) => {
     setSeleccionId(citaId);
@@ -195,12 +213,16 @@ export function CitasTallerPage() {
         onOpenChange={setDetalleOpen}
         cita={seleccionada}
         mecanicos={mecanicos}
+        repuestos={repuestos}
+        usuarioId={user?.sub ?? null}
+        rolesUsuario={user?.roles ?? []}
         onConfirmar={handleConfirmar}
         onReprogramar={handleReprogramar}
         onIniciar={handleIniciar}
         onFinalizar={handleFinalizar}
         onCancelar={handleCancelar}
         onAsignar={handleAsignar}
+        onRegistrarAvance={handleRegistrarAvance}
         loading={detalleLoading}
       />
     </div>

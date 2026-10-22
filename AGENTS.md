@@ -51,9 +51,10 @@ cd infra; npx tsc --noEmit
   HU05 catálogo web público de vehículos, HU06 gestión de fotografías y documentos,
   HU07 seguimiento comercial de clientes, HU08 cotizaciones, HU09 reservas de vehículos,
   HU10 ventas de vehículos, HU11 pruebas de manejo, HU12 notificaciones por correo,
-  HU13 citas del taller y HU14 asignación de trabajos a mecánicos
+  HU13 citas del taller, HU14 asignación de trabajos a mecánicos y HU15 registro de
+  mantenimiento y reparaciones
   (Sprint 3 = "Taller y administración")
-  (HU01–HU06 verificadas end-to-end; HU07–HU14 con backend verificado e2e y
+  (HU01–HU06 verificadas end-to-end; HU07–HU15 con backend verificado e2e y
   frontend compilando).
 - Clientes comerciales (HU07): tabla `ClientesComerciales` (GSIs `email-index` y
   `documento-index`); rutas `/api/clientes-comerciales` (solo `admin`/`vendedor`),
@@ -123,6 +124,21 @@ cd infra; npx tsc --noEmit
   notifica al mecánico con eventos `cita_asignada`/`cita_reasignada` (transporte
   `mailto:`). El rol `mecanico` accede a `/citas` pero **solo ve sus propias citas**
   (listado filtrado por `req.auth.sub` y 403 en detalle ajeno).
+- Registro de mantenimiento y reparaciones (HU15): añade a cada orden (`CitasTaller`) los
+  campos `diagnostico`, `tareas[]`, `repuestosUtilizados[]`, `observacionesTecnicas`,
+  `archivos[]`, `ultimoAvanceAt` y las fechas reales `fechaInicioReal` (al pasar a
+  `en_atencion`) y `fechaFinReal` (al `finalizar`); sin tabla ni infraestructura nueva.
+  `POST /api/citas-taller/:citaId/avances` registra el avance (un solo POST aplica lo
+  enviado; se exige al menos diagnóstico, tarea, repuesto, observación o archivo) y
+  `POST /api/citas-taller/:citaId/archivos/presign` firma la subida de archivos técnicos
+  (categorías `taller_foto` → `taller/fotos` ≤ 5 MB y `taller_documento` → `taller/documentos`
+  ≤ 10 MB, reutilizando el bucket de HU06). **Solo el mecánico asignado (`mecanicoId === sub`)
+  o un gestor (`admin`/`jefe_taller`) puede documentar** (403 en caso contrario); los avances
+  solo se admiten en estados `confirmada`/`en_atencion` (409). Los repuestos utilizados se
+  descuentan de inmediato registrando un **movimiento de salida atómico** (HU04; 404 si el
+  repuesto no existe y 409 si no hay existencias). El mecánico asignado puede `iniciar`
+  (`confirmada→en_atencion`) y `finalizar` (`en_atencion→finalizada`) su propia orden.
+  Frontend: `TallerAvancesPanel` dentro del detalle de la orden en `/citas`.
 - Archivos (HU06): se suben a S3 con URL prefirmada (`POST /api/vehiculos/archivos/presign`,
   solo `admin`/`vendedor`); la firma fija el tamaño (≤ 5 MB fotos, ≤ 10 MB documentos) y se
   valida tipo/tamaño al guardar. Los documentos nunca se exponen en el catálogo público.

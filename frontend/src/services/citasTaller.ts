@@ -1,12 +1,15 @@
 import { apiRequest } from '@/lib/api';
 import type {
+  ArchivoTallerInput,
   AsignarCitaInput,
   CancelarCitaInput,
+  CategoriaArchivoTaller,
   CitaResponse,
   CitasResponse,
   CreateCitaTallerInput,
   EstadoCitaInput,
   MecanicosResponse,
+  RegistrarAvanceInput,
   ReprogramarCitaInput,
 } from '@/types/citaTaller';
 
@@ -60,6 +63,56 @@ export const citasTallerService = {
 
   asignar: (citaId: string, input: AsignarCitaInput) =>
     apiRequest<CitaResponse>(`/api/citas-taller/${citaId}/asignar`, { method: 'POST', body: input }),
+
+  registrarAvance: (citaId: string, input: RegistrarAvanceInput) =>
+    apiRequest<CitaResponse>(`/api/citas-taller/${citaId}/avances`, { method: 'POST', body: input }),
+
+  presignArchivoTaller: (citaId: string, input: PresignArchivoTallerInput) =>
+    apiRequest<PresignArchivoTallerResponse>(`/api/citas-taller/${citaId}/archivos/presign`, {
+      method: 'POST',
+      body: input,
+    }),
+
+  /** Sube un archivo técnico directamente a S3 con la URL prefirmada (HU15). */
+  async subirArchivoTaller(
+    citaId: string,
+    file: File,
+    categoria: CategoriaArchivoTaller
+  ): Promise<ArchivoTallerInput> {
+    const { key, uploadUrl } = await citasTallerService.presignArchivoTaller(citaId, {
+      categoria,
+      contentType: file.type,
+      nombre: file.name,
+      size: file.size,
+    });
+
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+
+    if (!response.ok) {
+      throw new Error('No se pudo subir el archivo. Inténtalo nuevamente.');
+    }
+
+    return { key, nombre: file.name };
+  },
 };
+
+/** Entrada de la petición de URL prefirmada de un archivo del taller (HU15). */
+export interface PresignArchivoTallerInput {
+  categoria: CategoriaArchivoTaller;
+  contentType: string;
+  nombre: string;
+  size: number;
+}
+
+/** Respuesta con la clave y la URL prefirmada de subida (HU15). */
+export interface PresignArchivoTallerResponse {
+  key: string;
+  uploadUrl: string;
+  maxSize: number;
+}
 
 export type { CitaTaller, EstadoCita, TipoServicioCita, Mecanico } from '@/types/citaTaller';

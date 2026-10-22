@@ -6,6 +6,8 @@ const {
   finalizarCitaSchema,
   cancelarCitaSchema,
   asignarCitaSchema,
+  registrarAvanceSchema,
+  presignArchivoTallerSchema,
   listCitasQuerySchema,
   validate,
 } = require('../validation/citaTallerSchemas');
@@ -18,12 +20,18 @@ function esGestor(req) {
   return (req.authRoles ?? []).some((rol) => rol === 'admin' || rol === 'jefe_taller');
 }
 
+/** Actor enriquecido con sus roles para las reglas de autoría (HU15). */
+function actor(req) {
+  return { ...req.auth, roles: req.authRoles ?? [] };
+}
+
 /** GET /api/citas-taller?clienteId=&vehiculoId=&mecanicoId=&estado=&fechaDesde=&fechaHasta= */
 const list = asyncHandler(async (req, res) => {
   const filtros = validate(listCitasQuerySchema, req.query);
   if (!esGestor(req)) filtros.mecanicoId = req.auth?.sub;
   const citas = await citaTallerService.listCitas(filtros);
-  res.json({ total: citas.length, citas });
+  const conArchivos = await Promise.all(citas.map((cita) => citaTallerService.toResponse(cita)));
+  res.json({ total: conArchivos.length, citas: conArchivos });
 });
 
 /** GET /api/citas-taller/:citaId */
@@ -32,7 +40,7 @@ const getOne = asyncHandler(async (req, res) => {
   if (!esGestor(req) && cita.mecanicoId !== req.auth?.sub) {
     throw new ForbiddenError('Solo puede consultar las citas asignadas a su persona.');
   }
-  res.json({ cita });
+  res.json({ cita: await citaTallerService.toResponse(cita) });
 });
 
 /** POST /api/citas-taller */
@@ -59,14 +67,14 @@ const reprogramar = asyncHandler(async (req, res) => {
 /** POST /api/citas-taller/:citaId/iniciar */
 const iniciar = asyncHandler(async (req, res) => {
   const datos = validate(iniciarCitaSchema, req.body);
-  const cita = await citaTallerService.iniciarCita(req.params.citaId, datos, req.auth);
+  const cita = await citaTallerService.iniciarCita(req.params.citaId, datos, actor(req));
   res.json({ message: 'Atención de la cita iniciada.', cita });
 });
 
 /** POST /api/citas-taller/:citaId/finalizar */
 const finalizar = asyncHandler(async (req, res) => {
   const datos = validate(finalizarCitaSchema, req.body);
-  const cita = await citaTallerService.finalizarCita(req.params.citaId, datos, req.auth);
+  const cita = await citaTallerService.finalizarCita(req.params.citaId, datos, actor(req));
   res.json({ message: 'Cita finalizada.', cita });
 });
 
@@ -84,4 +92,31 @@ const asignar = asyncHandler(async (req, res) => {
   res.json({ message: 'Mecánico asignado a la cita.', cita });
 });
 
-module.exports = { list, getOne, create, confirmar, reprogramar, iniciar, finalizar, cancelar, asignar };
+/** POST /api/citas-taller/:citaId/avances */
+const registrarAvance = asyncHandler(async (req, res) => {
+  const datos = validate(registrarAvanceSchema, req.body);
+  const cita = await citaTallerService.registrarAvance(req.params.citaId, datos, actor(req));
+  const respuesta = await citaTallerService.toResponse(cita);
+  res.json({ message: 'Avance del trabajo registrado correctamente.', cita: respuesta });
+});
+
+/** POST /api/citas-taller/:citaId/archivos/presign */
+const presignArchivo = asyncHandler(async (req, res) => {
+  const datos = validate(presignArchivoTallerSchema, req.body);
+  const archivo = await citaTallerService.presignArchivoTaller(req.params.citaId, datos, actor(req));
+  res.json(archivo);
+});
+
+module.exports = {
+  list,
+  getOne,
+  create,
+  confirmar,
+  reprogramar,
+  iniciar,
+  finalizar,
+  cancelar,
+  asignar,
+  registrarAvance,
+  presignArchivo,
+};

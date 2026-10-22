@@ -85,7 +85,7 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14 + HU15)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
@@ -113,12 +113,15 @@ infra/
   `attribute_not_exists` impide el envío duplicado de un mismo evento) y GSI
   `recurso-index` (`recursoId` + `createdAt`, historial de correos de una
   operación).
-- **Tabla `CitasTaller`** (HU13/HU14, DynamoDB): PK `citaId` (UUID), GSIs `vehiculo-index`
+- **Tabla `CitasTaller`** (HU13/HU14/HU15, DynamoDB): PK `citaId` (UUID), GSIs `vehiculo-index`
   (`vehiculoId` + `fechaHora`, detección de citas solapadas), `cliente-index`
   (`clienteId` + `createdAt`, historial por cliente), `numero-index` (número único
   `CIT-AAAA-######`) y `mecanico-index` (HU14: `mecanicoId` + `fechaHora`, carga de
   trabajo por mecánico). Guarda una partición auxiliar `secuencia#<año>` para la
-  numeración atómica. Mismo patrón que `PruebasManejoTable` (HU11).
+  numeración atómica. Mismo patrón que `PruebasManejoTable` (HU11). HU15 añade campos de
+  avance (`diagnostico`, `tareas`, `repuestosUtilizados`, `observacionesTecnicas`,
+  `archivos`, `fechaInicioReal`, `fechaFinReal`, `ultimoAvanceAt`) **sin cambios de
+  infraestructura**; los archivos técnicos reutilizan el bucket S3 de HU06.
 - Salidas: `RepuestosTableName`, `MovimientosTableName`,
   `ClientesComercialesTableName`, `CotizacionesTableName`, `ReservasTableName`,
   `VentasTableName`, `PruebasManejoTableName`, `NotificacionesTableName`,

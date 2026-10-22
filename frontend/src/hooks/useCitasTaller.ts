@@ -9,6 +9,7 @@ import type {
   CreateCitaTallerInput,
   EstadoCita,
   EstadoCitaInput,
+  RegistrarAvanceInput,
   ReprogramarCitaInput,
 } from '@/types/citaTaller';
 
@@ -88,6 +89,12 @@ export function useCitasTaller(filtro: UseCitasFiltro = {}) {
     [accion]
   );
 
+  const registrarAvance = useCallback(
+    (citaId: string, input: RegistrarAvanceInput) =>
+      accion(() => citasTallerService.registrarAvance(citaId, input)),
+    [accion]
+  );
+
   const ordenadas = useMemo(
     () => citas.slice().sort((a, b) => String(a.fechaHora ?? '').localeCompare(String(b.fechaHora ?? ''))),
     [citas]
@@ -105,5 +112,6 @@ export function useCitasTaller(filtro: UseCitasFiltro = {}) {
     finalizar,
     cancelar,
     asignar,
+    registrarAvance,
   };
 }

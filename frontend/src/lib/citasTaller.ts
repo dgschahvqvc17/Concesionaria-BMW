@@ -71,6 +71,24 @@ export function puedeAsignarseMecanico(cita: CitaTaller): boolean {
   return ESTADOS_ASIGNABLES.includes(cita.estado);
 }
 
+/** Estados en los que el mecánico puede documentar avances del trabajo (HU15). */
+export const ESTADOS_EDITABLES_AVANCE: EstadoCita[] = ['confirmada', 'en_atencion'];
+
+export function puedeRegistrarAvance(cita: CitaTaller): boolean {
+  return ESTADOS_EDITABLES_AVANCE.includes(cita.estado);
+}
+
+/** El mecánico solo documenta sus órdenes asignadas; el gestor puede en cualquiera (HU15). */
+export function puedeDocumentarOrden(
+  cita: CitaTaller,
+  userId?: string | null,
+  roles: readonly string[] = []
+): boolean {
+  if (!puedeRegistrarAvance(cita)) return false;
+  if (roles.some((rol) => rol === 'admin' || rol === 'jefe_taller')) return true;
+  return Boolean(userId) && cita.mecanicoId === userId;
+}
+
 /** Estado de la asignación de la orden de trabajo (HU14). */
 export function etiquetaAsignacion(cita: CitaTaller): string {
   if (cita.mecanico?.nombre) return cita.mecanico.nombre;
