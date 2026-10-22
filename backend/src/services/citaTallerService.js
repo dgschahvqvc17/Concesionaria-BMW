@@ -440,6 +440,56 @@ async function presignArchivoTaller(citaId, payload, actor = {}) {
   return storageService.createUploadUrl(payload);
 }
 
+/** Ordena los servicios del historial del más reciente al más antiguo (HU16). */
+function ordenarServicios(citas) {
+  return [...citas].sort((a, b) => String(b.fechaHora ?? '').localeCompare(String(a.fechaHora ?? '')));
+}
+
+/** Indica si una cita es un servicio ya registrado (excluye solicitudes canceladas) (HU16). */
+function esServicio(cita) {
+  return cita.estado !== 'cancelada' && cita.estado !== 'solicitada';
+}
+
+/**
+ * Arma el historial de servicios de un vehículo (HU16): los servicios realizados
+ * con sus fechas de atención, tipo, diagnósticos, observaciones, responsable,
+ * repuestos utilizados y estado. Excluye las citas aún no atendidas o canceladas.
+ */
+async function historialVehiculo(vehiculoId) {
+  const vehiculo = await vehiculoRepository.findById(vehiculoId);
+  if (!vehiculo) throw new NotFoundError('El vehículo no existe.');
+
+  const citas = (await citaTallerRepository.findByVehiculo(vehiculoId)).filter(esServicio);
+  const servicios = await Promise.all(ordenarServicios(citas).map(toResponse));
+
+  return {
+    vehiculo: {
+      vehiculoId: vehiculo.vehiculoId,
+      vin: vehiculo.vin,
+      marca: vehiculo.marca,
+      modelo: vehiculo.modelo,
+      version: vehiculo.version,
+      anio: vehiculo.anio,
+      color: vehiculo.color,
+      placa: vehiculo.placa ?? null,
+    },
+    total: servicios.length,
+    servicios,
+  };
+}
+
+/**
+ * Resuelve el vehículo a consultar a partir de un identificador (HU16): VIN
+ * exacto (GSI `vin-index`) o `vehiculoId`; si no hay coincidencia es un 404.
+ */
+async function resolverVehiculoHistorial({ vin, vehiculoId } = {}) {
+  let vehiculo = null;
+  if (vehiculoId) vehiculo = await vehiculoRepository.findById(vehiculoId);
+  else if (vin) vehiculo = await vehiculoRepository.findByVin(vin);
+  if (!vehiculo) throw new NotFoundError('No se encontró un vehículo con ese identificador.');
+  return historialVehiculo(vehiculo.vehiculoId);
+}
+
 module.exports = {
   ESTADOS_CITA_OCUPADOS,
   ESTADOS_CITA_ASIGNABLES,
@@ -455,5 +505,7 @@ module.exports = {
   asignarMecanico,
   registrarAvance,
   presignArchivoTaller,
+  historialVehiculo,
+  resolverVehiculoHistorial,
   toResponse,
 };

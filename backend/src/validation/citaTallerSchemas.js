@@ -160,6 +160,12 @@ const listCitasQuerySchema = z
     path: ['fechaHasta'],
   });
 
+/** Búsqueda del historial de servicios de un vehículo por VIN o identificador (HU16). */
+const buscarHistorialQuerySchema = z.object({
+  vin: z.string().trim().min(1).optional(),
+  vehiculoId: z.string().trim().min(1).optional(),
+});
+
 function validate(schema, data) {
   const result = schema.safeParse(data ?? {});
   if (!result.success) {
@@ -190,5 +196,6 @@ module.exports = {
   registrarAvanceSchema,
   presignArchivoTallerSchema,
   listCitasQuerySchema,
+  buscarHistorialQuerySchema,
   validate,
 };

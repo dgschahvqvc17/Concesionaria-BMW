@@ -7,6 +7,7 @@ import {
   Contact,
   FileText,
   Gauge,
+  History,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/ventas', label: 'Ventas', icon: ReceiptText, roles: ['admin', 'vendedor'] },
   { to: '/pruebas-man', label: 'Pruebas', icon: Gauge, roles: ['admin', 'vendedor'] },
   { to: '/citas', label: 'Taller', icon: Wrench, roles: ['admin', 'jefe_taller', 'mecanico'] },
+  { to: '/historial-servicios', label: 'Historial', icon: History, roles: ['admin', 'jefe_taller', 'vendedor'] },
   { to: '/notificaciones', label: 'Correos', icon: Mail, roles: ['admin', 'vendedor'] },
   { to: '/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
 ];

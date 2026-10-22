@@ -48,11 +48,11 @@ backend/
     ├── errors/
     │   ├── AppError.js           # AppError + subclases (400/401/403/404/409)
     │   └── errorHandler.js       # notFoundHandler + errorHandler
-    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15)
-    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15)
-    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15), ...
-    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15), ...
-    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15)
+    ├── repositories/             # usuarioRepository, vehiculoRepository, repuestoRepository, movimientoRepository, clienteComercialRepository, cotizacionRepository, reservaRepository, ventaRepository, pruebaManejoRepository, notificacionRepository, citaTallerRepository (HU13/HU14/HU15/HU16)
+    ├── services/                 # usuarioService, vehiculoService (incluye catálogo), cognitoService, storageService, repuestoService, movimientoService, clienteComercialService, cotizacionService, reservaService, ventaService, pruebaManejoService, notificacionService (HU12), plantillasCorreo (HU12), citaTallerService (HU13/HU14/HU15/HU16)
+    ├── controllers/              # usuarioController, vehiculoController, catalogoController, clienteController, clienteComercialController, cotizacionController, reservaController, ventaController, pruebaManejoController, notificacionController, citaTallerController (HU13/HU14/HU15/HU16), ...
+    ├── routes/                   # publicRoutes, authRoutes, usuarioRoutes, clienteRoutes, catalogoRoutes, vehiculoRoutes, clienteComercialRoutes, cotizacionRoutes, reservaRoutes, ventaRoutes, pruebaManejoRoutes, notificacionRoutes, citaTallerRoutes (HU13/HU14/HU15/HU16), ...
+    ├── validation/               # usuarioSchemas.js, clienteSchemas.js, vehiculoSchemas.js, repuestoSchemas.js, clienteComercialSchemas.js, cotizacionSchemas.js, reservaSchemas.js, ventaSchemas.js, pruebaManejoSchemas.js, notificacionSchemas.js, citaTallerSchemas.js (HU13/HU14/HU15/HU16)
     └── utils/asyncHandler.js
 ```
 
@@ -397,7 +397,7 @@ Reglas de negocio (HU12):
   estado `omitido` y `enviar` responde `400`.
 - Los correos nunca incluyen contraseñas ni datos internos (VIN, `createdBy`, etc.).
 
-### Tabla `CitasTaller` (RepuestosStack, HU13/HU14/HU15)
+### Tabla `CitasTaller` (RepuestosStack, HU13/HU14/HU15/HU16)
 
 | Atributo | Tipo | Notas |
 | --- | --- | --- |
@@ -508,6 +508,24 @@ Reglas de negocio (HU15 — registro de mantenimiento y reparaciones):
   registrar el avance se verifica en S3 con `assertArchivo`. `toResponse` expone cada
   archivo con URL prefirmada de lectura.
 
+Reglas de negocio (HU16 — historial de servicios de los vehículos):
+- Reutiliza la tabla `CitasTaller` y su GSI `vehiculo-index` (sin tabla ni infraestructura
+  nueva). Dos endpoints, ambos solo `admin`/`jefe_taller`/`vendedor` (el rol `mecanico`
+  recibe `403 Forbidden`):
+  - `GET /api/citas-taller/historial?vin=&vehiculoId=`: resuelve el vehículo por VIN exacto
+    (`vehiculoRepository.findByVin`, GSI `vin-index`, HU03) o por `vehiculoId`
+    (`resolverVehiculoHistorial`); si no existe → `404`.
+  - `GET /api/citas-taller/historial/:vehiculoId`: historial directo de un vehículo
+    (`historialVehiculo`).
+- **Importante**: las rutas de historial se declaran **antes** de `router.get('/:citaId')`
+  en `citaTallerRoutes.js` para que «historial» no se interprete como un `citaId`.
+- Devuelve `{ vehiculo, total, servicios }`: el resumen del vehículo (`vehiculoId`, `vin`,
+  `marca`, `modelo`, `version`, `anio`, `color`, `placa`) y `servicios[]` ordenados por
+  `fechaHora` descendente, con la proyección `toResponse` (número, tipo, fechas reales,
+  diagnóstico, tareas, repuestos, observaciones, `mecanico` y estado).
+- **Solo servicios ya atendidos**: se excluyen las citas en estado `solicitada` y
+  `cancelada` (`esServicio`).
+
 ## Endpoints actuales
 
 | Método | Ruta | Auth | Descripción |
@@ -564,6 +582,8 @@ Reglas de negocio (HU15 — registro de mantenimiento y reparaciones):
 | GET | `/api/notificaciones/:eventoId` | admin/vendedor | Obtener una notificación con su historial |
 | POST | `/api/notificaciones/:eventoId/enviar` | admin/vendedor | Registrar el intento de envío y devolver el enlace `mailto:` |
 | GET | `/api/citas-taller` | admin/jefe_taller/mecanico | Listar citas (`?clienteId=&vehiculoId=&estado=&fechaDesde=&fechaHasta=&mecanicoId=`); el rol `mecanico` solo ve las suyas |
+| GET | `/api/citas-taller/historial` | admin/jefe_taller/vendedor | Historial de servicios por VIN o `vehiculoId` (`?vin=&vehiculoId=`; 404 si no existe, HU16) |
+| GET | `/api/citas-taller/historial/:vehiculoId` | admin/jefe_taller/vendedor | Historial de servicios de un vehículo (HU16) |
 | GET | `/api/citas-taller/:citaId` | admin/jefe_taller/mecanico | Obtener cita con historial (404 si no existe; 403 al `mecanico` si no es suya) |
 | POST | `/api/citas-taller` | admin/jefe_taller | Registrar cita (número único, 201) |
 | POST | `/api/citas-taller/:citaId/confirmar` | admin/jefe_taller | Confirmar una cita solicitada |

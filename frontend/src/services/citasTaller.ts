@@ -2,12 +2,14 @@ import { apiRequest } from '@/lib/api';
 import type {
   ArchivoTallerInput,
   AsignarCitaInput,
+  BuscarHistorialInput,
   CancelarCitaInput,
   CategoriaArchivoTaller,
   CitaResponse,
   CitasResponse,
   CreateCitaTallerInput,
   EstadoCitaInput,
+  HistorialServicios,
   MecanicosResponse,
   RegistrarAvanceInput,
   ReprogramarCitaInput,
@@ -98,6 +100,18 @@ export const citasTallerService = {
 
     return { key, nombre: file.name };
   },
+
+  /** Busca el vehículo por VIN o id y devuelve su historial de servicios (HU16). */
+  historial: (input: BuscarHistorialInput) => {
+    const params = new URLSearchParams();
+    if (input.vin) params.set('vin', input.vin);
+    if (input.vehiculoId) params.set('vehiculoId', input.vehiculoId);
+    return apiRequest<HistorialServicios>(`/api/citas-taller/historial?${params.toString()}`);
+  },
+
+  /** Historial de servicios de un vehículo concreto (HU16). */
+  historialPorVehiculo: (vehiculoId: string) =>
+    apiRequest<HistorialServicios>(`/api/citas-taller/historial/${vehiculoId}`),
 };
 
 /** Entrada de la petición de URL prefirmada de un archivo del taller (HU15). */

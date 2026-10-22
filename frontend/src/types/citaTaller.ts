@@ -189,3 +189,27 @@ export interface CitaResponse {
   message?: string;
   cita: CitaTaller;
 }
+
+/** Datos resumidos del vehículo en el historial de servicios (HU16). */
+export interface HistorialVehiculoResumen {
+  vehiculoId: string;
+  vin: string;
+  marca: string;
+  modelo: string;
+  version: string;
+  anio: number;
+  color?: string;
+  placa?: string | null;
+}
+
+/** Historial de servicios de un vehículo (HU16). */
+export interface HistorialServicios {
+  vehiculo: HistorialVehiculoResumen;
+  total: number;
+  servicios: CitaTaller[];
+}
+
+export interface BuscarHistorialInput {
+  vin?: string;
+  vehiculoId?: string;
+}
