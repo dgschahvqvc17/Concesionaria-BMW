@@ -85,7 +85,7 @@ infra/
   `autoDeleteObjects` + `DESTROY`.
 - Salidas: `VehiculosTableName`, `FotosBucketName`, `Region`.
 
-### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14 + HU15 + HU16)
+### Stack 3 — `ConcesionariaBmwRepuestosStack` (HU04 + HU07 + HU08 + HU09 + HU10 + HU11 + HU12 + HU13 + HU14 + HU15 + HU16 + HU17)
 
 - **Tabla `Repuestos`** (DynamoDB): PK `repuestoId`, GSI `codigo-index`.
 - **Tabla `MovimientosInventario`** (DynamoDB): PK `movimientoId`, GSI
@@ -124,6 +124,11 @@ infra/
   `archivos`, `fechaInicioReal`, `fechaFinReal`, `ultimoAvanceAt`) y HU16 consulta el
   historial reutilizando la tabla y su `vehiculo-index` **sin cambios de
   infraestructura**; los archivos técnicos reutilizan el bucket S3 de HU06.
+- **Reportes de gestión (HU17)**: **sin infraestructura nueva**. El módulo de reportes agrega
+  en el backend los datos ya almacenados (inventario, ventas, cotizaciones, taller, repuestos
+  y clientes) reutilizando las tablas existentes mediante `listAll`. La representación
+  gráfica se hace en el frontend con **SVG propio**. **No se usa Amazon QuickSight** porque
+  no dispone de capa gratuita (contradiría la regla de este documento).
 - Salidas: `RepuestosTableName`, `MovimientosTableName`,
   `ClientesComercialesTableName`, `CotizacionesTableName`, `ReservasTableName`,
   `VentasTableName`, `PruebasManejoTableName`, `NotificacionesTableName`,

@@ -6,7 +6,7 @@ vehículos y repuestos con fotografías y documentos, catálogo web público, se
 comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
 gestión de pruebas de manejo, citas del taller (HU13) con asignación de trabajos a
 mecánicos (HU14), registro de mantenimiento y reparaciones (HU15), consulta del historial
-de servicios de los vehículos (HU16) y notificaciones por
+de servicios de los vehículos (HU16), consulta de reportes de gestión (HU17) y notificaciones por
 correo (HU12, con transporte `mailto:` para mantenerse en la capa gratuita).
 
 El proyecto usa **solo servicios de la capa gratuita de AWS**.
@@ -45,6 +45,7 @@ El proyecto usa **solo servicios de la capa gratuita de AWS**.
 | **HU14** | Asignar trabajos de mantenimiento y reparación a los mecánicos: orden de trabajo con mecánico responsable, fecha de asignación, reasignación e historial de cambios, control de carga de trabajo y bloqueo de mecánicos inactivos. | Implementada (backend verificado e2e) |
 | **HU15** | Registrar mantenimiento y reparaciones: el mecánico asignado documenta diagnóstico, tareas, repuestos utilizados (descuenta existencias vía movimiento de salida), observaciones técnicas y archivos; fechas reales de inicio y fin. | Implementada (backend verificado e2e) |
 | **HU16** | Consultar el historial de servicios de los vehículos: búsqueda por VIN (admin/jefe_taller/vendedor), listado de servicios con fechas, tipo, diagnóstico, responsable y repuestos, y detalle de solo lectura. | Implementada (backend verificado e2e) |
+| **HU17** | Consultar reportes de gestión (admin/vendedor): inventario por estado y valor, ventas (totales, ticket y serie mensual), cotizaciones, taller, repuestos con existencias bajas y clientes por seguimiento, con filtro por rango de fechas y gráficos SVG propios (sin QuickSight, capa gratuita). | Implementada (backend verificado e2e) |
 
 **Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
 Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
