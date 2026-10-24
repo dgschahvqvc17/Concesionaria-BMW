@@ -46,6 +46,14 @@ export const ESTADO_STYLES: Record<EstadoVehiculo, string> = {
   no_disponible: 'border-transparent bg-zinc-500/10 text-zinc-600',
 };
 
+/** Clases de badge para estados sobre fotografías (fondo opaco + texto blanco). */
+export const ESTADO_STYLES_FOTO: Record<EstadoVehiculo, string> = {
+  disponible: 'border-transparent bg-emerald-700 text-white',
+  reservado: 'border-transparent bg-amber-700 text-white',
+  vendido: 'border-transparent bg-brand-blue-deep text-white',
+  no_disponible: 'border-transparent bg-zinc-700 text-white',
+};
+
 /** Formatea un precio en formato de moneda (p. ej. $ 82.000). */
 export function formatPrecio(precio: number): string {
   return `$ ${precio.toLocaleString('es-BO')}`;

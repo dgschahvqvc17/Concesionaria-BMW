@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   CalendarCheck,
@@ -106,8 +106,17 @@ function NavLinks() {
 
 function SidebarFooter() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) return null;
+
+  const cerrarSesion = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <div className="m-3 rounded-2xl border border-white/10 bg-white/[0.05] p-3">
@@ -121,7 +130,7 @@ function SidebarFooter() {
         </div>
         <button
           type="button"
-          onClick={() => void logout()}
+          onClick={() => void cerrarSesion()}
           title="Cerrar sesión"
           className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
         >
@@ -152,7 +161,7 @@ function SidebarContent() {
         Navegación
       </p>
 
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="scrollbar-thin min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
         <NavLinks />
       </nav>
 

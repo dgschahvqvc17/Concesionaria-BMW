@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   CONDICION_LABELS,
   ESTADO_LABELS,
-  ESTADO_STYLES,
+  ESTADO_STYLES_FOTO,
   TIPO_LABELS,
   formatKilometraje,
   formatPrecio,
@@ -40,7 +40,7 @@ export function CatalogoCard({ vehiculo }: CatalogoCardProps) {
         )}
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          <Badge className={ESTADO_STYLES[vehiculo.estado]}>{ESTADO_LABELS[vehiculo.estado]}</Badge>
+          <Badge className={ESTADO_STYLES_FOTO[vehiculo.estado]}>{ESTADO_LABELS[vehiculo.estado]}</Badge>
           <Badge className="border-transparent bg-white/85 text-foreground backdrop-blur">
             {CONDICION_LABELS[vehiculo.condicion]}
           </Badge>
