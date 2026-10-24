@@ -1,16 +1,14 @@
-const express = require('express');
+const { config, assertAuthConfig } = require('./src/config');
+const { createApp } = require('./src/app');
 
-const app = express();
-const PORT = 3000;
+assertAuthConfig();
 
-app.get('/', (req, res) => {
-  res.send('¡Mi aplicación web está funcionando!');
-});
-
-app.get('/bienvenido', (req, res) => {
-  res.send('Bienvenido a mi aplicación web.');
-});
+const app = createApp();
+const PORT = config.port;
 
 app.listen(PORT, () => {
-  console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+  console.log(`Servidor de Concesionaria BMW ejecutándose en http://localhost:${PORT}`);
+  console.log(`  Región AWS:     ${config.awsRegion}`);
+  console.log(`  Tabla DynamoDB: ${config.usuariosTableName}`);
+  console.log(`  User Pool:      ${config.userPoolId}`);
 });

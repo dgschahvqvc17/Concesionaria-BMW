@@ -1,244 +1,233 @@
-# Tecnología Web II - Primera Aplicación Web
+# Concesionaria BMW
 
-Este documento describe el trabajo realizado a partir del **Punto 3 de la práctica: "La meta de hoy"**, que consiste en construir una primera aplicación web funcional utilizando Node.js y Express, con un servidor local que responde diferentes mensajes según la ruta que se solicite.
+Aplicación web **full-stack** para la gestión de una concesionaria BMW: autenticación de
+usuarios con roles, autorregistro de clientes, administración de usuarios, inventario de
+vehículos y repuestos con fotografías y documentos, catálogo web público, seguimiento
+comercial de clientes potenciales, cotizaciones, reservas y ventas de vehículos,
+gestión de pruebas de manejo, citas del taller (HU13) con asignación de trabajos a
+mecánicos (HU14), registro de mantenimiento y reparaciones (HU15), consulta del historial
+de servicios de los vehículos (HU16), consulta de reportes de gestión (HU17), registro de
+la actividad del sistema (HU18, solo lectura para el administrador) y notificaciones por
+correo (HU12, con transporte `mailto:` para mantenerse en la capa gratuita).
 
----
-
-## 1. Meta de la práctica
-
-El objetivo es armar mi primera aplicación web del lado del servidor (backend).
-
-Con Node.js y Express levanté un servidor local que escucha en el **puerto 3000** y que responde de manera diferente según la dirección que se visite en el navegador:
-
-- En la ruta `/` responde que la aplicación está funcionando.
-- En la ruta `/bienvenido` responde un mensaje de bienvenida.
-
-La idea es demostrar que el servidor puede recibir pedidos (requests) y entregar respuestas distintas según la ruta pedida.
+El proyecto usa **solo servicios de la capa gratuita de AWS**.
 
 ---
 
-## 2. Tecnologías utilizadas
+## Descripción
 
-- **Visual Studio Code** – editor donde escribí y ejecuté el proyecto.
-- **Node.js** – entorno que permite ejecutar JavaScript fuera del navegador.
-- **npm** – gestor de paquetes de Node.js, se usó para crear el `package.json` e instalar Express.
-- **Express** – framework que facilita crear el servidor y manejar las rutas.
-- **JavaScript** – lenguaje con el que está escrito el servidor.
+**Concesionaria BMW** es un sistema compuesto por:
+
+- un **backend REST** (Node.js + Express) que expone la API, valida los JWT de Cognito y
+  persiste en DynamoDB / S3 (fotografías y documentos con URLs prefirmadas);
+- un **frontend SPA** (React + Vite + Tailwind + shadcn/ui) con una interfaz alineada a la
+  identidad de marca BMW;
+- **infraestructura como código** (AWS CDK) que aprovisiona Cognito, DynamoDB y S3.
 
 ---
 
-## 3. Backend
+## Funcionalidades (Historias de Usuario)
 
-La carpeta donde vive el servidor es:
+| HU | Descripción | Estado |
+| --- | --- | --- |
+| **HU01** | Inicio de sesión con Cognito y control de acceso por rol. | Implementada y verificada |
+| **HU02** | Administración de usuarios y roles (solo `admin`). | Implementada y verificada |
+| **HU03** | Inventario de vehículos: alta, edición, filtros y fotos en S3. | Implementada y verificada |
+| **HU04** | Inventario de repuestos: registro, existencias, entradas/salidas y reposición. | Implementada y verificada |
+| **HU05** | Catálogo web público de vehículos con búsqueda, filtros y detalle de fotos. | Implementada y verificada |
+| **HU06** | Gestión de fotografías y documentos de los vehículos (S3, roles y mensajes de error). | Implementada y verificada |
+| **HU07** | Seguimiento comercial de clientes: registro, anti-duplicados, historial de consultas, estados y notificación por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU08** | Cotizaciones: generación con precios vigentes, descuentos ≤ 20%, estados, PDF (jsPDF) y envío por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU09** | Reservas de vehículos: apartado con vigencia, estados e historial, cancelación y conversión en venta. | Implementada (backend verificado e2e) |
+| **HU10** | Ventas de vehículos: registro con cliente/vehículo, descuentos autorizados, número único, historial, detalle y comprobante (jsPDF). | Implementada (backend verificado e2e) |
+| **HU11** | Pruebas de manejo: solicitud pública desde el catálogo o interna, agenda sin conflictos por vehículo (08:00–18:00), confirmación, reprogramación, cancelación y registro de realizadas. | Implementada (backend verificado e2e) |
+| **HU12** | Notificaciones por correo: registro anti-duplicados de los correos de reservas, cotizaciones, pruebas y ventas, historial de intentos con reintento y envío vía `mailto:` (sin SES, capa gratuita). | Implementada (backend verificado e2e) |
+| **HU13** | Citas del taller: agenda interna (admin/jefe_taller) con horario 08:00–18:00, sin solapes por vehículo, transiciones de estado, numeración única y notificaciones por correo (`mailto:`). | Implementada (backend verificado e2e) |
+| **HU14** | Asignar trabajos de mantenimiento y reparación a los mecánicos: orden de trabajo con mecánico responsable, fecha de asignación, reasignación e historial de cambios, control de carga de trabajo y bloqueo de mecánicos inactivos. | Implementada (backend verificado e2e) |
+| **HU15** | Registrar mantenimiento y reparaciones: el mecánico asignado documenta diagnóstico, tareas, repuestos utilizados (descuenta existencias vía movimiento de salida), observaciones técnicas y archivos; fechas reales de inicio y fin. | Implementada (backend verificado e2e) |
+| **HU16** | Consultar el historial de servicios de los vehículos: búsqueda por VIN (admin/jefe_taller/vendedor), listado de servicios con fechas, tipo, diagnóstico, responsable y repuestos, y detalle de solo lectura. | Implementada (backend verificado e2e) |
+| **HU17** | Consultar reportes de gestión (admin/vendedor): inventario por estado y valor, ventas (totales, ticket y serie mensual), cotizaciones, taller, repuestos con existencias bajas y clientes por seguimiento, con filtro por rango de fechas y gráficos SVG propios (sin QuickSight, capa gratuita). | Implementada (backend verificado e2e) |
+| **HU18** | Consultar la actividad del sistema (solo admin): registro inmutable de las operaciones importantes con usuario responsable, acción, tipo, fecha/hora y registro afectado, con filtros por usuario, fecha y tipo de operación; sin opciones de edición ni borrado. | Implementada (backend verificado e2e) |
+
+**Roles** (orden = precedencia): `admin`, `vendedor`, `jefe_taller`, `mecanico`, `cliente`.
+Los **clientes** se autorregistran desde el login (nombre, fecha de nacimiento, carnet y
+celular); el administrador gestiona solo al personal y no crea clientes.
+
+---
+
+## Tecnologías
+
+| Área | Tecnologías |
+| --- | --- |
+| Backend | Node.js, Express 5, Zod, AWS SDK v3 (`lib-dynamodb`, `s3-request-presigner`), `aws-jwt-verify`, `cors`, `dotenv` |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, React Router, React Hook Form, AWS Amplify, jsPDF |
+| Infraestructura | AWS CDK (TypeScript) |
+| Servicios AWS | Cognito, DynamoDB, S3, CloudFormation, Lambda (helper), IAM, Budgets |
+
+---
+
+## Estructura del repositorio
 
 ```text
-backend
-```
-
-Dentro de ella se encuentra todo lo necesario para que la aplicación funcione: el archivo `package.json`, el archivo `package-lock.json`, la carpeta `node_modules` (donde se instalan las librerías) y el archivo `server.js`.
-
-Esta carpeta se creó durante esta práctica porque el proyecto estaba vacío, es decir, no existía ningún backend previo que reutilizar.
-
----
-
-## 4. Inicialización del proyecto
-
-Dentro de la carpeta `backend` ejecuté:
-
-```bash
-npm init -y
-```
-
-Este comando crea automáticamente el archivo `package.json`, que es el archivo donde Node.js guarda la información del proyecto: el nombre, la versión, los scripts y las dependencias instaladas.
-
----
-
-## 5. Instalación de Express
-
-Después inicialicé el proyecto, instalé Express con:
-
-```bash
-npm install express
-```
-
-Ese comando descargó Express y lo guardó en la carpeta `node_modules`. Además, `npm` agregó Express dentro del apartado `dependencies` del `package.json`, así quedó registrado como dependencia del proyecto.
-
-Express es el framework que me permite crear el servidor y definir las rutas de forma sencilla, sin tener que configurar muchas cosas a mano.
-
----
-
-## 6. Servidor
-
-El servidor está en el archivo:
-
-```text
-backend/server.js
-```
-
-Este archivo hace tres cosas:
-
-1. Importa Express con `require('express')` y crea la aplicación con `const app = express();`
-2. Registra las rutas que responden a las visitas del navegador.
-3. Levanta el servidor escuchando en el **puerto 3000** con `app.listen(3000, ...)`.
-
-Cuando el servidor arranca, muestra en la terminal este mensaje:
-
-```text
-Servidor ejecutándose en http://localhost:3000
-```
-
----
-
-## 7. Primera ruta
-
-Ruta implementada:
-
-```text
-GET /
-```
-
-URL:
-
-```text
-http://localhost:3000
-```
-
-Respuesta enviada por el servidor:
-
-```text
-¡Mi aplicación web está funcionando!
-```
-
-El código que la genera es:
-
-```js
-app.get('/', (req, res) => {
-  res.send('¡Mi aplicación web está funcionando!');
-});
-```
-
-`res.send()` es lo que manda el texto de vuelta al navegador.
-
----
-
-## 8. Segunda ruta
-
-Ruta implementada:
-
-```text
-GET /bienvenido
-```
-
-URL:
-
-```text
-http://localhost:3000/bienvenido
-```
-
-Respuesta enviada por el servidor:
-
-```text
-Bienvenido a mi aplicación web.
-```
-
-El código que la genera es:
-
-```js
-app.get('/bienvenido', (req, res) => {
-  res.send('Bienvenido a mi aplicación web.');
-});
-```
-
-Esta segunda ruta sirve para demostrar que el mismo servidor puede entregar respuestas diferentes según la dirección que se solicite.
-
----
-
-## 9. Ejecución del proyecto
-
-Para levantar el servidor:
-
-```bash
-cd backend
-node server.js
-```
-
-También agregué el script `start` en el `package.json`, así que se puede iniciar de la otra forma:
-
-```bash
-cd backend
-npm start
-```
-
-Los dos comandos son equivalentes y levantan el mismo servidor en el puerto 3000. Para detenerlo, en la terminal se usa `Ctrl + C`.
-
----
-
-## 10. Pruebas realizadas
-
-Se comprobaron las dos rutas del servidor:
-
-| Ruta | URL | Respuesta | Estado |
-|------|-----|-----------|--------|
-| `GET /` | http://localhost:3000 | ¡Mi aplicación web está funcionando! | 200 OK |
-| `GET /bienvenido` | http://localhost:3000/bienvenido | Bienvenido a mi aplicación web. | 200 OK |
-
-La forma de comprobarlas fue la siguiente:
-
-1. Se revisó que el archivo `server.js` no tuviera errores de sintaxis.
-2. Se levantó el servidor con `node server.js` y se comprobó el mensaje de inicio en la terminal.
-3. Se realizaron peticiones HTTP reales a las dos direcciones con `Invoke-WebRequest`.
-4. Las dos rutas respondieron con código **200** y con el texto esperado.
-5. Finalmente se detuvo el servidor para no dejarlo ejecutándose.
-
-Como ambas rutas respondieron con mensajes distintos, queda demostrado que el servidor funciona y que devuelve una respuesta diferente según la ruta solicitada.
-
----
-
-## 11. Conceptos aprendidos
-
-- **Node.js**: permite ejecutar código JavaScript en la computadora sin necesidad de un navegador. Aquí se usa para hacer funcionar el servidor.
-- **npm**: es el gestor de paquetes de Node.js. Se usó para crear el `package.json` y para instalar Express.
-- **Express**: es un framework de Node.js que simplifica la creación del servidor y la definición de rutas.
-- **Servidor**: el programa que queda escuchando y esperando que alguien le pida información.
-- **localhost**: la dirección que apunta a la misma computadora donde está corriendo el servidor. En este caso, `localhost:3000`.
-- **Puerto**: el número que identifica a cuál servicio se le hacen los pedidos. En esta práctica se usa el **3000**.
-- **Ruta**: la parte de la dirección que indica qué se está pidiendo, por ejemplo `/` o `/bienvenido`.
-- **Request (pedido)**: es la solicitud que envía el navegador al servidor, por ejemplo al abrir `http://localhost:3000/bienvenido`.
-- **Response (respuesta)**: es lo que el servidor devuelve después de recibir un pedido. En este caso, un texto.
-- **GET**: el tipo de petición que se usa para pedir información. Casi todo lo que se abre en el navegador es un GET.
-
-La idea principal de la práctica es esta:
-
-> **El navegador pide y el servidor responde.**
-
-Por eso en el código cada ruta tiene dos cosas: qué se está pidiendo (`req`) y qué se contesta (`res`).
-
----
-
-## 12. Estructura del proyecto
-
-La estructura final del proyecto quedó así:
-
-```text
-Tecnologia WEB 2/
-├── backend/
-│   ├── node_modules/
-│   ├── package-lock.json
-│   ├── package.json
-│   └── server.js
+Concesionaria-BMW/
+├── backend/     # API REST (Express, MVC por capas)
+├── frontend/    # SPA (React + Vite)
+├── infra/       # Infraestructura AWS (CDK)
+├── Rules/       # Convenciones y documentación de desarrollo
+├── AGENTS.md    # Guía rápida para agentes de IA
 └── README.md
 ```
 
-- `backend/server.js`: el servidor Express con las rutas `/` y `/bienvenido`.
-- `backend/package.json`: información del proyecto, dependencia de Express y script `start`.
-- `backend/package-lock.json`: archivo que npm genera con las versiones exactas instaladas.
-- `backend/node_modules/`: carpeta con las librerías instaladas (Express incluido).
-- `README.md`: este documento.
+Documentación detallada: [`Rules/backend.md`](./Rules/backend.md),
+[`Rules/frontend.md`](./Rules/frontend.md), [`Rules/aws.md`](./Rules/aws.md).
 
 ---
 
-## 13. GitHub
+## Puesta en marcha
 
-> **La subida del proyecto a GitHub será realizada posteriormente por el estudiante.**
+### 0. Requisitos
 
-Durante esta práctica no se ejecutó ningún `git push` ni se creó o modificó un repositorio remoto. Todo el trabajo se hizo únicamente sobre los archivos locales del proyecto.
+- Node.js 20+ y npm.
+- AWS CLI configurado (para desplegar la infraestructura).
+
+### 1. Infraestructura (AWS CDK)
+
+```bash
+cd infra
+npm install
+npm run deploy      # crea Cognito, DynamoDB y S3
+```
+
+Al finalizar, copia las salidas (`UserPoolId`, `UserPoolClientId`, nombres de tablas y
+bucket) a los archivos `.env` de `backend` y `frontend`. También quedan en
+`infra/cdk-outputs.json`.
+
+Alta opcional de un usuario de prueba:
+
+```bash
+$env:USER_POOL_ID="us-east-2_XXXX"; $env:EMAIL="admin@bmw.com"; $env:PASSWORD="Passw0rd123"; $env:ROLE="admin"; $env:NAME="Admin Demo"; npm run create-user
+```
+
+### 2. Backend
+
+```bash
+cd backend
+npm install
+# crea backend/.env a partir de backend/.env.example con los valores reales
+npm start           # http://localhost:3000
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+# crea frontend/.env a partir de frontend/.env.example con los valores reales
+npm run dev         # http://localhost:5173
+```
+
+---
+
+## Variables de entorno
+
+Solo se versionan los archivos `.env.example`. **Nunca** subas los `.env` reales.
+
+**`backend/.env`**
+
+| Variable | Descripción |
+| --- | --- |
+| `PORT` | Puerto del servidor (por defecto `3000`) |
+| `AWS_REGION` | Región AWS (por defecto `us-east-2`) |
+| `USER_POOL_ID` | ID del User Pool de Cognito |
+| `USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
+| `USUARIOS_TABLE_NAME` | Tabla DynamoDB de usuarios |
+| `VEHICULOS_TABLE_NAME` | Tabla DynamoDB de vehículos |
+| `REPUESTOS_TABLE_NAME` | Tabla DynamoDB de repuestos |
+| `MOVIMIENTOS_TABLE_NAME` | Tabla DynamoDB de movimientos de inventario |
+| `CLIENTES_COMERCIALES_TABLE_NAME` | Tabla DynamoDB de clientes comerciales (HU07) |
+| `COTIZACIONES_TABLE_NAME` | Tabla DynamoDB de cotizaciones (HU08) |
+| `RESERVAS_TABLE_NAME` | Tabla DynamoDB de reservas (HU09) |
+| `VENTAS_TABLE_NAME` | Tabla DynamoDB de ventas (HU10) |
+| `PRUEBAS_MANEJO_TABLE_NAME` | Tabla DynamoDB de pruebas de manejo (HU11) |
+| `NOTIFICACIONES_TABLE_NAME` | Tabla DynamoDB de notificaciones por correo (HU12) |
+| `CITAS_TALLER_TABLE_NAME` | Tabla DynamoDB de citas del taller (HU13) |
+| `FOTOS_BUCKET_NAME` | Bucket S3 de fotografías |
+| `CORS_ORIGIN` | Origen permitido (`http://localhost:5173`) |
+
+**`frontend/.env`**
+
+| Variable | Descripción |
+| --- | --- |
+| `VITE_AWS_REGION` | Región AWS |
+| `VITE_USER_POOL_ID` | ID del User Pool de Cognito |
+| `VITE_USER_POOL_CLIENT_ID` | ID del App Client de Cognito |
+| `VITE_API_URL` | URL base del backend (`http://localhost:3000`) |
+
+---
+
+## API (resumen)
+
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| GET | `/` , `/info` | Público |
+| GET | `/api/catalogo` , `/api/catalogo/:vehiculoId` | Público (catálogo web) |
+| GET | `/api/auth/session` | Autenticado |
+| POST | `/api/clientes/registro` | Público (autorregistro de clientes) |
+| GET/POST | `/api/usuarios` | `admin` |
+| GET/PATCH | `/api/usuarios/:userId` | `admin` |
+| PATCH | `/api/usuarios/:userId/estado` | `admin` |
+| GET | `/api/usuarios/mecanicos` | `admin`, `jefe_taller` |
+| GET | `/api/vehiculos` | Autenticado |
+| GET | `/api/vehiculos/:vehiculoId` | Autenticado |
+| POST | `/api/vehiculos` | `admin`, `vendedor` |
+| PATCH | `/api/vehiculos/:vehiculoId` | `admin`, `vendedor` |
+| POST | `/api/vehiculos/archivos/presign` | `admin`, `vendedor` |
+| GET | `/api/repuestos` | Autenticado |
+| GET | `/api/repuestos/:repuestoId` | Autenticado |
+| POST | `/api/repuestos` | `admin`, `vendedor`, `jefe_taller` |
+| PATCH | `/api/repuestos/:repuestoId` | `admin`, `vendedor`, `jefe_taller` |
+| GET | `/api/movimientos` | Autenticado |
+| POST | `/api/movimientos` | `admin`, `vendedor`, `jefe_taller` |
+| GET/POST | `/api/clientes-comerciales` | `admin`, `vendedor` |
+| GET/PATCH | `/api/clientes-comerciales/:clienteId` | `admin`, `vendedor` |
+| POST | `/api/clientes-comerciales/:clienteId/consultas` | `admin`, `vendedor` |
+| GET/POST | `/api/cotizaciones` | `admin`, `vendedor` |
+| GET/PATCH | `/api/cotizaciones/:cotizacionId` | `admin`, `vendedor` |
+| GET/POST | `/api/reservas` | `admin`, `vendedor` |
+| GET | `/api/reservas/:reservaId` | `admin`, `vendedor` |
+| POST | `/api/reservas/:reservaId/cancelar` | `admin`, `vendedor` |
+| POST | `/api/reservas/:reservaId/convertir` | `admin`, `vendedor` |
+| GET/POST | `/api/ventas` | `admin`, `vendedor` |
+| GET | `/api/ventas/:ventaId` | `admin`, `vendedor` |
+| POST | `/api/pruebas-man` | Público (solicitud con token opcional) |
+| GET | `/api/pruebas-man` , `/api/pruebas-man/:pruebaId` | `admin`, `vendedor` |
+| POST | `/api/pruebas-man/:pruebaId/confirmar` , `/reprogramar` , `/cancelar` , `/realizar` | `admin`, `vendedor` |
+| POST | `/api/cotizaciones/:cotizacionId/enviar-correo` | `admin`, `vendedor` |
+| GET | `/api/notificaciones` , `/api/notificaciones/:eventoId` | `admin`, `vendedor` |
+| POST | `/api/notificaciones/:eventoId/enviar` | `admin`, `vendedor` |
+| GET | `/api/citas-taller` , `/api/citas-taller/:citaId` | `admin`, `jefe_taller`, `mecanico` (solo sus citas) |
+| POST | `/api/citas-taller` , `/:citaId/confirmar` , `/:citaId/reprogramar` , `/:citaId/cancelar` | `admin`, `jefe_taller` |
+| POST | `/api/citas-taller/:citaId/asignar` | `admin`, `jefe_taller` |
+| POST | `/api/citas-taller/:citaId/iniciar` , `/:citaId/finalizar` , `/:citaId/avances` , `/:citaId/archivos/presign` | `admin`, `jefe_taller`, `mecanico` (solo sus órdenes) |
+
+Detalle completo en [`Rules/backend.md`](./Rules/backend.md).
+
+---
+
+## Costos y seguridad
+
+- **Solo capa gratuita de AWS**: no se agregan recursos con costo. Ver
+  [`Rules/aws.md`](./Rules/aws.md) para el detalle por servicio.
+- Bucket y tablas **privados**; fotografías y documentos se acceden mediante **URLs
+  prefirmadas** (tipo y tamaño validados; 5 MB fotos / 10 MB documentos).
+- Sin secretos en el repositorio; las credenciales AWS provienen del entorno.
+
+---
+
+## Convenciones
+
+Antes de contribuir, lee [`Rules/README.md`](./Rules/README.md) y el documento del área
+que vayas a modificar. Puntos clave: clean code, SOLID, MVC por capas, validación con
+Zod, tokens de diseño en el frontend y español como idioma del código y la UI.
+
+Repositorio remoto: `https://github.com/dgschahvqvc17/Concesionaria-BMW.git`.
