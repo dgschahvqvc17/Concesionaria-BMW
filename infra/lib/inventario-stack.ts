@@ -39,8 +39,13 @@ export class InventarioStack extends cdk.Stack {
       cors: [
         {
           // En desarrollo el frontend corre en localhost (Vite).
-          allowedOrigins: ['http://localhost:5173'],
-          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.HEAD],
+          // En producción el frontend está en Vercel y sube con URLs prefirmadas desde el navegador.
+          allowedOrigins: [
+            'http://localhost:5173',
+            'https://concesionaria-bmw-app.vercel.app',
+            'https://*.vercel.app',
+          ],
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.HEAD, s3.HttpMethods.POST],
           allowedHeaders: ['*'],
           exposedHeaders: ['ETag'],
           maxAge: 3000,
