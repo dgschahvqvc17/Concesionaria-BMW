@@ -2,7 +2,9 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 
 import type { UserRole } from '@/lib/roles';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+const API_URL = import.meta.env.PROD
+  ? ''
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 export interface SessionProfile {
   userId: string;
