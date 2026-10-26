@@ -35,7 +35,6 @@
 6. [Criterios de aceptación de la Ficha 2](#6-criterios-de-aceptación-de-la-ficha-2)
 7. [Cómo ejecutar el proyecto y las pruebas](#7-cómo-ejecutar-el-proyecto-y-las-pruebas)
 8. [Respuestas a las preguntas de la defensa](#8-respuestas-a-las-preguntas-de-la-defensa)
-9. [Nota sobre las capturas](#9-nota-sobre-las-capturas)
 
 ---
 
@@ -1121,16 +1120,3 @@ Comprobé que el `.gitignore` excluye `.env` y `.env.*` y deja pasar únicamente
 a archivos como `CREDENCIALES.md`. Aparte de los secretos, tampoco publico `node_modules/`,
 `dist/` ni `cdk.out/`, pero esos se excluyen por tamaño y porque son artefactos generados, no
 porque contengan credenciales.
-
----
-
-## 9. Nota sobre las capturas
-
-Las Figuras 1 a 8 provienen de una **previsualización local temporal** con datos ficticios.
-No son capturas de una sesión autenticada contra AWS. Se eligió este método para cumplir la
-restricción de no usar Cognito, DynamoDB, S3 ni ningún servicio de AWS. Las Figuras 9 y 10
-sí corresponden a la salida real de `npm test` y `npm run build` ejecutados en este equipo.
-
-La página temporal de previsualización (`frontend/preview.html` y
-`frontend/src/previewExamen.tsx`) se eliminó después de generar las imágenes. En el
-repositorio solo quedan las capturas y los archivos de evidencia dentro de `docs/examen/`.
