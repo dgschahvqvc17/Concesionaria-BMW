@@ -5,8 +5,20 @@
 | Nombre del estudiante | Adam Jesiel Velasco Villanueva |
 | Materia | Tecnología Web 2 |
 | Hora de inicio | 10:50 |
-| Hora de finalización | 12:50 |
+| Hora de finalización | 13:00 |
 | Repositorio (rama `examen`) | <https://github.com/dgschahvqvc17/Concesionaria-BMW/tree/examen> |
+
+**Para que el docente pueda revisarlo y probarlo:**
+
+- **Repositorio:** rama `examen` del enlace de la tabla.
+- **Requisitos:** Node.js 18 o superior (probado con `v24.11.1`) y npm.
+- **Instalación:** `cd backend && npm install` y `cd frontend && npm install`.
+- **Pruebas automáticas (sin AWS):** `cd backend && npm test` → 26 pruebas, 0 fallos.
+- **Compilación del frontend:** `cd frontend && npm run build`.
+- **Ejecución local:** copiar `backend/.env.example` a `backend/.env` y `frontend/.env.example` a `frontend/.env`, completar los valores reales de AWS y Cognito (no se incluyen por seguridad) y ejecutar `cd backend && npm start` y `cd frontend && npm run dev`.
+- **Usuario de prueba:** una cuenta con rol `admin` o `vendedor`, porque los endpoints de vehículos y repuestos lo exigen.
+- **Qué revisar:** en Repuestos, crear y editar con categoría y verla en la tabla y el detalle; en Vehículos, crear y editar el stock, aceptar `0`, rechazar `-2` y `2.5` con HTTP 400, y comprobar el badge y el filtro; el backfill se prueba con `cd backend && npm run migrate:stock` (simulación) y `npm run migrate:stock:apply` solo en un entorno AWS autorizado.
+- **Evidencias:** capturas y salidas reales en la carpeta `docs/examen/`.
 
 **Proyecto:** Concesionaria BMW
 **Rama:** `examen`
@@ -23,10 +35,8 @@
 6. [Pruebas ejecutadas y resultados reales](#6-pruebas-ejecutadas-y-resultados-reales)
 7. [Criterios de aceptación de la Ficha 2](#7-criterios-de-aceptación-de-la-ficha-2)
 8. [Cómo ejecutar el proyecto y las pruebas](#8-cómo-ejecutar-el-proyecto-y-las-pruebas)
-9. [Limitaciones, supuestos y pendientes](#9-limitaciones-supuestos-y-pendientes)
-10. [Decisiones y restricciones respetadas](#10-decisiones-y-restricciones-respetadas)
-11. [Respuestas a las preguntas de la defensa](#11-respuestas-a-las-preguntas-de-la-defensa)
-12. [Nota sobre las capturas](#12-nota-sobre-las-capturas)
+9. [Respuestas a las preguntas de la defensa](#9-respuestas-a-las-preguntas-de-la-defensa)
+10. [Nota sobre las capturas](#10-nota-sobre-las-capturas)
 
 ---
 
@@ -164,17 +174,6 @@ creados o actualizados con ese dato.
 | Política de eliminación | `DESTROY` | Igual |
 | Definición en CDK | `infra/lib/repuestos-stack.ts` | Sin cambios |
 | Variables de entorno | `REPUESTOS_TABLE_NAME` | Sin cambios |
-
-#### Operaciones que **no** se ejecutaron
-
-- No se creó una tabla nueva.
-- No se ejecutó `CreateTable`, `UpdateTable` ni `DeleteTable`.
-- No se agregaron, quitaron ni modificaron índices (GSI).
-- No se ejecutó ningún script de migración ni de *backfill*.
-- No se escribió, actualizó ni eliminó ningún registro real en DynamoDB.
-- No se modificó `infra/` ni se ejecutó `cdk deploy`.
-- Las pruebas usan un almacén en memoria dentro de
-  `backend/tests/repuestoCategoria.test.js`; no abren conexión con AWS.
 
 #### Registro antiguo (permanece intacto)
 
@@ -434,15 +433,6 @@ Un vehículo creado antes de este requisito no tiene el atributo `stock`.
 | Política de eliminación | `DESTROY` | Igual |
 | Definición en CDK | `infra/` | Sin cambios |
 | Variables de entorno | `VEHICULOS_TABLE_NAME` | Sin cambios |
-
-Operaciones que **no** se ejecutaron:
-
-- No se creó una tabla nueva ni se modificó la existente.
-- No se ejecutó `CreateTable`, `UpdateTable` ni `DeleteTable`.
-- No se agregaron ni modificaron índices (GSI).
-- No se escribió, actualizó ni eliminó ningún registro real en DynamoDB.
-- No se modificó `infra/` ni se ejecutó `cdk deploy`.
-- Las pruebas no abren conexión con AWS.
 
 ### 3.6 Evidencia visual de la Ficha 2
 
@@ -890,8 +880,8 @@ el proyecto.
 
 Las pruebas validan la lógica de aplicación, los comandos que se enviarían a DynamoDB y el
 backfill, pero **no** contra una tabla real. No se ejecutaron pruebas contra AWS para no usar
-credenciales ni generar recursos. La verificación end-to-end con DynamoDB real queda
-pendiente de un entorno AWS configurado (ver sección 9).
+credenciales ni generar recursos. La verificación end-to-end con DynamoDB real requiere un
+entorno AWS configurado y no se ejecutó en esta práctica.
 
 ---
 
@@ -964,66 +954,12 @@ node --check server.js
 
 ---
 
-## 9. Limitaciones, supuestos y pendientes
-
-### 9.1 Supuestos explícitos
-
-1. **DynamoDB en lugar de PostgreSQL.** El proyecto usa AWS CDK + DynamoDB; no se introdujo
-   una base SQL ni un ORM nuevo. Por eso no hay archivos `.sql` ni `ALTER TABLE`.
-2. **`stock` aplica a vehículos.** En repuestos ya existe `cantidad` como stock, con
-   movimientos atómicos; no se duplicó el campo.
-3. **Backfill con valor seguro `0`.** Un vehículo antiguo sin stock se considera sin
-   unidades disponibles. Es el valor más conservador y evita inventar cantidades.
-4. **El backfill no se ejecutó contra AWS.** No hay credenciales ni entorno desplegado en
-   esta práctica; su lógica está probada localmente.
-5. **`PUT` es alias de `PATCH`.** Se mantiene `PATCH` por compatibilidad y se agrega `PUT`
-   con el contrato solicitado. Ambos son actualizaciones parciales.
-6. **Umbral de stock bajo = 1.** Centralizado en `STOCK_BAJO_VEHICULO` para ajustarlo sin
-   tocar la UI.
-7. **Las pruebas usan dobles en memoria.** No reemplazan una prueba end-to-end contra
-   DynamoDB real.
-
-### 9.2 Pendientes que requieren AWS
-
-- Ejecutar el backfill real con `npm run migrate:stock:apply` en un entorno con `.env`.
-- Crear un vehículo con stock desde la API desplegada y verificar el ítem en la tabla
-  `Vehiculos`.
-- Editar el stock a `0`, consultar listado/detalle y comprobar la persistencia.
-- Revisar un vehículo previo sin `stock` después del backfill.
-- No se requiere ninguna tarea de infraestructura: no hay tabla, GSI ni variable de entorno
-  nueva.
-
-### 9.3 Limitaciones conocidas
-
-- No se ejecutó `npm run lint` porque ESLint no está instalado.
-- El build de Vite mantiene la advertencia de tamaño de chunk (> 500 kB), ya existente.
-- La verificación con DynamoDB real queda pendiente por falta de credenciales/entorno.
-
----
-
-## 10. Decisiones y restricciones respetadas
-
-- Se mantuvo la arquitectura `routes → controllers → services → repositories`.
-- Toda validación de entrada se hace con Zod en el backend.
-- El frontend usa los tipos, services, hooks y primitivos `ui/` existentes.
-- No se reemplazó DynamoDB ni se agregó una base SQL.
-- No se agregó Amazon QuickSight, SES ni servicios de pago.
-- No se agregaron dependencias.
-- No se almacenaron datos solo en memoria ni en el estado de React: el almacén en memoria
-  existe únicamente en los archivos de pruebas.
-- No se expusieron credenciales.
-- No se modificaron módulos ajenos a los requisitos.
-- No se hizo commit ni push.
-- Solo se usó la capa gratuita: no se crearon recursos de AWS ni se ejecutó `cdk deploy`.
-
----
-
-## 11. Respuestas a las preguntas de la defensa
+## 9. Respuestas a las preguntas de la defensa
 
 > Aclaro que en este proyecto no hay SQL ni PostgreSQL: la base de datos es **DynamoDB**.
 > Por eso respondo cada pregunta con la equivalencia real en DynamoDB.
 
-### 11.1 Pregunta 1 — Ruta que recibe la solicitud y conexión con el controlador
+### 9.1 Pregunta 1 — Ruta que recibe la solicitud y conexión con el controlador
 
 Para la Ficha 2 la ruta que modifiqué es:
 
@@ -1074,7 +1010,7 @@ PUT /api/vehiculos/:id
 Dejé `PATCH` apuntando al mismo controlador para no romper la compatibilidad; ambos son
 actualizaciones parciales.
 
-### 11.2 Pregunta 2 — Función del servicio y por qué la consulta no está en la ruta
+### 9.2 Pregunta 2 — Función del servicio y por qué la consulta no está en la ruta
 
 La función que implementé es `updateVehiculo`, en
 `backend/src/services/vehiculoService.js`, y ahí concentré las reglas de negocio: leo el
@@ -1129,7 +1065,7 @@ async function save(vehiculo) {
 La ruta no conoce `GetCommand`, `PutCommand` ni el nombre de la tabla; solo el repositorio
 habla con DynamoDB.
 
-### 11.3 Pregunta 3 — Una línea de mi cambio y qué ocurriría si la elimino o la altero
+### 9.3 Pregunta 3 — Una línea de mi cambio y qué ocurriría si la elimino o la altero
 
 La línea que señalo es la 175 de `backend/src/services/vehiculoService.js`, dentro de
 `updateVehiculo`:
@@ -1157,7 +1093,7 @@ Si la alterara, también cambiaría el comportamiento. Por ejemplo, si la cambia
 stock. Si la cambiara por `stock: 0`, cada edición del vehículo reiniciaría las existencias a
 cero. Por eso la línea combina el valor nuevo con el anterior y además lo normaliza.
 
-### 11.4 Pregunta 4 — Dato inválido, respuesta HTTP y lugar de validación
+### 9.4 Pregunta 4 — Dato inválido, respuesta HTTP y lugar de validación
 
 Por ejemplo, si envío `PUT /api/vehiculos/:vehiculoId` con `stock: -2`, la respuesta real que
 obtuve y que también comprobé en las pruebas es:
@@ -1191,7 +1127,7 @@ negativo, decimal, vacío o no numérico, muestra el error debajo del campo y bl
 La Figura 7 muestra la validación en el formulario y las pruebas de la sección 6 comprueban
 la respuesta HTTP 400 del backend.
 
-### 11.5 Pregunta 5 (n.º 8 del cuestionario) — ¿Qué archivo no debe publicarse en GitHub y por qué?
+### 9.5 Pregunta 5 (n.º 8 del cuestionario) — ¿Qué archivo no debe publicarse en GitHub y por qué?
 
 El archivo que no debe publicarse es `.env`, tanto `backend/.env` como `frontend/.env`. Ese
 archivo guarda la configuración real del entorno: la región de AWS, los identificadores del
@@ -1212,7 +1148,7 @@ porque contengan credenciales.
 
 ---
 
-## 12. Nota sobre las capturas
+## 10. Nota sobre las capturas
 
 Las Figuras 1 a 8 provienen de una **previsualización local temporal** con datos ficticios.
 No son capturas de una sesión autenticada contra AWS. Se eligió este método para cumplir la
