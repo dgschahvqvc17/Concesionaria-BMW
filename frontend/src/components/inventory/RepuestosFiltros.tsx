@@ -40,7 +40,7 @@ export function RepuestosFiltros({ filters, onChange }: RepuestosFiltrosProps) {
           <Input
             id="filtro-repuesto"
             className="pl-9"
-            placeholder="Buscar por código o nombre"
+            placeholder="Buscar por código, nombre o categoría"
             value={filters.q}
             onChange={(event) => onChange({ ...filters, q: event.target.value })}
           />

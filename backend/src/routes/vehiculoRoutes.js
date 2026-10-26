@@ -19,4 +19,7 @@ router.post('/', puedeGestionar, vehiculoController.create);
 router.get('/:vehiculoId', vehiculoController.getOne);
 router.patch('/:vehiculoId', puedeGestionar, vehiculoController.update);
 
+// Alias compatible con la ficha: misma actualización parcial que PATCH.
+router.put('/:vehiculoId', puedeGestionar, vehiculoController.update);
+
 module.exports = router;

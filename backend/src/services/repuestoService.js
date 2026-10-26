@@ -28,6 +28,7 @@ async function createRepuesto(input, actor) {
     repuestoId: randomUUID(),
     codigo: input.codigo,
     nombre: input.nombre,
+    categoria: input.categoria,
     descripcion: input.descripcion ?? '',
     precio: input.precio,
     cantidad: input.cantidad,

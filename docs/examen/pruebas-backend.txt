@@ -1,0 +1,38 @@
+
+> tecnologia-web-2-backend@1.0.0 test
+> node --test
+
+✔ Solo planifica vehículos sin el atributo stock (3.5257ms)
+✔ El modo simulación no escribe ningún cambio (0.6119ms)
+✔ El modo apply actualiza solo los vehículos sin stock (0.4984ms)
+✔ El backfill usa una condición que no sobrescribe stocks existentes (0.9685ms)
+✔ El escaneo pagina los resultados de DynamoDB (1.0088ms)
+✔ Prueba 1: crea un repuesto válido y devuelve HTTP 201 con su categoría (172.3687ms)
+✔ Prueba 2: rechaza con HTTP 400 una categoría vacía y no crea el repuesto (19.1764ms)
+✔ Prueba 3: rechaza con HTTP 400 una categoría de 41 caracteres y no crea el repuesto (8.9589ms)
+✔ Prueba 4: actualiza la categoría de Motor a Accesorios y conserva los demás campos (12.6307ms)
+✔ Prueba 5: consulta un repuesto por ID e incluye la categoría (14.6023ms)
+✔ Prueba 6: consulta y edita un registro antiguo sin categoría sin provocar errores (14.7426ms)
+✔ Prueba 7: persiste la categoría normalizada y la devuelve en una nueva consulta (15.5688ms)
+✔ El listado devuelve la categoría de cada repuesto (43.0444ms)
+✔ Rechaza con HTTP 400 categorías nulas o que no son texto (7.7422ms)
+✔ El repositorio persiste el stock en el PutCommand (2.5288ms)
+✔ El cambio de estado condicional no modifica el atributo stock (2.4802ms)
+✔ Prueba 1: POST con stock=12 responde 201 y guarda stock 12 (159.2907ms)
+✔ Prueba 2: POST con stock=-2 responde 400 y no crea el vehículo (23.5371ms)
+✔ Prueba 3: POST con stock=2.5 responde 400 y no crea el vehículo (14.5865ms)
+✔ POST rechaza stock ausente, null, vacío, no numérico y fuera de rango (46.7519ms)
+✔ Prueba 4: PUT con stock=0 responde 200 y persiste el valor cero (9.9702ms)
+✔ Prueba 5: PUT con stock inválido responde 400 y conserva los datos anteriores (22.0313ms)
+✔ Prueba 6: GET de listado y GET por ID devuelven el stock correcto (12.0759ms)
+✔ Un vehículo antiguo sin stock se consulta y actualiza sin errores (7.642ms)
+✔ El cambio de estado conserva el stock existente (8.3657ms)
+✔ PATCH sigue funcionando como actualización parcial con stock (14.5394ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2281.0903

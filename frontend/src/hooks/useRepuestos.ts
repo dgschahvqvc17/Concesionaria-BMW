@@ -31,6 +31,11 @@ export function useRepuestos() {
     void recargar();
   }, [recargar]);
 
+  const obtener = useCallback(async (repuestoId: string): Promise<Repuesto> => {
+    const { repuesto } = await repuestosService.get(repuestoId);
+    return repuesto;
+  }, []);
+
   const crear = useCallback(async (input: CreateRepuestoInput): Promise<Repuesto> => {
     const { repuesto } = await repuestosService.create(input);
     setRepuestos((prev) => ordenar([...prev, repuesto]));
@@ -46,5 +51,5 @@ export function useRepuestos() {
     []
   );
 
-  return { repuestos, loading, error, recargar, crear, actualizar };
+  return { repuestos, loading, error, recargar, obtener, crear, actualizar };
 }

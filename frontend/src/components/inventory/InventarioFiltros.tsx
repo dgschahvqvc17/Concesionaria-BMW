@@ -4,13 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CONDICIONES, CONDICION_LABELS, ESTADOS, ESTADO_LABELS } from '@/lib/vehiculos';
+import {
+  CONDICIONES,
+  CONDICION_LABELS,
+  ESTADOS,
+  ESTADO_LABELS,
+  NIVEL_STOCK_LABELS,
+  type NivelStock,
+} from '@/lib/vehiculos';
 import type { CondicionVehiculo, EstadoVehiculo } from '@/types/vehiculo';
 
 export interface InventarioFilters {
   q: string;
   estado: '' | EstadoVehiculo;
   condicion: '' | CondicionVehiculo;
+  stock: '' | NivelStock;
   anioDesde: string;
   anioHasta: string;
   precioMin: string;
@@ -21,6 +29,7 @@ export const FILTROS_VACIOS: InventarioFilters = {
   q: '',
   estado: '',
   condicion: '',
+  stock: '',
   anioDesde: '',
   anioHasta: '',
   precioMin: '',
@@ -102,6 +111,26 @@ export function InventarioFiltros({ filters, onChange }: InventarioFiltrosProps)
             {CONDICIONES.map((condicion) => (
               <SelectItem key={condicion} value={condicion}>
                 {CONDICION_LABELS[condicion]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="filtro-stock">Stock</Label>
+        <Select
+          value={filters.stock || TODOS}
+          onValueChange={(value) => set('stock', value === TODOS ? '' : (value as NivelStock))}
+        >
+          <SelectTrigger id="filtro-stock">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos</SelectItem>
+            {(['sin_stock', 'bajo', 'disponible'] as NivelStock[]).map((nivel) => (
+              <SelectItem key={nivel} value={nivel}>
+                {NIVEL_STOCK_LABELS[nivel]}
               </SelectItem>
             ))}
           </SelectContent>

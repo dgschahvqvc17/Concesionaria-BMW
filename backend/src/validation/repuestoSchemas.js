@@ -17,9 +17,19 @@ const codigoSchema = z
     'El código solo admite letras, números, punto, guion y guion bajo.'
   );
 
+const categoriaSchema = z
+  .string({
+    required_error: 'La categoría es obligatoria.',
+    invalid_type_error: 'La categoría debe ser un texto.',
+  })
+  .trim()
+  .min(1, 'La categoría es obligatoria.')
+  .max(40, 'La categoría no puede superar los 40 caracteres.');
+
 const repuestoBase = {
   codigo: codigoSchema,
   nombre: z.string().trim().min(2, 'El nombre es obligatorio.').max(80, 'El nombre es demasiado largo.'),
+  categoria: categoriaSchema,
   descripcion: z
     .string()
     .trim()
@@ -50,6 +60,7 @@ const updateRepuestoSchema = z
   .object({
     codigo: repuestoBase.codigo.optional(),
     nombre: repuestoBase.nombre.optional(),
+    categoria: repuestoBase.categoria.optional(),
     descripcion: repuestoBase.descripcion,
     precio: repuestoBase.precio.optional(),
     cantidadMinima: repuestoBase.cantidadMinima,

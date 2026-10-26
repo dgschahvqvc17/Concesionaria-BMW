@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { InfoTile } from '@/components/dashboard/InfoTile';
 import { MovimientoDialog } from '@/components/inventory/MovimientoDialog';
 import { MovimientosRecientes } from '@/components/inventory/MovimientosRecientes';
+import { RepuestoDetalleDialog } from '@/components/inventory/RepuestoDetalleDialog';
 import { RepuestoFormDialog } from '@/components/inventory/RepuestoFormDialog';
 import { RepuestosFiltros, FILTROS_VACIOS, type RepuestosFilters } from '@/components/inventory/RepuestosFiltros';
 import { RepuestosTable } from '@/components/inventory/RepuestosTable';
@@ -30,7 +31,7 @@ export function RepuestosPage() {
     user?.roles.some((rol) => rol === 'admin' || rol === 'vendedor' || rol === 'jefe_taller')
   );
 
-  const { repuestos, loading, error, recargar, crear, actualizar } = useRepuestos();
+  const { repuestos, loading, error, recargar, obtener, crear, actualizar } = useRepuestos();
 
   const [historialId, setHistorialId] = useState('');
   const {
@@ -46,6 +47,10 @@ export function RepuestosPage() {
   const [editing, setEditing] = useState<Repuesto | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalle, setDetalle] = useState<Repuesto | null>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
+
   const [movOpen, setMovOpen] = useState(false);
   const [movRepuesto, setMovRepuesto] = useState<Repuesto | null>(null);
   const [movTipo, setMovTipo] = useState<TipoMovimiento>('entrada');
@@ -56,7 +61,7 @@ export function RepuestosPage() {
     return repuestos.filter((repuesto) => {
       if (filters.soloReposicion && !repuesto.requiereReposicion) return false;
       if (q) {
-        const texto = `${repuesto.codigo} ${repuesto.nombre}`.toLowerCase();
+        const texto = `${repuesto.codigo} ${repuesto.nombre} ${repuesto.categoria ?? ''}`.toLowerCase();
         if (!texto.includes(q)) return false;
       }
       return true;
@@ -78,6 +83,19 @@ export function RepuestosPage() {
   const abrirEditar = (repuesto: Repuesto) => {
     setEditing(repuesto);
     setDialogOpen(true);
+  };
+
+  const abrirDetalle = async (repuesto: Repuesto) => {
+    setDetalle(repuesto);
+    setDetalleOpen(true);
+    setDetalleLoading(true);
+    try {
+      setDetalle(await obtener(repuesto.repuestoId));
+    } catch (detalleError) {
+      toast.error(getErrorMessage(detalleError));
+    } finally {
+      setDetalleLoading(false);
+    }
   };
 
   const handleSubmit = async (input: CreateRepuestoInput | UpdateRepuestoInput) => {
@@ -182,12 +200,20 @@ export function RepuestosPage() {
           <RepuestosTable
             repuestos={filtrados}
             puedeGestionar={puedeGestionar}
+            onDetalle={abrirDetalle}
             onEditar={abrirEditar}
             onMovimiento={abrirMovimiento}
             onHistorial={(repuesto) => setHistorialId(repuesto.repuestoId)}
           />
         )}
       </section>
+
+      <RepuestoDetalleDialog
+        open={detalleOpen}
+        onOpenChange={setDetalleOpen}
+        repuesto={detalle}
+        loading={detalleLoading}
+      />
 
       <MovimientosRecientes
         movimientos={movimientos}

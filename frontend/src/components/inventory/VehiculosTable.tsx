@@ -1,4 +1,4 @@
-import { ImageOff, Loader2, Pencil } from 'lucide-react';
+import { Eye, ImageOff, Loader2, Pencil } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,13 @@ import {
   ESTADOS,
   ESTADO_LABELS,
   ESTADO_STYLES,
+  NIVEL_STOCK_LABELS,
+  NIVEL_STOCK_STYLES,
   TIPO_LABELS,
   formatKilometraje,
   formatPrecio,
+  formatStock,
+  nivelStock,
 } from '@/lib/vehiculos';
 import type { EstadoVehiculo, Vehiculo } from '@/types/vehiculo';
 
@@ -26,6 +30,7 @@ interface VehiculosTableProps {
   vehiculos: Vehiculo[];
   estadoLoadingId: string | null;
   puedeGestionar: boolean;
+  onDetalle: (vehiculo: Vehiculo) => void;
   onEditar: (vehiculo: Vehiculo) => void;
   onCambiarEstado: (vehiculo: Vehiculo, estado: EstadoVehiculo) => void;
 }
@@ -35,6 +40,7 @@ export function VehiculosTable({
   vehiculos,
   estadoLoadingId,
   puedeGestionar,
+  onDetalle,
   onEditar,
   onCambiarEstado,
 }: VehiculosTableProps) {
@@ -47,8 +53,9 @@ export function VehiculosTable({
           <TableHead>Año</TableHead>
           <TableHead>Km</TableHead>
           <TableHead>Precio</TableHead>
+          <TableHead>Stock</TableHead>
           <TableHead>Estado</TableHead>
-          {puedeGestionar && <TableHead className="text-right">Acciones</TableHead>}
+          <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -91,6 +98,14 @@ export function VehiculosTable({
               <TableCell>{formatKilometraje(vehiculo.kilometraje)}</TableCell>
               <TableCell className="font-medium">{formatPrecio(vehiculo.precio)}</TableCell>
               <TableCell>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{formatStock(vehiculo.stock)}</span>
+                  <Badge className={NIVEL_STOCK_STYLES[nivelStock(vehiculo.stock)]}>
+                    {NIVEL_STOCK_LABELS[nivelStock(vehiculo.stock)]}
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell>
                 {puedeGestionar ? (
                   <Select
                     value={vehiculo.estado}
@@ -112,18 +127,24 @@ export function VehiculosTable({
                   <Badge className={ESTADO_STYLES[vehiculo.estado]}>{ESTADO_LABELS[vehiculo.estado]}</Badge>
                 )}
               </TableCell>
-              {puedeGestionar && (
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => onEditar(vehiculo)} disabled={toggling}>
-                    {toggling ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    <span className="hidden sm:inline">Editar</span>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => onDetalle(vehiculo)}>
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Ver</span>
                   </Button>
-                </TableCell>
-              )}
+                  {puedeGestionar && (
+                    <Button variant="outline" size="sm" onClick={() => onEditar(vehiculo)} disabled={toggling}>
+                      {toggling ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      <span className="hidden sm:inline">Editar</span>
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
             </TableRow>
           );
         })}

@@ -6,12 +6,22 @@ const { ConflictError, NotFoundError } = require('../errors/AppError');
 
 const ESTADO_DISPONIBLE = 'disponible';
 
+/**
+ * Normaliza el stock para registros antiguos que aún no tienen el atributo.
+ * La validación de entrada se hace con Zod; esto solo evita devolver `undefined`
+ * o persistir un valor inválido en una actualización.
+ */
+function normalizarStock(stock) {
+  return Number.isInteger(stock) && stock >= 0 ? stock : 0;
+}
+
 /** Convierte las claves de archivos almacenadas en URLs prefirmadas para el frontend. */
 async function toResponse(vehiculo) {
   const fotos = vehiculo.fotos ?? [];
   const documentos = vehiculo.documentos ?? [];
   return {
     ...vehiculo,
+    stock: normalizarStock(vehiculo.stock),
     fotos: await storageService.withViewUrls(fotos),
     documentos: await storageService.withDocumentViewUrls(documentos),
   };
@@ -103,6 +113,7 @@ async function createVehiculo(input, actor) {
     anio: input.anio,
     version: input.version,
     kilometraje: input.kilometraje,
+    stock: normalizarStock(input.stock),
     precio: input.precio,
     color: input.color,
     vin: input.vin,
@@ -161,6 +172,7 @@ async function updateVehiculo(vehiculoId, changes, actor) {
   const actualizado = {
     ...actual,
     ...changes,
+    stock: normalizarStock(changes.stock ?? actual.stock),
     fotos,
     documentos,
     updatedAt: ahora,

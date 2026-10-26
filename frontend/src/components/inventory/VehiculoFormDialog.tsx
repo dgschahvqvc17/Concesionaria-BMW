@@ -54,6 +54,14 @@ const schema = z.object({
     .number({ invalid_type_error: 'El kilometraje es obligatorio.' })
     .int('El kilometraje debe ser un número entero.')
     .min(0, 'El kilometraje no puede ser negativo.'),
+  stock: z
+    .number({
+      required_error: 'El stock es obligatorio.',
+      invalid_type_error: 'El stock debe ser un número entero.',
+    })
+    .int('El stock debe ser un número entero.')
+    .min(0, 'El stock no puede ser negativo.')
+    .max(1000000, 'El stock no puede superar 1.000.000.'),
   precio: z.coerce
     .number({ invalid_type_error: 'El precio es obligatorio.' })
     .positive('El precio debe ser mayor a 0.'),
@@ -89,6 +97,7 @@ function getDefaults(vehiculo: Vehiculo | null): FormValues {
     anio: vehiculo?.anio ?? anioActual,
     version: vehiculo?.version ?? '',
     kilometraje: vehiculo?.kilometraje ?? 0,
+    stock: vehiculo?.stock ?? 0,
     precio: vehiculo?.precio ?? 0,
     color: vehiculo?.color ?? '',
     vin: vehiculo?.vin ?? '',
@@ -140,6 +149,7 @@ export function VehiculoFormDialog({
       anio: values.anio,
       version: values.version,
       kilometraje: values.kilometraje,
+      stock: values.stock,
       precio: values.precio,
       color: values.color,
       vin: values.vin.toUpperCase(),
@@ -215,6 +225,29 @@ export function VehiculoFormDialog({
               <Label htmlFor="precio">Precio</Label>
               <Input id="precio" type="number" step="0.01" {...register('precio', { valueAsNumber: true })} />
               {fieldError('precio') && <p className="text-xs text-destructive">{fieldError('precio')}</p>}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="stock">Stock disponible</Label>
+              <Input
+                id="stock"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                aria-invalid={Boolean(fieldError('stock'))}
+                aria-describedby={fieldError('stock') ? 'stock-error' : 'stock-help'}
+                {...register('stock', { valueAsNumber: true })}
+              />
+              {fieldError('stock') ? (
+                <p id="stock-error" className="text-xs text-destructive">
+                  {fieldError('stock')}
+                </p>
+              ) : (
+                <p id="stock-help" className="text-xs text-muted-foreground">
+                  Unidades disponibles para la venta. Debe ser un número entero mayor o igual a cero.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

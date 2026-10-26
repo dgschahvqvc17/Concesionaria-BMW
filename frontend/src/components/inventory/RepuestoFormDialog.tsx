@@ -28,6 +28,11 @@ const codigoSchema = z
 const base = {
   codigo: codigoSchema,
   nombre: z.string().trim().min(2, 'El nombre es obligatorio.').max(80),
+  categoria: z
+    .string()
+    .trim()
+    .min(1, 'La categoría es obligatoria.')
+    .max(40, 'La categoría no puede superar los 40 caracteres.'),
   descripcion: z.string().trim().max(200, 'Máximo 200 caracteres.').optional(),
   precio: z.coerce
     .number({ invalid_type_error: 'El precio es obligatorio.' })
@@ -64,6 +69,7 @@ function getDefaults(repuesto: Repuesto | null): FormValues {
   return {
     codigo: repuesto?.codigo ?? '',
     nombre: repuesto?.nombre ?? '',
+    categoria: repuesto?.categoria ?? '',
     descripcion: repuesto?.descripcion ?? '',
     precio: repuesto?.precio ?? 0,
     cantidad: repuesto?.cantidad ?? 0,
@@ -103,6 +109,7 @@ export function RepuestoFormDialog({
     const payload: CreateRepuestoInput | UpdateRepuestoInput = {
       codigo: values.codigo.toUpperCase(),
       nombre: values.nombre,
+      categoria: values.categoria,
       descripcion: values.descripcion ?? '',
       precio: values.precio,
       cantidadMinima: values.cantidadMinima,
@@ -144,6 +151,19 @@ export function RepuestoFormDialog({
               <Label htmlFor="nombre">Nombre</Label>
               <Input id="nombre" placeholder="Filtro de aceite" {...register('nombre')} />
               {fieldError('nombre') && <p className="text-xs text-destructive">{fieldError('nombre')}</p>}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="categoria">Categoría</Label>
+              <Input
+                id="categoria"
+                placeholder="Motor, Frenos, Suspensión…"
+                maxLength={40}
+                {...register('categoria')}
+              />
+              {fieldError('categoria') && (
+                <p className="text-xs text-destructive">{fieldError('categoria')}</p>
+              )}
             </div>
 
             <div className="space-y-2 sm:col-span-2">

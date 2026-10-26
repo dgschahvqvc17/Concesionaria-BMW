@@ -19,6 +19,28 @@ const vinSchema = z
 
 const anioActual = new Date().getFullYear();
 
+/**
+ * Stock disponible: entero no negativo. No se usa `z.coerce` porque convertiría
+ * `null` o una cadena vacía en 0; esos valores deben rechazarse.
+ */
+const stockSchema = z.preprocess(
+  (value) => {
+    if (typeof value === 'string' && value.trim() !== '') {
+      const numero = Number(value);
+      return Number.isNaN(numero) ? value : numero;
+    }
+    return value;
+  },
+  z
+    .number({
+      required_error: 'El stock es obligatorio.',
+      invalid_type_error: 'El stock debe ser un número entero.',
+    })
+    .int('El stock debe ser un número entero.')
+    .min(0, 'El stock no puede ser negativo.')
+    .max(1000000, 'El stock no puede superar 1.000.000.')
+);
+
 const vehiculoBase = {
   marca: z.string().trim().min(2, 'La marca es obligatoria.').max(50),
   modelo: z.string().trim().min(1, 'El modelo es obligatorio.').max(60),
@@ -32,6 +54,7 @@ const vehiculoBase = {
     .number({ invalid_type_error: 'El kilometraje es obligatorio.' })
     .int('El kilometraje debe ser un número entero.')
     .min(0, 'El kilometraje no puede ser negativo.'),
+  stock: stockSchema,
   precio: z.coerce
     .number({ invalid_type_error: 'El precio es obligatorio.' })
     .positive('El precio debe ser mayor a 0.')
@@ -73,6 +96,7 @@ const updateVehiculoSchema = z
     anio: vehiculoBase.anio.optional(),
     version: vehiculoBase.version.optional(),
     kilometraje: vehiculoBase.kilometraje.optional(),
+    stock: vehiculoBase.stock.optional(),
     precio: vehiculoBase.precio.optional(),
     color: vehiculoBase.color.optional(),
     vin: vehiculoBase.vin.optional(),

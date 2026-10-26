@@ -4,7 +4,10 @@
   "description": "Backend de la Concesionaria BMW: Express + Cognito (JWT) + DynamoDB",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test",
+    "migrate:stock": "node scripts/backfill-vehiculo-stock.js",
+    "migrate:stock:apply": "node scripts/backfill-vehiculo-stock.js --apply"
   },
   "keywords": [],
   "author": "",

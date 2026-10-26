@@ -62,5 +62,11 @@ export function useVehiculos() {
     []
   );
 
-  return { vehiculos, loading, error, recargar, crear, actualizar, cambiarEstado };
+  /** Consulta el detalle actualizado de un vehículo desde `GET /api/vehiculos/:id`. */
+  const obtener = useCallback(async (vehiculoId: string): Promise<Vehiculo> => {
+    const { vehiculo } = await vehiculosService.get(vehiculoId);
+    return vehiculo;
+  }, []);
+
+  return { vehiculos, loading, error, recargar, crear, actualizar, cambiarEstado, obtener };
 }

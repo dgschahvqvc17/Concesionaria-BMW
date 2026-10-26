@@ -4,6 +4,7 @@ export interface Repuesto {
   repuestoId: string;
   codigo: string;
   nombre: string;
+  categoria?: string;
   descripcion: string;
   precio: number;
   cantidad: number;
@@ -16,6 +17,7 @@ export interface Repuesto {
 export interface CreateRepuestoInput {
   codigo: string;
   nombre: string;
+  categoria: string;
   descripcion?: string;
   precio: number;
   cantidad: number;
@@ -26,6 +28,7 @@ export interface CreateRepuestoInput {
 export interface UpdateRepuestoInput {
   codigo?: string;
   nombre?: string;
+  categoria?: string;
   descripcion?: string;
   precio?: number;
   cantidadMinima?: number;

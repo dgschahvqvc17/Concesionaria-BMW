@@ -37,6 +37,8 @@ export interface Vehiculo {
   anio: number;
   version: string;
   kilometraje: number;
+  /** Unidades disponibles para la venta. Entero mayor o igual a cero. */
+  stock: number;
   precio: number;
   color: string;
   condicion: CondicionVehiculo;
@@ -58,6 +60,7 @@ export interface CreateVehiculoInput {
   anio: number;
   version: string;
   kilometraje: number;
+  stock: number;
   precio: number;
   color: string;
   vin: string;

@@ -7,6 +7,7 @@ import {
   InventarioFiltros,
   type InventarioFilters,
 } from '@/components/inventory/InventarioFiltros';
+import { VehiculoDetalleDialog } from '@/components/inventory/VehiculoDetalleDialog';
 import { VehiculoFormDialog } from '@/components/inventory/VehiculoFormDialog';
 import { VehiculosTable } from '@/components/inventory/VehiculosTable';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useVehiculos } from '@/hooks/useVehiculos';
 import { getErrorMessage } from '@/lib/api';
+import { nivelStock } from '@/lib/vehiculos';
 import type {
   CreateVehiculoInput,
   EstadoVehiculo,
@@ -31,13 +33,17 @@ export function InventoryPage() {
   const { user } = useAuth();
   const puedeGestionar = Boolean(user?.roles.some((rol) => rol === 'admin' || rol === 'vendedor'));
 
-  const { vehiculos, loading, error, recargar, crear, actualizar, cambiarEstado } = useVehiculos();
+  const { vehiculos, loading, error, recargar, crear, actualizar, cambiarEstado, obtener } =
+    useVehiculos();
 
   const [filters, setFilters] = useState<InventarioFilters>(FILTROS_VACIOS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Vehiculo | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [estadoLoadingId, setEstadoLoadingId] = useState<string | null>(null);
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalle, setDetalle] = useState<Vehiculo | null>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
 
   const filtrados = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
@@ -53,6 +59,7 @@ export function InventoryPage() {
       }
       if (filters.estado && vehiculo.estado !== filters.estado) return false;
       if (filters.condicion && vehiculo.condicion !== filters.condicion) return false;
+      if (filters.stock && nivelStock(vehiculo.stock) !== filters.stock) return false;
       if (anioDesde !== undefined && vehiculo.anio < anioDesde) return false;
       if (anioHasta !== undefined && vehiculo.anio > anioHasta) return false;
       if (precioMin !== undefined && vehiculo.precio < precioMin) return false;
@@ -69,6 +76,20 @@ export function InventoryPage() {
   const abrirEditar = (vehiculo: Vehiculo) => {
     setEditing(vehiculo);
     setDialogOpen(true);
+  };
+
+  const abrirDetalle = async (vehiculo: Vehiculo) => {
+    setDetalle(vehiculo);
+    setDetalleOpen(true);
+    setDetalleLoading(true);
+    try {
+      const actualizado = await obtener(vehiculo.vehiculoId);
+      setDetalle(actualizado);
+    } catch (detalleError) {
+      toast.error(getErrorMessage(detalleError));
+    } finally {
+      setDetalleLoading(false);
+    }
   };
 
   const handleSubmit = async (input: CreateVehiculoInput | UpdateVehiculoInput) => {
@@ -152,11 +173,19 @@ export function InventoryPage() {
             vehiculos={filtrados}
             estadoLoadingId={estadoLoadingId}
             puedeGestionar={puedeGestionar}
+            onDetalle={abrirDetalle}
             onEditar={abrirEditar}
             onCambiarEstado={handleCambiarEstado}
           />
         )}
       </section>
+
+      <VehiculoDetalleDialog
+        open={detalleOpen}
+        onOpenChange={setDetalleOpen}
+        vehiculo={detalle}
+        loading={detalleLoading}
+      />
 
       {puedeGestionar && (
         <VehiculoFormDialog

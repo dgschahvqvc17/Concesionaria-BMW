@@ -1,0 +1,21 @@
+
+> concesionaria-bmw-frontend@1.0.0 build
+> tsc -b && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 2781 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                              0.83 kB │ gzip:   0.44 kB
+dist/assets/index-Cwg9ejjB.css              44.22 kB │ gzip:   8.56 kB
+dist/assets/purify.es-CAi2OJFm.js           30.47 kB │ gzip:  11.73 kB
+dist/assets/index.es-Dysr4fUA.js           150.83 kB │ gzip:  51.60 kB
+dist/assets/html2canvas.esm-CBrSDip1.js    201.42 kB │ gzip:  48.03 kB
+dist/assets/index-jJqeBjdR.js            1,245.52 kB │ gzip: 363.32 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 29.26s

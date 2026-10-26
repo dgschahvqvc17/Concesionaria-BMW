@@ -1,4 +1,4 @@
-import { AlertTriangle, History, Minus, Pencil, Plus } from 'lucide-react';
+import { AlertTriangle, Eye, History, Minus, Pencil, Plus } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import type { Repuesto } from '@/types/repuesto';
 interface RepuestosTableProps {
   repuestos: Repuesto[];
   puedeGestionar: boolean;
+  onDetalle: (repuesto: Repuesto) => void;
   onEditar: (repuesto: Repuesto) => void;
   onMovimiento: (repuesto: Repuesto, tipo: 'entrada' | 'salida') => void;
   onHistorial: (repuesto: Repuesto) => void;
@@ -25,6 +26,7 @@ interface RepuestosTableProps {
 export function RepuestosTable({
   repuestos,
   puedeGestionar,
+  onDetalle,
   onEditar,
   onMovimiento,
   onHistorial,
@@ -35,6 +37,7 @@ export function RepuestosTable({
         <TableRow>
           <TableHead>Código</TableHead>
           <TableHead>Repuesto</TableHead>
+          <TableHead>Categoría</TableHead>
           <TableHead>Precio</TableHead>
           <TableHead>Existencias</TableHead>
           <TableHead>Estado</TableHead>
@@ -51,6 +54,13 @@ export function RepuestosTable({
                 <div className="max-w-xs truncate text-xs text-muted-foreground">
                   {repuesto.descripcion}
                 </div>
+              )}
+            </TableCell>
+            <TableCell>
+              {repuesto.categoria ? (
+                <Badge variant="secondary">{repuesto.categoria}</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">Sin categoría</span>
               )}
             </TableCell>
             <TableCell className="font-medium">{formatPrecio(repuesto.precio)}</TableCell>
@@ -70,6 +80,10 @@ export function RepuestosTable({
             </TableCell>
             <TableCell>
               <div className="flex items-center justify-end gap-1">
+                <Button variant="ghost" size="sm" onClick={() => onDetalle(repuesto)}>
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Ver</span>
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => onHistorial(repuesto)}>
                   <History className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Historial</span>
