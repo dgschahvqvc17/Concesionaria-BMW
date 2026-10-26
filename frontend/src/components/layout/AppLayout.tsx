@@ -25,6 +25,17 @@ import {
 import { BmwRoundel } from '@/components/brand/BmwRoundel';
 import { MStripe } from '@/components/brand/MStripe';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/context/AuthContext';
 import { APP_NAME, APP_TAGLINE, ROLE_LABELS } from '@/lib/brand';
 import { STAFF_ROLES, type UserRole } from '@/lib/roles';
@@ -107,13 +118,18 @@ function NavLinks() {
 function SidebarFooter() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!user) return null;
 
   const cerrarSesion = async () => {
+    setLoading(true);
     try {
       await logout();
     } finally {
+      setLoading(false);
+      setOpen(false);
       navigate('/login', { replace: true });
     }
   };
@@ -128,15 +144,32 @@ function SidebarFooter() {
           <p className="truncate text-sm font-medium text-white">{user.nombre}</p>
           <p className="truncate text-xs text-white/50">{ROLE_LABELS[user.rol]}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void cerrarSesion()}
-          title="Cerrar sesión"
-          className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Cerrar sesión</span>
-        </button>
+        <AlertDialog open={open} onOpenChange={setOpen}>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              title="Cerrar sesión"
+              className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Cerrar sesión</span>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Estás seguro de cerrar sesión?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se cerrará tu sesión actual y tendrás que volver a iniciar sesión para acceder al sistema.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void cerrarSesion()} disabled={loading}>
+                {loading ? 'Cerrando...' : 'Cerrar sesión'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, ArrowLeft, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { clientesService } from '@/services/clientes';
 import { getErrorMessage, getFieldErrors } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 const schema = z.object({
   nombre: z.string().trim().min(3, 'El nombre completo debe tener al menos 3 caracteres.').max(80),
@@ -47,6 +49,9 @@ export function RegisterClienteForm({ onBack, onRegistered }: RegisterClienteFor
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
@@ -71,7 +76,15 @@ export function RegisterClienteForm({ onBack, onRegistered }: RegisterClienteFor
     setFormError(null);
     try {
       await clientesService.registrar(values);
-      onRegistered(values.email.trim());
+      try {
+        await login(values.email.trim(), values.password);
+        navigate('/catalogo', { replace: true });
+        return;
+      } catch {
+        // Si por alguna razón no se logra loguear automáticamente, volvemos al login
+        onRegistered(values.email.trim());
+        return;
+      }
     } catch (error) {
       const fieldErrors = getFieldErrors(error);
       const fields = Object.keys(fieldErrors) as Array<keyof FormValues>;
