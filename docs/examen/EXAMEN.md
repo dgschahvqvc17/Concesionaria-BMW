@@ -27,45 +27,21 @@
 
 ## Índice
 
-1. [Resumen general](#1-resumen-general)
-2. [Ficha 1 — Categoría persistente en repuestos](#2-ficha-1--categoría-persistente-en-repuestos)
-3. [Ficha 2 — Control de stock en vehículos](#3-ficha-2--control-de-stock-en-vehículos)
-4. [Migración / backfill de stock](#4-migración--backfill-de-stock)
-5. [Validaciones implementadas](#5-validaciones-implementadas)
-6. [Pruebas ejecutadas y resultados reales](#6-pruebas-ejecutadas-y-resultados-reales)
-7. [Criterios de aceptación de la Ficha 2](#7-criterios-de-aceptación-de-la-ficha-2)
-8. [Cómo ejecutar el proyecto y las pruebas](#8-cómo-ejecutar-el-proyecto-y-las-pruebas)
-9. [Respuestas a las preguntas de la defensa](#9-respuestas-a-las-preguntas-de-la-defensa)
-10. [Nota sobre las capturas](#10-nota-sobre-las-capturas)
+1. [Ficha 1 — Categoría persistente en repuestos](#1-ficha-1--categoría-persistente-en-repuestos)
+2. [Ficha 2 — Control de stock en vehículos](#2-ficha-2--control-de-stock-en-vehículos)
+3. [Migración / backfill de stock](#3-migración--backfill-de-stock)
+4. [Validaciones implementadas](#4-validaciones-implementadas)
+5. [Pruebas ejecutadas y resultados reales](#5-pruebas-ejecutadas-y-resultados-reales)
+6. [Criterios de aceptación de la Ficha 2](#6-criterios-de-aceptación-de-la-ficha-2)
+7. [Cómo ejecutar el proyecto y las pruebas](#7-cómo-ejecutar-el-proyecto-y-las-pruebas)
+8. [Respuestas a las preguntas de la defensa](#8-respuestas-a-las-preguntas-de-la-defensa)
+9. [Nota sobre las capturas](#9-nota-sobre-las-capturas)
 
 ---
 
-## 1. Resumen general
+## 1. Ficha 1 — Categoría persistente en repuestos
 
-Se implementaron dos fichas sobre módulos que ya existían, sin crear tablas nuevas y sin
-modificar la infraestructura:
-
-- **Ficha 1:** atributo obligatorio `categoria` en el inventario de repuestos (HU04).
-- **Ficha 2:** atributo obligatorio `stock` (entero ≥ 0) en el inventario de vehículos
-  (HU03), con validación en backend y frontend, migración segura para registros antiguos y
-  visualización del estado del stock.
-
-Ambas se resolvieron con la arquitectura real del proyecto (`routes → controllers →
-services → repositories`), Zod para validar y DynamoDB como base de datos. **No se usó
-PostgreSQL, SQL, Docker ni una tabla nueva**, porque el proyecto no tiene esa tecnología.
-
-**Impacto en DynamoDB:** las tablas `Repuestos` y `Vehiculos` no se recrean, no cambian de
-esquema y no agregan índices. DynamoDB es *schemaless*: `categoria` y `stock` son atributos
-por ítem. Los registros existentes no se sobrescriben; en el caso de los vehículos sin
-`stock`, existe un *backfill* condicional que solo asigna `0` cuando el atributo no existe.
-
-No se ejecutó `cdk deploy`, no se hizo commit ni push, y todas las pruebas son locales.
-
----
-
-## 2. Ficha 1 — Categoría persistente en repuestos
-
-### 2.1 Resumen
+### 1.1 Resumen
 
 Se agregó el atributo obligatorio `categoria` al módulo de repuestos. Se valida con Zod, se
 persiste al crear o actualizar, se devuelve en el listado y en la consulta individual, y se
@@ -74,7 +50,7 @@ muestra en el formulario, la tabla y el detalle del frontend.
 Los registros antiguos sin `categoria` siguen funcionando: se consultan y actualizan sin
 errores y **no se les asigna una categoría inventada**.
 
-### 2.2 Archivos creados y modificados
+### 1.2 Archivos creados y modificados
 
 #### Backend
 
@@ -108,7 +84,7 @@ No fue necesario modificar:
 No se crearon páginas ni rutas nuevas, no se duplicaron formularios y no se agregaron
 dependencias.
 
-### 2.3 Cómo se guarda y consulta la categoría
+### 1.3 Cómo se guarda y consulta la categoría
 
 #### Crear (`POST /api/repuestos`)
 
@@ -156,7 +132,7 @@ La tabla incluye la columna «Categoría» y el botón «Ver». Al abrirlo, el h
 consulta `GET /api/repuestos/:id`, por lo que el detalle muestra el valor realmente
 persistido después de crear o editar.
 
-### 2.4 Impacto real en DynamoDB (sin cambios de esquema)
+### 1.4 Impacto real en DynamoDB (sin cambios de esquema)
 
 Este cambio **no altera la estructura de la tabla ni los datos existentes**. DynamoDB es
 una base de datos *schemaless*: los atributos se guardan por ítem y no requieren declararse
@@ -250,7 +226,7 @@ aws dynamodb get-item --table-name <nombre-real-de-la-tabla> \
   --key '{"repuestoId":{"S":"<repuestoId>"}}' --region us-east-2
 ```
 
-### 2.5 Validaciones de la Ficha 1
+### 1.5 Validaciones de la Ficha 1
 
 | Caso | Resultado |
 | --- | --- |
@@ -278,7 +254,7 @@ caracteres, bloqueo del envío si falla la validación, errores por campo con
 `getFieldErrors` y «Sin categoría» para registros antiguos (sin rellenar un valor por
 defecto).
 
-### 2.6 Evidencia visual de la Ficha 1
+### 1.6 Evidencia visual de la Ficha 1
 
 > **Cómo se obtuvieron estas capturas:** se levantó Vite en local y se usó una página
 > temporal de previsualización que monta los **componentes reales** del frontend con datos
@@ -301,9 +277,9 @@ un registro antiguo que muestra «Sin categoría».*
 
 ---
 
-## 3. Ficha 2 — Control de stock en vehículos
+## 2. Ficha 2 — Control de stock en vehículos
 
-### 3.1 Resumen
+### 2.1 Resumen
 
 Se incorporó `stock` como atributo obligatorio del inventario de vehículos: entero mayor o
 igual a cero, persistido en la tabla DynamoDB `Vehiculos` y validado en el backend
@@ -325,7 +301,7 @@ El umbral de «stock bajo» está centralizado en `STOCK_BAJO_VEHICULO` (valor `
 > movimientos atómicos de entrada/salida y `cantidadMinima`. No se duplicó el concepto con
 > un campo `stock`; la Ficha 2 aplica el atributo `stock` a los **vehículos**.
 
-### 3.2 Archivos creados y modificados
+### 2.2 Archivos creados y modificados
 
 #### Backend
 
@@ -364,7 +340,7 @@ No fue necesario modificar:
 No se crearon páginas ni rutas nuevas, no se duplicaron formularios y no se agregaron
 dependencias.
 
-### 3.3 Contrato y endpoints modificados
+### 2.3 Contrato y endpoints modificados
 
 | Método | Ruta | Permiso | Cambio |
 | --- | --- | --- | --- |
@@ -410,7 +386,7 @@ Ejemplo de actualización (HTTP 200):
 }
 ```
 
-### 3.4 Comportamiento con registros antiguos
+### 2.4 Comportamiento con registros antiguos
 
 Un vehículo creado antes de este requisito no tiene el atributo `stock`.
 
@@ -420,9 +396,9 @@ Un vehículo creado antes de este requisito no tiene el atributo `stock`.
   stock existente o lo normaliza a `0` si el registro era antiguo.
 - **Persistencia:** la normalización al leer **no escribe** en DynamoDB. Para dejar el
   atributo guardado en los registros antiguos existe el backfill condicional de la
-  sección 4.
+  sección 3.
 
-### 3.5 Impacto real en DynamoDB (sin cambios de esquema)
+### 2.5 Impacto real en DynamoDB (sin cambios de esquema)
 
 | Elemento | Antes | Después |
 | --- | --- | --- |
@@ -434,9 +410,9 @@ Un vehículo creado antes de este requisito no tiene el atributo `stock`.
 | Definición en CDK | `infra/` | Sin cambios |
 | Variables de entorno | `VEHICULOS_TABLE_NAME` | Sin cambios |
 
-### 3.6 Evidencia visual de la Ficha 2
+### 2.6 Evidencia visual de la Ficha 2
 
-> Las capturas usan la misma previsualización temporal descrita en la sección 2.6: los
+> Las capturas usan la misma previsualización temporal descrita en la sección 1.6: los
 > componentes y estilos son los del proyecto, pero los vehículos son ficticios. No se
 > consultó AWS ni el backend real.
 
@@ -464,7 +440,7 @@ negativo.» antes de enviar.*
 *Figura 8. Diálogo de detalle con el stock persistido, su nivel, precio, kilometraje, VIN y
 demás datos.*
 
-### 3.7 Código implementado (extractos)
+### 2.7 Código implementado (extractos)
 
 #### Validación del stock en el backend
 
@@ -658,15 +634,15 @@ stock: z
 
 ---
 
-## 4. Migración / backfill de stock
+## 3. Migración / backfill de stock
 
-### 4.1 Por qué existe
+### 3.1 Por qué existe
 
 DynamoDB no exige declarar atributos, así que la aplicación funciona con vehículos sin
 `stock` (se normalizan a `0` al leer). Sin embargo, para que el dato quede **persistido** en
 los registros antiguos se creó un backfill explícito.
 
-### 4.2 Garantías de seguridad
+### 3.2 Garantías de seguridad
 
 - **Modo simulación por defecto:** `npm run migrate:stock` solo cuenta los vehículos que
   necesitan el atributo y no escribe nada.
@@ -682,7 +658,7 @@ los registros antiguos se creó un backfill explícito.
 - **Paginación:** el escaneo recorre todas las páginas con `LastEvaluatedKey`.
 - **Sin cambios de esquema:** solo se ejecutan `UpdateCommand` sobre ítems existentes.
 
-### 4.3 Comandos
+### 3.3 Comandos
 
 ```bash
 cd backend
@@ -714,7 +690,7 @@ Vehículos actualizados: M
 > entorno desplegado disponibles. Su lógica está cubierta por 5 pruebas locales, incluida la
 > inspección de la condición anti-sobrescritura.
 
-### 4.4 Relación con PostgreSQL
+### 3.4 Relación con PostgreSQL
 
 El enunciado original mencionaba una migración SQL. **Ese supuesto no aplica a este
 proyecto**, que usa DynamoDB: no hay `ALTER TABLE`, ni `NOT NULL` de SQL, ni tabla de
@@ -727,9 +703,9 @@ migraciones. El equivalente implementado es:
 
 ---
 
-## 5. Validaciones implementadas
+## 4. Validaciones implementadas
 
-### 5.1 Ficha 2 — Backend
+### 4.1 Ficha 2 — Backend
 
 | Caso | Resultado |
 | --- | --- |
@@ -760,7 +736,7 @@ El esquema `stockSchema` acepta cadenas numéricas (por ejemplo `"12"`) y las co
 número, pero **no** usa `z.coerce` directo: eso convertiría `null` o `""` en `0`. El
 `preprocess` solo transforma cadenas no vacías; el resto se valida como número y se rechaza.
 
-### 5.2 Ficha 2 — Frontend
+### 4.2 Ficha 2 — Frontend
 
 - Campo numérico obligatorio «Stock disponible» (`step=1`, `min=0`, `inputMode="numeric"`).
 - Validación Zod espejo: entero, ≥ 0, ≤ 1.000.000.
@@ -773,9 +749,9 @@ número, pero **no** usa `z.coerce` directo: eso convertiría `null` o `""` en `
 
 ---
 
-## 6. Pruebas ejecutadas y resultados reales
+## 5. Pruebas ejecutadas y resultados reales
 
-### 6.1 Entorno
+### 5.1 Entorno
 
 - Node.js `v24.11.1`
 - Runner nativo `node:test` (sin dependencias nuevas)
@@ -783,14 +759,14 @@ número, pero **no** usa `z.coerce` directo: eso convertiría `null` o `""` en `
 - Repositorio simulado en memoria **solo durante las pruebas**
 - Sin llamadas a AWS
 
-### 6.2 Comando
+### 5.2 Comando
 
 ```bash
 cd backend
 npm test
 ```
 
-### 6.3 Resultado real (26 pruebas)
+### 5.3 Resultado real (26 pruebas)
 
 ```text
 > tecnologia-web-2-backend@1.0.0 test
@@ -841,7 +817,7 @@ La suite se volvió a ejecutar al cierre de la documentación con el mismo resul
 pruebas correctas y 0 fallos**. Los tiempos exactos varían en cada corrida; lo relevante es
 que no hay pruebas fallidas.
 
-### 6.4 Escenarios obligatorios de la Ficha 2
+### 5.4 Escenarios obligatorios de la Ficha 2
 
 | # | Escenario | Resultado real |
 | --- | --- | --- |
@@ -854,7 +830,7 @@ que no hay pruebas fallidas.
 | 7 | Persistencia de comandos | `PutCommand` incluye `stock`; `UpdateCommand` de estado no toca `stock` |
 | 8 | Backfill seguro | Solo ítems sin `stock`; condición `attribute_not_exists(stock)` |
 
-### 6.5 Verificación del frontend
+### 5.5 Verificación del frontend
 
 ```bash
 cd frontend
@@ -876,7 +852,7 @@ correcta y únicamente la advertencia informativa de tamaño de chunk.
 No se ejecutó `npm run lint` porque, según `Rules/frontend.md`, ESLint no está instalado en
 el proyecto.
 
-### 6.6 Limitación de las pruebas
+### 5.6 Limitación de las pruebas
 
 Las pruebas validan la lógica de aplicación, los comandos que se enviarían a DynamoDB y el
 backfill, pero **no** contra una tabla real. No se ejecutaron pruebas contra AWS para no usar
@@ -885,7 +861,7 @@ entorno AWS configurado y no se ejecutó en esta práctica.
 
 ---
 
-## 7. Criterios de aceptación de la Ficha 2
+## 6. Criterios de aceptación de la Ficha 2
 
 | # | Criterio | Estado |
 | --- | --- | --- |
@@ -903,16 +879,16 @@ entorno AWS configurado y no se ejecutó en esta práctica.
 
 ---
 
-## 8. Cómo ejecutar el proyecto y las pruebas
+## 7. Cómo ejecutar el proyecto y las pruebas
 
-### 8.1 Pruebas backend (no requieren AWS)
+### 7.1 Pruebas backend (no requieren AWS)
 
 ```bash
 cd backend
 npm test
 ```
 
-### 8.2 Backfill de stock
+### 7.2 Backfill de stock
 
 ```bash
 cd backend
@@ -920,21 +896,21 @@ npm run migrate:stock          # simulación
 npm run migrate:stock:apply    # aplicar (requiere .env real)
 ```
 
-### 8.3 Compilar el frontend
+### 7.3 Compilar el frontend
 
 ```bash
 cd frontend
 npm run build
 ```
 
-### 8.4 Verificación rápida del backend
+### 7.4 Verificación rápida del backend
 
 ```bash
 cd backend
 node --check server.js
 ```
 
-### 8.5 Ejecución local completa
+### 7.5 Ejecución local completa
 
 1. Configurar `backend/.env` y el frontend según los `.env.example` existentes.
 2. Levantar el backend (`cd backend; npm start`).
@@ -942,7 +918,7 @@ node --check server.js
 4. Entrar como `admin` o `vendedor`.
 5. Ir a **Inventario → Vehículos**.
 
-### 8.6 Verificación manual sugerida de la Ficha 2
+### 7.6 Verificación manual sugerida de la Ficha 2
 
 1. Registrar un vehículo con stock `12`: debe aparecer «Disponible».
 2. Intentar registrarlo con `-2`, `2.5` o vacío: el formulario debe bloquear el envío.
@@ -954,12 +930,12 @@ node --check server.js
 
 ---
 
-## 9. Respuestas a las preguntas de la defensa
+## 8. Respuestas a las preguntas de la defensa
 
 > Aclaro que en este proyecto no hay SQL ni PostgreSQL: la base de datos es **DynamoDB**.
 > Por eso respondo cada pregunta con la equivalencia real en DynamoDB.
 
-### 9.1 Pregunta 1 — Ruta que recibe la solicitud y conexión con el controlador
+### 8.1 Pregunta 1 — Ruta que recibe la solicitud y conexión con el controlador
 
 Para la Ficha 2 la ruta que modifiqué es:
 
@@ -1010,7 +986,7 @@ PUT /api/vehiculos/:id
 Dejé `PATCH` apuntando al mismo controlador para no romper la compatibilidad; ambos son
 actualizaciones parciales.
 
-### 9.2 Pregunta 2 — Función del servicio y por qué la consulta no está en la ruta
+### 8.2 Pregunta 2 — Función del servicio y por qué la consulta no está en la ruta
 
 La función que implementé es `updateVehiculo`, en
 `backend/src/services/vehiculoService.js`, y ahí concentré las reglas de negocio: leo el
@@ -1065,7 +1041,7 @@ async function save(vehiculo) {
 La ruta no conoce `GetCommand`, `PutCommand` ni el nombre de la tabla; solo el repositorio
 habla con DynamoDB.
 
-### 9.3 Pregunta 3 — Una línea de mi cambio y qué ocurriría si la elimino o la altero
+### 8.3 Pregunta 3 — Una línea de mi cambio y qué ocurriría si la elimino o la altero
 
 La línea que señalo es la 175 de `backend/src/services/vehiculoService.js`, dentro de
 `updateVehiculo`:
@@ -1093,7 +1069,7 @@ Si la alterara, también cambiaría el comportamiento. Por ejemplo, si la cambia
 stock. Si la cambiara por `stock: 0`, cada edición del vehículo reiniciaría las existencias a
 cero. Por eso la línea combina el valor nuevo con el anterior y además lo normaliza.
 
-### 9.4 Pregunta 4 — Dato inválido, respuesta HTTP y lugar de validación
+### 8.4 Pregunta 4 — Dato inválido, respuesta HTTP y lugar de validación
 
 Por ejemplo, si envío `PUT /api/vehiculos/:vehiculoId` con `stock: -2`, la respuesta real que
 obtuve y que también comprobé en las pruebas es:
@@ -1124,10 +1100,10 @@ traduce en HTTP 400 y no se llama al servicio, así que no se crea ni se modific
 registro. En el frontend, `VehiculoFormDialog` valida el campo con Zod y, si el valor es
 negativo, decimal, vacío o no numérico, muestra el error debajo del campo y bloquea el envío.
 
-La Figura 7 muestra la validación en el formulario y las pruebas de la sección 6 comprueban
+La Figura 7 muestra la validación en el formulario y las pruebas de la sección 5 comprueban
 la respuesta HTTP 400 del backend.
 
-### 9.5 Pregunta 5 (n.º 8 del cuestionario) — ¿Qué archivo no debe publicarse en GitHub y por qué?
+### 8.5 Pregunta 5 (n.º 8 del cuestionario) — ¿Qué archivo no debe publicarse en GitHub y por qué?
 
 El archivo que no debe publicarse es `.env`, tanto `backend/.env` como `frontend/.env`. Ese
 archivo guarda la configuración real del entorno: la región de AWS, los identificadores del
@@ -1148,7 +1124,7 @@ porque contengan credenciales.
 
 ---
 
-## 10. Nota sobre las capturas
+## 9. Nota sobre las capturas
 
 Las Figuras 1 a 8 provienen de una **previsualización local temporal** con datos ficticios.
 No son capturas de una sesión autenticada contra AWS. Se eligió este método para cumplir la
