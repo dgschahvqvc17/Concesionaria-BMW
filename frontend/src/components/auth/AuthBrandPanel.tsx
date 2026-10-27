@@ -5,7 +5,7 @@ import { APP_NAME, APP_TAGLINE } from '@/lib/brand';
 const HIGHLIGHTS = [
   'Acceso seguro con Amazon Cognito',
   'Roles y permisos según tu perfil',
-  'Gestión integral de vehículos y ventas',
+  'Gestión integral de vehículos, taller, ventas y repuestos',
 ];
 
 /** Panel lateral de marca (visible en pantallas grandes). */
@@ -42,11 +42,12 @@ export function AuthBrandPanel() {
         <div className="max-w-md space-y-6">
           <MStripe className="h-1.5 w-16" />
           <h1 className="text-4xl font-semibold leading-tight tracking-tight">
-            El placer de conducir, ahora en tu sistema de gestión.
+            Concesionaria BMW Master Motors Cochabamba
           </h1>
           <p className="text-sm leading-relaxed text-white/70">
-            Administra el catálogo de vehículos BMW, tus clientes y tus ventas desde un solo lugar
-            seguro.
+            El placer de conducir. Administra el catálogo de vehículos de lujo BMW, clientes,
+            cotizaciones, ventas, taller y gestión comercial desde un solo lugar, seguro y
+            centralizado.
           </p>
           <ul className="space-y-3 text-sm text-white/80">
             {HIGHLIGHTS.map((item) => (
