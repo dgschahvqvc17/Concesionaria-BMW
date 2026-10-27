@@ -2,7 +2,7 @@ const { z } = require('zod');
 
 const { passwordSchema } = require('./usuarioSchemas');
 
-/** Verifica que una fecha `AAAA-MM-DD` exista, no sea futura y sea razonable. */
+/** Verifica que una fecha `AAAA-MM-DD` exista, no sea futura, sea razonable y que el usuario sea mayor de edad. */
 function esFechaValida(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;
@@ -14,8 +14,18 @@ function esFechaValida(value) {
     date.getUTCFullYear() === anio && date.getUTCMonth() === mes - 1 && date.getUTCDate() === dia;
   if (!esReal) return false;
   if (anio < 1900) return false;
+  if (date.getTime() > Date.now()) return false;
 
-  return date.getTime() <= Date.now();
+  const hoy = new Date();
+  let edad = hoy.getUTCFullYear() - anio;
+  const mesActual = hoy.getUTCMonth() + 1;
+  const diaActual = hoy.getUTCDate();
+  if (mes > mesActual || (mes === mesActual && dia > diaActual)) {
+    edad -= 1;
+  }
+  if (edad < 18) return false;
+
+  return true;
 }
 
 /** HU: autorregistro de clientes desde el login. */
@@ -26,7 +36,7 @@ const registroClienteSchema = z.object({
   fechaNacimiento: z
     .string()
     .trim()
-    .refine(esFechaValida, 'Ingresa una fecha de nacimiento válida (AAAA-MM-DD).'),
+    .refine(esFechaValida, 'Debes ser mayor de edad y tener una fecha de nacimiento válida.'),
   carnetIdentidad: z
     .string()
     .trim()

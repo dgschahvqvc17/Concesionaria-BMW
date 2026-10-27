@@ -25,7 +25,8 @@ const schema = z.object({
   fechaNacimiento: z
     .string()
     .min(1, 'La fecha de nacimiento es obligatoria.')
-    .refine((value) => new Date(value).getTime() <= Date.now(), 'La fecha no puede ser futura.'),
+    .refine((value) => new Date(value).getTime() <= Date.now(), 'La fecha no puede ser futura.')
+    .refine((value) => esMayorDeEdad(value), 'Debes ser mayor de edad para registrarte.'),
   carnetIdentidad: z
     .string()
     .trim()
@@ -43,6 +44,17 @@ interface RegisterClienteFormProps {
 }
 
 const hoy = new Date().toISOString().slice(0, 10);
+
+function esMayorDeEdad(fechaNacimiento: string): boolean {
+  const nacimiento = new Date(fechaNacimiento);
+  const hoyFecha = new Date();
+  let edad = hoyFecha.getFullYear() - nacimiento.getFullYear();
+  const mes = hoyFecha.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoyFecha.getDate() < nacimiento.getDate())) {
+    edad -= 1;
+  }
+  return edad >= 18;
+}
 
 /** Autorregistro de clientes desde la pantalla de login. */
 export function RegisterClienteForm({ onBack, onRegistered }: RegisterClienteFormProps) {
