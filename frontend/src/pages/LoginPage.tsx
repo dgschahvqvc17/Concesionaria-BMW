@@ -24,19 +24,10 @@ export function LoginPage() {
     <div className="flex min-h-screen bg-background">
       <AuthBrandPanel />
 
-      <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-10 sm:px-10">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          src="/videos/BMW.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-        />
-        <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
-        <div className="pointer-events-none absolute inset-0 bg-bmw-mesh opacity-30" aria-hidden="true" />
+      <main className="relative flex flex-1 items-center justify-center px-6 py-10 sm:px-10">
+        <div className="pointer-events-none absolute inset-0 bg-bmw-mesh" aria-hidden="true" />
 
-        <div className="relative z-10 flex w-full max-w-md flex-col items-center">
+        <div className="relative flex w-full max-w-md flex-col items-center">
           <div className="mb-8 flex flex-col items-center gap-3 text-center lg:hidden">
             <BmwRoundel className="h-12 w-12" />
             <div className="space-y-1">

@@ -109,7 +109,7 @@ export function RegisterClienteForm({ onBack, onRegistered }: RegisterClienteFor
   });
 
   return (
-    <div className="relative w-full max-w-md animate-slide-up overflow-hidden rounded-3xl border border-white/20 bg-white/10 p-8 shadow-panel backdrop-blur-lg">
+    <div className="relative w-full max-w-md animate-slide-up overflow-hidden rounded-3xl border border-border/70 bg-card p-8 shadow-panel">
       <span className="absolute inset-x-0 top-0 h-1 bg-m-gradient" aria-hidden="true" />
 
       <button
